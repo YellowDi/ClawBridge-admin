@@ -10,19 +10,19 @@ export const siteConfig = {
     },
     {
       label: "用户管理",
-      href: "/#users",
+      href: "/users",
     },
     {
       label: "模型配置",
-      href: "/#models",
+      href: "/models",
     },
     {
       label: "Agent 编排",
-      href: "/#agents",
+      href: "/agents",
     },
     {
       label: "审计日志",
-      href: "/#audit",
+      href: "/audit",
     },
   ],
   navMenuItems: [
@@ -32,27 +32,27 @@ export const siteConfig = {
     },
     {
       label: "用户管理",
-      href: "/#users",
+      href: "/users",
     },
     {
       label: "模型配置",
-      href: "/#models",
+      href: "/models",
     },
     {
       label: "Agent 编排",
-      href: "/#agents",
+      href: "/agents",
     },
     {
       label: "工具与权限",
-      href: "/#tools",
+      href: "/tools",
     },
     {
       label: "审计日志",
-      href: "/#audit",
+      href: "/audit",
     },
     {
       label: "系统设置",
-      href: "/#settings",
+      href: "/settings",
     },
     {
       label: "退出登录",
