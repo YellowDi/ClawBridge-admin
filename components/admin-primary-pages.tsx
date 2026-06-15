@@ -6,10 +6,11 @@ import type { User as ApiUser } from "@/lib/api";
 
 import { Avatar, Button, Chip, SearchField, Tabs } from "@heroui/react";
 import { DataGrid } from "@heroui-pro/react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AdminIcon } from "@/components/admin-icons";
 import { AdminPage, StatGrid } from "@/components/admin-page-kit";
+import { CreateUserDialog } from "@/components/create-user-dialog";
 import { listUsers } from "@/lib/api";
 
 type UserStatus = "正常" | "已停用";
@@ -295,6 +296,7 @@ const AGENT_COLUMNS: DataGridColumn<AgentTemplate>[] = [
 ];
 
 export function UsersPage() {
+  const isMountedRef = useRef(false);
   const [loadState, setLoadState] = useState<UsersLoadState>({
     error: null,
     isLoading: true,
@@ -304,43 +306,43 @@ export function UsersPage() {
   const [userFilter, setUserFilter] = useState<UserFilter>("all");
   const { error, isLoading, users } = loadState;
 
-  useEffect(() => {
-    let isMounted = true;
+  const loadUsers = useCallback(async () => {
+    setLoadState((state) => ({
+      ...state,
+      error: null,
+      isLoading: true,
+    }));
 
-    async function loadUsers() {
-      setLoadState((state) => ({
-        ...state,
-        error: null,
-        isLoading: true,
-      }));
+    try {
+      const response = await listUsers();
 
-      try {
-        const response = await listUsers();
-
-        if (isMounted) {
-          setLoadState({
-            error: null,
-            isLoading: false,
-            users: response.map(toAdminUser),
-          });
-        }
-      } catch (error) {
-        if (isMounted) {
-          setLoadState({
-            error: getUserListError(error),
-            isLoading: false,
-            users: [],
-          });
-        }
+      if (isMountedRef.current) {
+        setLoadState({
+          error: null,
+          isLoading: false,
+          users: response.map(toAdminUser),
+        });
+      }
+    } catch (error) {
+      if (isMountedRef.current) {
+        setLoadState({
+          error: getUserListError(error),
+          isLoading: false,
+          users: [],
+        });
       }
     }
+  }, []);
+
+  useEffect(() => {
+    isMountedRef.current = true;
 
     void loadUsers();
 
     return () => {
-      isMounted = false;
+      isMountedRef.current = false;
     };
-  }, []);
+  }, [loadUsers]);
 
   const filteredUsers = useMemo(
     () => filterUsers(users, searchQuery, userFilter),
@@ -360,10 +362,7 @@ export function UsersPage() {
           <Button size="sm" variant="tertiary">
             导出用户
           </Button>
-          <Button size="sm">
-            <AdminIcon className="size-4" name="plus" />
-            添加用户
-          </Button>
+          <CreateUserDialog onCreated={() => void loadUsers()} />
         </>
       }
       description="集中管理登录用户、管理员身份和账号状态。"

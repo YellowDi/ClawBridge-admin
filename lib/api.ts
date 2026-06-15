@@ -24,6 +24,19 @@ export interface ResUsers {
   [property: string]: unknown;
 }
 
+export interface ReqUserCreate {
+  enabled?: boolean;
+  isAdmin?: boolean;
+  password?: string;
+  username?: string;
+  [property: string]: unknown;
+}
+
+export interface ResUser {
+  data?: User;
+  [property: string]: unknown;
+}
+
 export interface User {
   createdAt?: string;
   enabled?: boolean;
@@ -81,6 +94,23 @@ export async function listUsers(): Promise<User[]> {
   if (Array.isArray(response)) return response;
 
   return response.data ?? [];
+}
+
+export async function createUser(
+  request: ReqUserCreate,
+): Promise<User | undefined> {
+  const response = await requestJson<ResUser | User | undefined>(
+    "/api/users/create",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+
+  if (!response) return undefined;
+  if ("data" in response) return (response as ResUser).data;
+
+  return response;
 }
 
 export async function apiFetch<T>(path: string, init: ApiRequestInit = {}) {
