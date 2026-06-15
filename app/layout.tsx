@@ -6,7 +6,7 @@ import { Providers } from "./providers";
 
 import { siteConfig } from "@/config/site";
 import { fontSans } from "@/config/fonts";
-import { AdminShell } from "@/components/admin-shell";
+import { AdminApp } from "@/components/admin-app";
 
 export const metadata: Metadata = {
   title: {
@@ -41,7 +41,7 @@ export default function RootLayout({
         )}
       >
         <Providers themeProps={{ attribute: "class", defaultTheme: "dark" }}>
-          <AdminShell>{children}</AdminShell>
+          <AdminApp>{children}</AdminApp>
         </Providers>
       </body>
     </html>

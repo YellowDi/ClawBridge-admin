@@ -9,6 +9,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useMemo } from "react";
 
 import { AdminIcon } from "@/components/admin-icons";
+import { useAuth } from "@/components/auth-provider";
 
 type NavItem = {
   key: string;
@@ -71,6 +72,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
 }
 
 function AdminNavbar({ title }: { title: string }) {
+  const { logout, session } = useAuth();
+  const username = session?.user?.username ?? "已登录";
+
   return (
     <Navbar maxWidth="full">
       <Navbar.Header>
@@ -101,7 +105,7 @@ function AdminNavbar({ title }: { title: string }) {
           size="sm"
           variant="soft"
         >
-          生产环境
+          {username}
         </Chip>
         <IconButton label="通知">
           <AdminIcon className="size-4" name="bell" />
@@ -110,6 +114,9 @@ function AdminNavbar({ title }: { title: string }) {
         <Button className="hidden sm:inline-flex" size="sm">
           <AdminIcon className="size-4" name="plus" />
           新增配置
+        </Button>
+        <Button size="sm" variant="tertiary" onPress={logout}>
+          退出
         </Button>
       </Navbar.Header>
     </Navbar>
