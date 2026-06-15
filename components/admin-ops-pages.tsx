@@ -278,67 +278,42 @@ export function ToolsPage() {
         ]}
       />
 
-      <section className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="flex min-w-0 flex-col gap-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <Tabs defaultSelectedKey="all">
-              <Tabs.ListContainer>
-                <Tabs.List aria-label="工具筛选">
-                  <Tabs.Tab id="all">
-                    全部
-                    <Tabs.Indicator />
-                  </Tabs.Tab>
-                  <Tabs.Tab id="restricted">
-                    受限
-                    <Tabs.Indicator />
-                  </Tabs.Tab>
-                  <Tabs.Tab id="disabled">
-                    停用
-                    <Tabs.Indicator />
-                  </Tabs.Tab>
-                </Tabs.List>
-              </Tabs.ListContainer>
-            </Tabs>
-            <SearchField aria-label="搜索工具" className="w-full sm:w-[260px]">
-              <SearchField.Group>
-                <SearchField.SearchIcon />
-                <SearchField.Input placeholder="搜索工具或负责人" />
-                <SearchField.ClearButton />
-              </SearchField.Group>
-            </SearchField>
-          </div>
-          <DataGrid
-            aria-label="工具权限"
-            className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
-            columns={TOOL_COLUMNS}
-            contentClassName="min-w-[820px]"
-            data={TOOLS}
-            getRowId={(item) => item.id}
-          />
+      <section className="flex min-w-0 flex-col gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <Tabs defaultSelectedKey="all">
+            <Tabs.ListContainer>
+              <Tabs.List aria-label="工具筛选">
+                <Tabs.Tab id="all">
+                  全部
+                  <Tabs.Indicator />
+                </Tabs.Tab>
+                <Tabs.Tab id="restricted">
+                  受限
+                  <Tabs.Indicator />
+                </Tabs.Tab>
+                <Tabs.Tab id="disabled">
+                  停用
+                  <Tabs.Indicator />
+                </Tabs.Tab>
+              </Tabs.List>
+            </Tabs.ListContainer>
+          </Tabs>
+          <SearchField aria-label="搜索工具" className="w-full sm:w-[260px]">
+            <SearchField.Group>
+              <SearchField.SearchIcon />
+              <SearchField.Input placeholder="搜索工具或负责人" />
+              <SearchField.ClearButton />
+            </SearchField.Group>
+          </SearchField>
         </div>
-
-        <SectionCard
-          description="这里先定义安全边界，后续接真实权限策略。"
-          title="权限策略"
-        >
-          <div className="flex flex-col gap-3">
-            {[
-              ["高风险工具默认停用", "已启用"],
-              ["外部写入动作需二次确认", "已启用"],
-              ["服务账号禁止付款类工具", "待接入"],
-            ].map(([label, state]) => (
-              <div
-                key={label}
-                className="flex items-center justify-between gap-3"
-              >
-                <span className="text-sm">{label}</span>
-                <StatusPill tone={state === "待接入" ? "warning" : "success"}>
-                  {state}
-                </StatusPill>
-              </div>
-            ))}
-          </div>
-        </SectionCard>
+        <DataGrid
+          aria-label="工具权限"
+          className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
+          columns={TOOL_COLUMNS}
+          contentClassName="min-w-[820px]"
+          data={TOOLS}
+          getRowId={(item) => item.id}
+        />
       </section>
     </AdminPage>
   );

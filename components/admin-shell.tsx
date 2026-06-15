@@ -55,14 +55,18 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
     return matched?.label ?? "ClawBridge Admin";
   }, [pathname]);
+  const navbar = useMemo(() => <AdminNavbar title={title} />, [title]);
+  const sidebar = useMemo(
+    () => <AdminSidebar pathname={pathname} />,
+    [pathname],
+  );
 
   return (
     <AppLayout
-      aside={<AdminAside />}
-      navbar={<AdminNavbar title={title} />}
+      navbar={navbar}
       navigate={navigate}
       scrollMode="page"
-      sidebar={<AdminSidebar pathname={pathname} />}
+      sidebar={sidebar}
       sidebarCollapsible="offcanvas"
       sidebarVariant="inset"
     >
@@ -110,7 +114,6 @@ function AdminNavbar({ title }: { title: string }) {
         <IconButton label="通知">
           <AdminIcon className="size-4" name="bell" />
         </IconButton>
-        <AppLayout.AsideTrigger />
         <Button className="hidden sm:inline-flex" size="sm">
           <AdminIcon className="size-4" name="plus" />
           新增配置
@@ -205,54 +208,6 @@ function SidebarNavItem({
         </Sidebar.MenuChip>
       ) : null}
     </Sidebar.MenuItem>
-  );
-}
-
-function AdminAside() {
-  return (
-    <aside className="flex h-full w-[320px] flex-col gap-4 p-4">
-      <div>
-        <h2 className="text-foreground text-sm font-semibold">上线检查</h2>
-        <p className="text-muted mt-1 text-xs">
-          跟踪后台首版页面与后续接口接入状态。
-        </p>
-      </div>
-      <div className="flex flex-col gap-3">
-        {[
-          ["基础导航与响应式布局", "完成"],
-          ["侧边栏真实路由", "完成"],
-          ["真实接口与权限校验", "待接入"],
-          ["审计日志筛选与导出", "待接入"],
-        ].map(([label, state]) => (
-          <div key={label} className="flex items-start justify-between gap-3">
-            <div className="flex min-w-0 items-start gap-2">
-              <span
-                className={
-                  state === "完成"
-                    ? "bg-success mt-1.5 size-2 shrink-0 rounded-full"
-                    : "bg-warning mt-1.5 size-2 shrink-0 rounded-full"
-                }
-              />
-              <span className="text-foreground text-sm leading-5">{label}</span>
-            </div>
-            <Chip
-              color={state === "完成" ? "success" : "warning"}
-              size="sm"
-              variant="soft"
-            >
-              {state}
-            </Chip>
-          </div>
-        ))}
-      </div>
-      <div className="bg-surface-secondary mt-2 rounded-2xl p-4">
-        <div className="text-foreground text-sm font-medium">下一步优先级</div>
-        <p className="text-muted mt-2 text-xs leading-5">
-          接口完成后，优先替换用户列表、模型路由和 Agent
-          模板三块数据源，再补充权限拦截。
-        </p>
-      </div>
-    </aside>
   );
 }
 

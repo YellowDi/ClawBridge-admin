@@ -1,75 +1,48 @@
 "use client";
 
 import type { DataGridColumn } from "@heroui-pro/react";
+import type { Key } from "react";
+import type { User as ApiUser } from "@/lib/api";
 
 import { Avatar, Button, Chip, SearchField, Tabs } from "@heroui/react";
 import { DataGrid } from "@heroui-pro/react";
+import { useEffect, useMemo, useState } from "react";
 
 import { AdminIcon } from "@/components/admin-icons";
-import {
-  AdminPage,
-  SectionCard,
-  StatGrid,
-  StatusPill,
-} from "@/components/admin-page-kit";
+import { AdminPage, StatGrid } from "@/components/admin-page-kit";
+import { listUsers } from "@/lib/api";
 
-type UserStatus = "正常" | "待审核" | "已停用";
+type UserStatus = "正常" | "已停用";
+type UserFilter = "admin" | "all" | "disabled";
 
 type AdminUser = {
   id: string;
-  name: string;
-  email: string;
+  accountId: string;
+  createdAt: string;
   role: string;
-  org: string;
   status: UserStatus;
-  lastSeen: string;
+  updatedAt: string;
+  username: string;
 };
 
-const USERS: AdminUser[] = [
-  {
-    email: "lina@clawbridge.ai",
-    id: "usr_1042",
-    lastSeen: "5 分钟前",
-    name: "Lina Chen",
-    org: "ClawBridge",
-    role: "Owner",
-    status: "正常",
-  },
-  {
-    email: "ops@northstar.example",
-    id: "usr_1038",
-    lastSeen: "今天 12:10",
-    name: "Northstar Ops",
-    org: "Northstar",
-    role: "Admin",
-    status: "正常",
-  },
-  {
-    email: "review@pilot.example",
-    id: "usr_1027",
-    lastSeen: "未登录",
-    name: "Pilot Review",
-    org: "Pilot Space",
-    role: "Reviewer",
-    status: "待审核",
-  },
-  {
-    email: "bot@legacy.example",
-    id: "usr_0994",
-    lastSeen: "14 天前",
-    name: "Legacy Bot",
-    org: "Legacy",
-    role: "Service",
-    status: "已停用",
-  },
-];
+type UsersLoadState = {
+  error: string | null;
+  isLoading: boolean;
+  users: AdminUser[];
+};
 
-const USER_STATUS_COLOR: Record<UserStatus, "danger" | "success" | "warning"> =
-  {
-    已停用: "danger",
-    待审核: "warning",
-    正常: "success",
-  };
+const USER_STATUS_COLOR: Record<UserStatus, "danger" | "success"> = {
+  已停用: "danger",
+  正常: "success",
+};
+
+const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("zh-CN", {
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+});
 
 const USER_COLUMNS: DataGridColumn<AdminUser>[] = [
   {
@@ -77,31 +50,27 @@ const USER_COLUMNS: DataGridColumn<AdminUser>[] = [
     cell: (item) => (
       <div className="flex items-center gap-3">
         <Avatar className="size-8">
-          <Avatar.Fallback>
-            {item.name
-              .split(" ")
-              .map((part) => part[0])
-              .join("")
-              .slice(0, 2)}
-          </Avatar.Fallback>
+          <Avatar.Fallback>{getUserInitials(item.username)}</Avatar.Fallback>
         </Avatar>
         <div className="flex min-w-0 flex-col">
-          <span className="truncate text-xs font-medium">{item.name}</span>
-          <span className="text-muted truncate text-xs">{item.email}</span>
+          <span className="truncate text-xs font-medium">{item.username}</span>
+          <span className="text-muted truncate text-xs">
+            ID {item.accountId}
+          </span>
         </div>
       </div>
     ),
     header: "用户",
-    id: "name",
+    id: "username",
     isRowHeader: true,
     minWidth: 240,
   },
   {
-    accessorKey: "org",
+    accessorKey: "accountId",
     allowsSorting: true,
-    header: "组织",
-    id: "org",
-    minWidth: 140,
+    header: "ID",
+    id: "accountId",
+    minWidth: 100,
   },
   {
     accessorKey: "role",
@@ -121,12 +90,20 @@ const USER_COLUMNS: DataGridColumn<AdminUser>[] = [
     minWidth: 110,
   },
   {
-    accessorKey: "lastSeen",
+    accessorKey: "createdAt",
     align: "end",
     allowsSorting: true,
-    header: "最近活跃",
-    id: "lastSeen",
-    minWidth: 130,
+    header: "创建时间",
+    id: "createdAt",
+    minWidth: 150,
+  },
+  {
+    accessorKey: "updatedAt",
+    align: "end",
+    allowsSorting: true,
+    header: "更新时间",
+    id: "updatedAt",
+    minWidth: 150,
   },
 ];
 
@@ -318,6 +295,64 @@ const AGENT_COLUMNS: DataGridColumn<AgentTemplate>[] = [
 ];
 
 export function UsersPage() {
+  const [loadState, setLoadState] = useState<UsersLoadState>({
+    error: null,
+    isLoading: true,
+    users: [],
+  });
+  const [searchQuery, setSearchQuery] = useState("");
+  const [userFilter, setUserFilter] = useState<UserFilter>("all");
+  const { error, isLoading, users } = loadState;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadUsers() {
+      setLoadState((state) => ({
+        ...state,
+        error: null,
+        isLoading: true,
+      }));
+
+      try {
+        const response = await listUsers();
+
+        if (isMounted) {
+          setLoadState({
+            error: null,
+            isLoading: false,
+            users: response.map(toAdminUser),
+          });
+        }
+      } catch (error) {
+        if (isMounted) {
+          setLoadState({
+            error: getUserListError(error),
+            isLoading: false,
+            users: [],
+          });
+        }
+      }
+    }
+
+    void loadUsers();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const filteredUsers = useMemo(
+    () => filterUsers(users, searchQuery, userFilter),
+    [searchQuery, userFilter, users],
+  );
+  const userStats = useMemo(() => getUserStats(users), [users]);
+  const emptyState = getUsersEmptyState({
+    error,
+    hasFilter: Boolean(searchQuery.trim()) || userFilter !== "all",
+    isLoading,
+  });
+
   return (
     <AdminPage
       actions={
@@ -331,99 +366,195 @@ export function UsersPage() {
           </Button>
         </>
       }
-      description="集中管理企业用户、角色、组织空间和访问状态。当前阶段先提供静态管理视图。"
+      description="集中管理登录用户、管理员身份和账号状态。"
       eyebrow="Identity"
       title="用户管理"
     >
       <StatGrid
         stats={[
-          { helper: "本周新增 36", label: "总用户", value: "1,284" },
           {
-            helper: "需要管理员处理",
-            label: "待审核",
-            tone: "warning",
-            value: "12",
+            helper: "当前列表总数",
+            label: "总用户",
+            value: formatCount(userStats.total, isLoading),
           },
           {
-            helper: "跨组织权限组",
-            label: "角色组",
+            helper: "可正常登录",
+            label: "启用用户",
+            value: formatCount(userStats.enabled, isLoading),
+          },
+          {
+            helper: "拥有全部模型权限",
+            label: "管理员",
             tone: "accent",
-            value: "8",
+            value: formatCount(userStats.admin, isLoading),
           },
-          { helper: "过去 7 天", label: "活跃率", value: "86%" },
+          {
+            helper: "不可登录账号",
+            label: "已停用",
+            tone: "danger",
+            value: formatCount(userStats.disabled, isLoading),
+          },
         ]}
       />
 
-      <section className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="flex min-w-0 flex-col gap-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <Tabs defaultSelectedKey="all">
-              <Tabs.ListContainer>
-                <Tabs.List aria-label="用户筛选">
-                  <Tabs.Tab id="all">
-                    全部
-                    <Tabs.Indicator />
-                  </Tabs.Tab>
-                  <Tabs.Tab id="pending">
-                    待审核
-                    <Tabs.Indicator />
-                  </Tabs.Tab>
-                  <Tabs.Tab id="disabled">
-                    已停用
-                    <Tabs.Indicator />
-                  </Tabs.Tab>
-                </Tabs.List>
-              </Tabs.ListContainer>
-            </Tabs>
-            <SearchField aria-label="搜索用户" className="w-full sm:w-[260px]">
-              <SearchField.Group>
-                <SearchField.SearchIcon />
-                <SearchField.Input placeholder="搜索姓名、邮箱或组织" />
-                <SearchField.ClearButton />
-              </SearchField.Group>
-            </SearchField>
-          </div>
-          <DataGrid
-            aria-label="用户列表"
-            className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
-            columns={USER_COLUMNS}
-            contentClassName="min-w-[760px]"
-            data={USERS}
-            defaultSortDescriptor={{ column: "name", direction: "ascending" }}
-            getRowId={(item) => item.id}
-          />
+      <section className="flex min-w-0 flex-col gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <Tabs
+            selectedKey={userFilter}
+            onSelectionChange={(key) => setUserFilter(toUserFilter(key))}
+          >
+            <Tabs.ListContainer>
+              <Tabs.List aria-label="用户筛选">
+                <Tabs.Tab id="all">
+                  全部
+                  <Tabs.Indicator />
+                </Tabs.Tab>
+                <Tabs.Tab id="admin">
+                  管理员
+                  <Tabs.Indicator />
+                </Tabs.Tab>
+                <Tabs.Tab id="disabled">
+                  已停用
+                  <Tabs.Indicator />
+                </Tabs.Tab>
+              </Tabs.List>
+            </Tabs.ListContainer>
+          </Tabs>
+          <SearchField
+            aria-label="搜索用户"
+            className="w-full sm:w-[260px]"
+            value={searchQuery}
+            onChange={setSearchQuery}
+          >
+            <SearchField.Group>
+              <SearchField.SearchIcon />
+              <SearchField.Input placeholder="搜索用户名、ID 或角色" />
+              <SearchField.ClearButton />
+            </SearchField.Group>
+          </SearchField>
         </div>
-
-        <SectionCard
-          description="这些动作后续需要接入真实接口。"
-          title="审核队列"
-        >
-          <div className="flex flex-col gap-3">
-            {["企业管理员邀请", "服务账号申请", "跨组织访问申请"].map(
-              (item, index) => (
-                <div
-                  key={item}
-                  className="flex items-center justify-between gap-3"
-                >
-                  <div>
-                    <div className="text-sm font-medium">{item}</div>
-                    <div className="text-muted text-xs">
-                      {index === 0
-                        ? "4 条待处理"
-                        : index === 1
-                          ? "3 条待处理"
-                          : "5 条待处理"}
-                    </div>
-                  </div>
-                  <StatusPill tone="warning">待审核</StatusPill>
-                </div>
-              ),
-            )}
-          </div>
-        </SectionCard>
+        <DataGrid
+          aria-label="用户列表"
+          className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
+          columns={USER_COLUMNS}
+          contentClassName="min-w-[820px]"
+          data={filteredUsers}
+          defaultSortDescriptor={{
+            column: "username",
+            direction: "ascending",
+          }}
+          getRowId={(item) => item.id}
+          renderEmptyState={() => emptyState}
+        />
       </section>
     </AdminPage>
   );
+}
+
+function toAdminUser(user: ApiUser, index: number): AdminUser {
+  const username = user.username?.trim() || `用户 ${user.id ?? index + 1}`;
+
+  return {
+    accountId: user.id == null ? "-" : String(user.id),
+    createdAt: formatDateTime(user.createdAt),
+    id:
+      user.id == null
+        ? user.username?.trim() || `user-${index}`
+        : String(user.id),
+    role: user.isAdmin ? "管理员" : "普通用户",
+    status: user.enabled === false ? "已停用" : "正常",
+    updatedAt: formatDateTime(user.updatedAt),
+    username,
+  };
+}
+
+function getUserInitials(value: string) {
+  const words = value.trim().split(/\s+/).filter(Boolean);
+
+  if (words.length > 1) {
+    return words
+      .map((word) => word[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase();
+  }
+
+  return Array.from(value.trim()).slice(0, 2).join("").toUpperCase();
+}
+
+function formatDateTime(value?: string) {
+  if (!value) return "-";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return value;
+
+  return DATE_TIME_FORMATTER.format(date);
+}
+
+function getUserStats(users: AdminUser[]) {
+  return {
+    admin: users.filter((user) => user.role === "管理员").length,
+    disabled: users.filter((user) => user.status === "已停用").length,
+    enabled: users.filter((user) => user.status === "正常").length,
+    total: users.length,
+  };
+}
+
+function filterUsers(
+  users: AdminUser[],
+  searchQuery: string,
+  userFilter: UserFilter,
+) {
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+
+  return users.filter((user) => {
+    if (userFilter === "admin" && user.role !== "管理员") return false;
+    if (userFilter === "disabled" && user.status !== "已停用") return false;
+    if (!normalizedQuery) return true;
+
+    return [user.username, user.accountId, user.role, user.status].some(
+      (value) => value.toLowerCase().includes(normalizedQuery),
+    );
+  });
+}
+
+function toUserFilter(key: Key): UserFilter {
+  if (key === "admin" || key === "disabled") return key;
+
+  return "all";
+}
+
+function formatCount(value: number, isLoading: boolean) {
+  return isLoading ? "-" : String(value);
+}
+
+function getUsersEmptyState({
+  error,
+  hasFilter,
+  isLoading,
+}: {
+  error: string | null;
+  hasFilter: boolean;
+  isLoading: boolean;
+}) {
+  if (isLoading) return "正在加载用户...";
+  if (error) return error;
+  if (hasFilter) return "没有匹配的用户。";
+
+  return "暂无用户数据。";
+}
+
+function getUserListError(error: unknown) {
+  if (
+    error instanceof Error &&
+    error.message.trim() &&
+    error.message !== "登录失败，请检查用户名或密码。"
+  ) {
+    return error.message;
+  }
+
+  return "用户列表加载失败。";
 }
 
 export function ModelsPage() {
@@ -463,60 +594,25 @@ export function ModelsPage() {
         ]}
       />
 
-      <section className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="flex min-w-0 flex-col gap-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-foreground text-base font-semibold">
-              模型路由
-            </h2>
-            <SearchField aria-label="搜索模型" className="w-full sm:w-[260px]">
-              <SearchField.Group>
-                <SearchField.SearchIcon />
-                <SearchField.Input placeholder="搜索模型或供应商" />
-                <SearchField.ClearButton />
-              </SearchField.Group>
-            </SearchField>
-          </div>
-          <DataGrid
-            aria-label="模型路由"
-            className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
-            columns={MODEL_COLUMNS}
-            contentClassName="min-w-[720px]"
-            data={MODEL_ROUTES}
-            getRowId={(item) => item.id}
-          />
+      <section className="flex min-w-0 flex-col gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-foreground text-base font-semibold">模型路由</h2>
+          <SearchField aria-label="搜索模型" className="w-full sm:w-[260px]">
+            <SearchField.Group>
+              <SearchField.SearchIcon />
+              <SearchField.Input placeholder="搜索模型或供应商" />
+              <SearchField.ClearButton />
+            </SearchField.Group>
+          </SearchField>
         </div>
-
-        <SectionCard title="默认策略">
-          <div className="flex flex-col gap-4">
-            {[
-              ["任务规划", "GPT-5.4", "默认"],
-              ["长文档解析", "Claude Sonnet", "可用"],
-              ["低成本批处理", "Qwen Max", "待配置"],
-            ].map(([label, model, status]) => (
-              <div
-                key={label}
-                className="flex items-center justify-between gap-3"
-              >
-                <div>
-                  <div className="text-sm font-medium">{label}</div>
-                  <div className="text-muted text-xs">{model}</div>
-                </div>
-                <StatusPill
-                  tone={
-                    status === "默认"
-                      ? "accent"
-                      : status === "待配置"
-                        ? "warning"
-                        : "success"
-                  }
-                >
-                  {status}
-                </StatusPill>
-              </div>
-            ))}
-          </div>
-        </SectionCard>
+        <DataGrid
+          aria-label="模型路由"
+          className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
+          columns={MODEL_COLUMNS}
+          contentClassName="min-w-[720px]"
+          data={MODEL_ROUTES}
+          getRowId={(item) => item.id}
+        />
       </section>
     </AdminPage>
   );
@@ -559,74 +655,42 @@ export function AgentsPage() {
         ]}
       />
 
-      <section className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="flex min-w-0 flex-col gap-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <Tabs defaultSelectedKey="templates">
-              <Tabs.ListContainer>
-                <Tabs.List aria-label="Agent 视图">
-                  <Tabs.Tab id="templates">
-                    模板
-                    <Tabs.Indicator />
-                  </Tabs.Tab>
-                  <Tabs.Tab id="runs">
-                    运行
-                    <Tabs.Indicator />
-                  </Tabs.Tab>
-                  <Tabs.Tab id="checks">
-                    检查
-                    <Tabs.Indicator />
-                  </Tabs.Tab>
-                </Tabs.List>
-              </Tabs.ListContainer>
-            </Tabs>
-            <SearchField
-              aria-label="搜索 Agent"
-              className="w-full sm:w-[260px]"
-            >
-              <SearchField.Group>
-                <SearchField.SearchIcon />
-                <SearchField.Input placeholder="搜索 Agent 或负责人" />
-                <SearchField.ClearButton />
-              </SearchField.Group>
-            </SearchField>
-          </div>
-          <DataGrid
-            aria-label="Agent 模板"
-            className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
-            columns={AGENT_COLUMNS}
-            contentClassName="min-w-[780px]"
-            data={AGENTS}
-            getRowId={(item) => item.id}
-          />
+      <section className="flex min-w-0 flex-col gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <Tabs defaultSelectedKey="templates">
+            <Tabs.ListContainer>
+              <Tabs.List aria-label="Agent 视图">
+                <Tabs.Tab id="templates">
+                  模板
+                  <Tabs.Indicator />
+                </Tabs.Tab>
+                <Tabs.Tab id="runs">
+                  运行
+                  <Tabs.Indicator />
+                </Tabs.Tab>
+                <Tabs.Tab id="checks">
+                  检查
+                  <Tabs.Indicator />
+                </Tabs.Tab>
+              </Tabs.List>
+            </Tabs.ListContainer>
+          </Tabs>
+          <SearchField aria-label="搜索 Agent" className="w-full sm:w-[260px]">
+            <SearchField.Group>
+              <SearchField.SearchIcon />
+              <SearchField.Input placeholder="搜索 Agent 或负责人" />
+              <SearchField.ClearButton />
+            </SearchField.Group>
+          </SearchField>
         </div>
-
-        <SectionCard
-          description="上线前重点关注工具权限和触发条件。"
-          title="发布前检查"
-        >
-          <div className="flex flex-col gap-3">
-            {[
-              ["工具权限", "2 个模板需要确认", "warning"],
-              ["默认模型", "全部已绑定", "success"],
-              ["回滚版本", "3 个模板未配置", "warning"],
-              ["审计追踪", "已启用", "success"],
-            ].map(([label, helper, tone]) => (
-              <div
-                key={label}
-                className="flex items-center justify-between gap-3"
-              >
-                <div>
-                  <div className="text-sm font-medium">{label}</div>
-                  <div className="text-muted text-xs">{helper}</div>
-                </div>
-                <StatusPill tone={tone === "warning" ? "warning" : "success"}>
-                  {tone === "warning" ? "待处理" : "通过"}
-                </StatusPill>
-              </div>
-            ))}
-          </div>
-        </SectionCard>
+        <DataGrid
+          aria-label="Agent 模板"
+          className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
+          columns={AGENT_COLUMNS}
+          contentClassName="min-w-[780px]"
+          data={AGENTS}
+          getRowId={(item) => item.id}
+        />
       </section>
     </AdminPage>
   );

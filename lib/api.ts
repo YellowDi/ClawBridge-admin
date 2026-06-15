@@ -19,6 +19,11 @@ export interface ResLogin {
   [property: string]: unknown;
 }
 
+export interface ResUsers {
+  data?: User[];
+  [property: string]: unknown;
+}
+
 export interface User {
   createdAt?: string;
   enabled?: boolean;
@@ -65,6 +70,17 @@ export async function login(request: ReqLogin): Promise<ResLogin> {
     body: JSON.stringify(request),
     method: "POST",
   });
+}
+
+export async function listUsers(): Promise<User[]> {
+  const response = await requestJson<ResUsers | User[]>("/api/users/list", {
+    body: JSON.stringify({}),
+    method: "POST",
+  });
+
+  if (Array.isArray(response)) return response;
+
+  return response.data ?? [];
 }
 
 export async function apiFetch<T>(path: string, init: ApiRequestInit = {}) {
