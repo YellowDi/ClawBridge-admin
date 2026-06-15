@@ -405,15 +405,15 @@ export function UsersPage() {
           >
             <Tabs.ListContainer>
               <Tabs.List aria-label="用户筛选">
-                <Tabs.Tab id="all">
+                <Tabs.Tab className="whitespace-nowrap" id="all">
                   全部
                   <Tabs.Indicator />
                 </Tabs.Tab>
-                <Tabs.Tab id="admin">
+                <Tabs.Tab className="whitespace-nowrap" id="admin">
                   管理员
                   <Tabs.Indicator />
                 </Tabs.Tab>
-                <Tabs.Tab id="disabled">
+                <Tabs.Tab className="whitespace-nowrap" id="disabled">
                   已停用
                   <Tabs.Indicator />
                 </Tabs.Tab>
