@@ -4,9 +4,11 @@ import type { FormEvent } from "react";
 
 import {
   Button,
-  InputGroup,
+  Input,
+  Label,
+  ListBox,
   Modal,
-  Switch,
+  Select,
   TextField,
   useOverlayState,
 } from "@heroui/react";
@@ -36,22 +38,23 @@ const DEFAULT_CREATE_USER_FORM: CreateUserForm = {
 };
 
 export function CreateUserDialog({ onCreated }: { onCreated: () => void }) {
-  const modal = useOverlayState();
   const [state, setState] = useState<CreateUserState>({
     error: null,
     form: DEFAULT_CREATE_USER_FORM,
     isCreating: false,
   });
-  const { error, form, isCreating } = state;
+  const modal = useOverlayState({
+    onOpenChange(isOpen) {
+      if (!isOpen) return;
 
-  function openDialog() {
-    setState({
-      error: null,
-      form: DEFAULT_CREATE_USER_FORM,
-      isCreating: false,
-    });
-    modal.open();
-  }
+      setState({
+        error: null,
+        form: DEFAULT_CREATE_USER_FORM,
+        isCreating: false,
+      });
+    },
+  });
+  const { error, form, isCreating } = state;
 
   function closeDialog() {
     if (isCreating) return;
@@ -113,126 +116,129 @@ export function CreateUserDialog({ onCreated }: { onCreated: () => void }) {
   }
 
   return (
-    <>
-      <Button size="sm" onPress={openDialog}>
-        <AdminIcon className="size-4" name="plus" />
-        添加用户
-      </Button>
+    <Modal state={modal}>
+      <Modal.Trigger>
+        <Button size="sm">
+          <AdminIcon className="size-4" name="plus" />
+          添加用户
+        </Button>
+      </Modal.Trigger>
+      <Modal.Backdrop
+        isDismissable={!isCreating}
+        isKeyboardDismissDisabled={isCreating}
+      >
+        <Modal.Container placement="center" scroll="outside" size="md">
+          <Modal.Dialog>
+            <form className="min-w-0" onSubmit={handleSubmit}>
+              <Modal.Header>
+                <Modal.Heading>添加用户</Modal.Heading>
+              </Modal.Header>
+              <Modal.Body className="-mx-1 flex min-w-0 flex-col gap-4 px-1 py-1">
+                <TextField
+                  fullWidth
+                  className="flex min-w-0 flex-col gap-2"
+                  isDisabled={isCreating}
+                  variant="secondary"
+                >
+                  <Label>用户名</Label>
+                  <Input
+                    fullWidth
+                    autoComplete="username"
+                    value={form.username}
+                    onChange={(event) =>
+                      updateForm({ username: event.target.value })
+                    }
+                  />
+                </TextField>
 
-      <Modal state={modal}>
-        <Modal.Backdrop isDismissable={!isCreating}>
-          <Modal.Container placement="center" size="md">
-            <Modal.Dialog>
-              <form onSubmit={handleSubmit}>
-                <Modal.Header>
-                  <Modal.Heading>添加用户</Modal.Heading>
-                </Modal.Header>
-                <Modal.Body className="flex flex-col gap-4">
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div className="flex flex-col gap-2">
-                      <label
-                        className="text-foreground text-sm font-medium"
-                        htmlFor="create-user-username"
-                      >
-                        用户名
-                      </label>
-                      <TextField
-                        aria-label="用户名"
-                        isDisabled={isCreating}
-                        variant="secondary"
-                      >
-                        <InputGroup variant="secondary">
-                          <InputGroup.Input
-                            autoComplete="username"
-                            id="create-user-username"
-                            value={form.username}
-                            onChange={(event) =>
-                              updateForm({ username: event.target.value })
-                            }
-                          />
-                        </InputGroup>
-                      </TextField>
-                    </div>
+                <TextField
+                  fullWidth
+                  className="flex min-w-0 flex-col gap-2"
+                  isDisabled={isCreating}
+                  variant="secondary"
+                >
+                  <Label>密码</Label>
+                  <Input
+                    fullWidth
+                    autoComplete="new-password"
+                    type="password"
+                    value={form.password}
+                    onChange={(event) =>
+                      updateForm({ password: event.target.value })
+                    }
+                  />
+                </TextField>
 
-                    <div className="flex flex-col gap-2">
-                      <label
-                        className="text-foreground text-sm font-medium"
-                        htmlFor="create-user-password"
-                      >
-                        密码
-                      </label>
-                      <TextField
-                        aria-label="密码"
-                        isDisabled={isCreating}
-                        variant="secondary"
-                      >
-                        <InputGroup variant="secondary">
-                          <InputGroup.Input
-                            autoComplete="new-password"
-                            id="create-user-password"
-                            type="password"
-                            value={form.password}
-                            onChange={(event) =>
-                              updateForm({ password: event.target.value })
-                            }
-                          />
-                        </InputGroup>
-                      </TextField>
-                    </div>
+                <Select
+                  fullWidth
+                  className="min-w-0"
+                  isDisabled={isCreating}
+                  selectedKey={form.enabled ? "enabled" : "disabled"}
+                  variant="secondary"
+                  onSelectionChange={(key) =>
+                    updateForm({ enabled: key === "enabled" })
+                  }
+                >
+                  <Label>是否激活</Label>
+                  <Select.Trigger>
+                    <Select.Value />
+                    <Select.Indicator />
+                  </Select.Trigger>
+                  <Select.Popover>
+                    <ListBox>
+                      <ListBox.Item id="enabled">激活</ListBox.Item>
+                      <ListBox.Item id="disabled">停用</ListBox.Item>
+                    </ListBox>
+                  </Select.Popover>
+                </Select>
+
+                <Select
+                  fullWidth
+                  className="min-w-0"
+                  isDisabled={isCreating}
+                  selectedKey={form.isAdmin ? "admin" : "member"}
+                  variant="secondary"
+                  onSelectionChange={(key) =>
+                    updateForm({ isAdmin: key === "admin" })
+                  }
+                >
+                  <Label>是否为管理员</Label>
+                  <Select.Trigger>
+                    <Select.Value />
+                    <Select.Indicator />
+                  </Select.Trigger>
+                  <Select.Popover>
+                    <ListBox>
+                      <ListBox.Item id="admin">管理员</ListBox.Item>
+                      <ListBox.Item id="member">普通用户</ListBox.Item>
+                    </ListBox>
+                  </Select.Popover>
+                </Select>
+
+                {error ? (
+                  <div className="rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
+                    {error}
                   </div>
-
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <Switch
-                      isDisabled={isCreating}
-                      isSelected={form.enabled}
-                      onChange={(enabled) => updateForm({ enabled })}
-                    >
-                      <Switch.Control>
-                        <Switch.Thumb />
-                      </Switch.Control>
-                      <Switch.Content>
-                        <span className="text-sm font-medium">启用账号</span>
-                      </Switch.Content>
-                    </Switch>
-                    <Switch
-                      isDisabled={isCreating}
-                      isSelected={form.isAdmin}
-                      onChange={(isAdmin) => updateForm({ isAdmin })}
-                    >
-                      <Switch.Control>
-                        <Switch.Thumb />
-                      </Switch.Control>
-                      <Switch.Content>
-                        <span className="text-sm font-medium">管理员</span>
-                      </Switch.Content>
-                    </Switch>
-                  </div>
-
-                  {error ? (
-                    <div className="rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
-                      {error}
-                    </div>
-                  ) : null}
-                </Modal.Body>
-                <Modal.Footer>
-                  <Button
-                    isDisabled={isCreating}
-                    type="button"
-                    variant="tertiary"
-                    onPress={closeDialog}
-                  >
-                    取消
-                  </Button>
-                  <Button isDisabled={isCreating} type="submit">
-                    {isCreating ? "创建中..." : "创建用户"}
-                  </Button>
-                </Modal.Footer>
-              </form>
-            </Modal.Dialog>
-          </Modal.Container>
-        </Modal.Backdrop>
-      </Modal>
-    </>
+                ) : null}
+              </Modal.Body>
+              <Modal.Footer>
+                <Button
+                  isDisabled={isCreating}
+                  type="button"
+                  variant="tertiary"
+                  onPress={closeDialog}
+                >
+                  取消
+                </Button>
+                <Button isDisabled={isCreating} type="submit">
+                  {isCreating ? "创建中..." : "创建用户"}
+                </Button>
+              </Modal.Footer>
+            </form>
+          </Modal.Dialog>
+        </Modal.Container>
+      </Modal.Backdrop>
+    </Modal>
   );
 }
 
