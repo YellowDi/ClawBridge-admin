@@ -32,8 +32,30 @@ export interface ReqUserCreate {
   [property: string]: unknown;
 }
 
+export interface ReqUserDetail {
+  id?: number;
+  [property: string]: unknown;
+}
+
+export interface ReqUserUpdate {
+  enabled?: boolean;
+  id?: number;
+  isAdmin?: boolean;
+  password?: string;
+  username?: string;
+  [property: string]: unknown;
+}
+
 export interface ResUser {
   data?: User;
+  [property: string]: unknown;
+}
+
+export interface ControllerResponse {
+  code?: number;
+  data?: unknown;
+  message?: string;
+  success?: boolean;
   [property: string]: unknown;
 }
 
@@ -111,6 +133,45 @@ export async function createUser(
   if ("data" in response) return (response as ResUser).data;
 
   return response;
+}
+
+export async function getUserDetail(id: number): Promise<User | undefined> {
+  const response = await requestJson<ResUser | User | undefined>(
+    "/api/users/detail",
+    {
+      body: JSON.stringify({ id } satisfies ReqUserDetail),
+      method: "POST",
+    },
+  );
+
+  if (!response) return undefined;
+  if ("data" in response) return (response as ResUser).data;
+
+  return response;
+}
+
+export async function updateUser(
+  request: ReqUserUpdate,
+): Promise<User | undefined> {
+  const response = await requestJson<ResUser | User | undefined>(
+    "/api/users/update",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+
+  if (!response) return undefined;
+  if ("data" in response) return (response as ResUser).data;
+
+  return response;
+}
+
+export async function deleteUser(id: number): Promise<void> {
+  await requestJson<ControllerResponse | unknown>("/api/users/delete", {
+    body: JSON.stringify({ id } satisfies ReqUserDetail),
+    method: "POST",
+  });
 }
 
 export async function apiFetch<T>(path: string, init: ApiRequestInit = {}) {

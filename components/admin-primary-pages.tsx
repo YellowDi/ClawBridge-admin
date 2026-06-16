@@ -10,7 +10,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AdminIcon } from "@/components/admin-icons";
 import { AdminPage, StatGrid } from "@/components/admin-page-kit";
-import { CreateUserDialog } from "@/components/create-user-dialog";
+import {
+  CreateUserDialog,
+  DeleteUserDialog,
+  EditUserDialog,
+} from "@/components/create-user-dialog";
 import { listUsers } from "@/lib/api";
 
 type UserStatus = "正常" | "已停用";
@@ -20,9 +24,12 @@ type AdminUser = {
   id: string;
   accountId: string;
   createdAt: string;
+  enabled: boolean;
+  isAdmin: boolean;
   role: string;
   status: UserStatus;
   updatedAt: string;
+  userId: number | null;
   username: string;
 };
 
@@ -45,7 +52,7 @@ const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("zh-CN", {
   year: "numeric",
 });
 
-const USER_COLUMNS: DataGridColumn<AdminUser>[] = [
+const USER_BASE_COLUMNS: DataGridColumn<AdminUser>[] = [
   {
     allowsSorting: true,
     cell: (item) => (
@@ -348,6 +355,33 @@ export function UsersPage() {
     () => filterUsers(users, searchQuery, userFilter),
     [searchQuery, userFilter, users],
   );
+  const refreshUsers = useCallback(() => void loadUsers(), [loadUsers]);
+  const userColumns = useMemo<DataGridColumn<AdminUser>[]>(
+    () => [
+      ...USER_BASE_COLUMNS,
+      {
+        align: "end",
+        cell: (item) => {
+          if (item.userId == null) {
+            return <span className="text-muted text-xs">-</span>;
+          }
+
+          const user = toEditableUserSummary(item, item.userId);
+
+          return (
+            <div className="flex items-center justify-end gap-2">
+              <EditUserDialog user={user} onUpdated={refreshUsers} />
+              <DeleteUserDialog user={user} onDeleted={refreshUsers} />
+            </div>
+          );
+        },
+        header: "操作",
+        id: "actions",
+        minWidth: 160,
+      },
+    ],
+    [refreshUsers],
+  );
   const userStats = useMemo(() => getUserStats(users), [users]);
   const emptyState = getUsersEmptyState({
     error,
@@ -435,8 +469,8 @@ export function UsersPage() {
         <DataGrid
           aria-label="用户列表"
           className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
-          columns={USER_COLUMNS}
-          contentClassName="min-w-[820px]"
+          columns={userColumns}
+          contentClassName="min-w-[980px]"
           data={filteredUsers}
           defaultSortDescriptor={{
             column: "username",
@@ -456,14 +490,26 @@ function toAdminUser(user: ApiUser, index: number): AdminUser {
   return {
     accountId: user.id == null ? "-" : String(user.id),
     createdAt: formatDateTime(user.createdAt),
+    enabled: user.enabled !== false,
     id:
       user.id == null
         ? user.username?.trim() || `user-${index}`
         : String(user.id),
+    isAdmin: user.isAdmin === true,
     role: user.isAdmin ? "管理员" : "普通用户",
     status: user.enabled === false ? "已停用" : "正常",
     updatedAt: formatDateTime(user.updatedAt),
+    userId: user.id ?? null,
     username,
+  };
+}
+
+function toEditableUserSummary(user: AdminUser, id: number) {
+  return {
+    enabled: user.enabled,
+    id,
+    isAdmin: user.isAdmin,
+    username: user.username,
   };
 }
 
