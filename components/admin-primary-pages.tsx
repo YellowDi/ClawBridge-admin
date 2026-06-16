@@ -2,7 +2,7 @@
 
 import type { DataGridColumn } from "@heroui-pro/react";
 import type { Key } from "react";
-import type { User as ApiUser } from "@/lib/api";
+import type { Model as ApiModel, User as ApiUser } from "@/lib/api";
 
 import { Avatar, Button, Chip, SearchField, Tabs } from "@heroui/react";
 import { DataGrid } from "@heroui-pro/react";
@@ -15,7 +15,12 @@ import {
   DeleteUserDialog,
   EditUserDialog,
 } from "@/components/create-user-dialog";
-import { listUsers } from "@/lib/api";
+import {
+  CreateModelDialog,
+  DeleteModelDialog,
+  EditModelDialog,
+} from "@/components/model-dialog";
+import { listModels, listUsers } from "@/lib/api";
 
 type UserStatus = "正常" | "已停用";
 type UserFilter = "admin" | "all" | "disabled";
@@ -115,66 +120,52 @@ const USER_BASE_COLUMNS: DataGridColumn<AdminUser>[] = [
   },
 ];
 
-type ModelStatus = "默认" | "可用" | "待配置";
+type ModelStatus = "停用" | "启用";
 
-type ModelRoute = {
+type AdminModel = {
+  cacheReadPricePerMillion: string;
+  cacheWritePricePerMillion: string;
+  createdAt: string;
+  currency: string;
+  displayName: string;
+  displayLabel: string;
+  enabled: boolean;
   id: string;
-  name: string;
+  inputPricePerMillion: string;
+  modelRecordId: number | null;
+  modelid: string;
+  outputPricePerMillion: string;
   provider: string;
-  context: string;
   status: ModelStatus;
-  fallback: string;
+  updatedAt: string;
 };
 
-const MODEL_ROUTES: ModelRoute[] = [
-  {
-    context: "128K",
-    fallback: "Claude Sonnet",
-    id: "mdl_001",
-    name: "GPT-5.4",
-    provider: "OpenAI",
-    status: "默认",
-  },
-  {
-    context: "200K",
-    fallback: "GPT-5.4",
-    id: "mdl_002",
-    name: "Claude Sonnet",
-    provider: "Anthropic",
-    status: "可用",
-  },
-  {
-    context: "64K",
-    fallback: "GPT-5.4",
-    id: "mdl_003",
-    name: "Qwen Max",
-    provider: "DashScope",
-    status: "待配置",
-  },
-];
-
-const MODEL_STATUS_COLOR: Record<
-  ModelStatus,
-  "accent" | "success" | "warning"
-> = {
-  可用: "success",
-  默认: "accent",
-  待配置: "warning",
+type ModelsLoadState = {
+  error: string | null;
+  isLoading: boolean;
+  models: AdminModel[];
 };
 
-const MODEL_COLUMNS: DataGridColumn<ModelRoute>[] = [
+const MODEL_STATUS_COLOR: Record<ModelStatus, "danger" | "success"> = {
+  停用: "danger",
+  启用: "success",
+};
+
+const MODEL_BASE_COLUMNS: DataGridColumn<AdminModel>[] = [
   {
     allowsSorting: true,
     cell: (item) => (
       <div className="flex min-w-0 flex-col">
-        <span className="truncate text-xs font-medium">{item.name}</span>
-        <span className="text-muted truncate text-xs">{item.id}</span>
+        <span className="truncate text-xs font-medium">
+          {item.displayLabel}
+        </span>
+        <span className="text-muted truncate text-xs">{item.modelid}</span>
       </div>
     ),
     header: "模型",
-    id: "name",
+    id: "displayLabel",
     isRowHeader: true,
-    minWidth: 190,
+    minWidth: 220,
   },
   {
     accessorKey: "provider",
@@ -184,12 +175,24 @@ const MODEL_COLUMNS: DataGridColumn<ModelRoute>[] = [
     minWidth: 140,
   },
   {
-    accessorKey: "context",
+    accessorKey: "inputPricePerMillion",
     align: "end",
     allowsSorting: true,
-    header: "上下文",
-    id: "context",
-    minWidth: 100,
+    cell: (item) =>
+      formatPricePerMillion(item.inputPricePerMillion, item.currency),
+    header: "输入价格",
+    id: "inputPricePerMillion",
+    minWidth: 120,
+  },
+  {
+    accessorKey: "outputPricePerMillion",
+    align: "end",
+    allowsSorting: true,
+    cell: (item) =>
+      formatPricePerMillion(item.outputPricePerMillion, item.currency),
+    header: "输出价格",
+    id: "outputPricePerMillion",
+    minWidth: 120,
   },
   {
     cell: (item) => (
@@ -202,9 +205,11 @@ const MODEL_COLUMNS: DataGridColumn<ModelRoute>[] = [
     minWidth: 110,
   },
   {
-    accessorKey: "fallback",
-    header: "降级模型",
-    id: "fallback",
+    accessorKey: "updatedAt",
+    align: "end",
+    allowsSorting: true,
+    header: "更新时间",
+    id: "updatedAt",
     minWidth: 150,
   },
 ];
@@ -603,6 +608,91 @@ function getUserListError(error: unknown) {
 }
 
 export function ModelsPage() {
+  const isMountedRef = useRef(false);
+  const [loadState, setLoadState] = useState<ModelsLoadState>({
+    error: null,
+    isLoading: true,
+    models: [],
+  });
+  const [searchQuery, setSearchQuery] = useState("");
+  const { error, isLoading, models } = loadState;
+
+  const loadModels = useCallback(async () => {
+    setLoadState((state) => ({
+      ...state,
+      error: null,
+      isLoading: true,
+    }));
+
+    try {
+      const response = await listModels();
+
+      if (isMountedRef.current) {
+        setLoadState({
+          error: null,
+          isLoading: false,
+          models: response.map(toAdminModel),
+        });
+      }
+    } catch (error) {
+      if (isMountedRef.current) {
+        setLoadState({
+          error: getModelListError(error),
+          isLoading: false,
+          models: [],
+        });
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    void loadModels();
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, [loadModels]);
+
+  const filteredModels = useMemo(
+    () => filterModels(models, searchQuery),
+    [models, searchQuery],
+  );
+  const refreshModels = useCallback(() => void loadModels(), [loadModels]);
+  const modelColumns = useMemo<DataGridColumn<AdminModel>[]>(
+    () => [
+      ...MODEL_BASE_COLUMNS,
+      {
+        align: "end",
+        cell: (item) => {
+          if (item.modelRecordId == null) {
+            return <span className="text-muted text-xs">-</span>;
+          }
+
+          const model = toEditableModelSummary(item, item.modelRecordId);
+
+          return (
+            <div className="flex items-center justify-end gap-2">
+              <EditModelDialog model={model} onUpdated={refreshModels} />
+              <DeleteModelDialog model={model} onDeleted={refreshModels} />
+            </div>
+          );
+        },
+        header: "操作",
+        id: "actions",
+        minWidth: 160,
+      },
+    ],
+    [refreshModels],
+  );
+  const modelStats = useMemo(() => getModelStats(models), [models]);
+  const emptyState = getModelsEmptyState({
+    error,
+    hasFilter: Boolean(searchQuery.trim()),
+    isLoading,
+  });
+
   return (
     <AdminPage
       actions={
@@ -610,39 +700,49 @@ export function ModelsPage() {
           <Button size="sm" variant="tertiary">
             测试路由
           </Button>
-          <Button size="sm">
-            <AdminIcon className="size-4" name="plus" />
-            新增模型
-          </Button>
+          <CreateModelDialog onCreated={() => void loadModels()} />
         </>
       }
-      description="配置模型供应商、默认路由、降级策略与调用预算。接口完成前先固定前端结构。"
+      description="配置模型供应商、价格和启用状态。"
       eyebrow="Model Routing"
       title="模型配置"
     >
       <StatGrid
         stats={[
-          { helper: "默认路由 1 个", label: "启用模型", value: "7" },
           {
-            helper: "OpenAI / Anthropic / DashScope",
+            helper: "可被授权和使用",
+            label: "启用模型",
+            value: formatCount(modelStats.enabled, isLoading),
+          },
+          {
+            helper: modelStats.providerHelper,
             label: "供应商",
             tone: "accent",
-            value: "3",
+            value: formatCount(modelStats.providers, isLoading),
           },
           {
-            helper: "需要密钥或限额",
-            label: "待配置",
-            tone: "warning",
-            value: "2",
+            helper: "不可授权或使用",
+            label: "停用模型",
+            tone: "danger",
+            value: formatCount(modelStats.disabled, isLoading),
           },
-          { helper: "过去 24 小时", label: "降级次数", value: "18" },
+          {
+            helper: "当前列表总数",
+            label: "总模型",
+            value: formatCount(modelStats.total, isLoading),
+          },
         ]}
       />
 
       <section className="flex min-w-0 flex-col gap-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h2 className="text-foreground text-base font-semibold">模型路由</h2>
-          <SearchField aria-label="搜索模型" className="w-full sm:w-[260px]">
+          <h2 className="text-foreground text-base font-semibold">模型列表</h2>
+          <SearchField
+            aria-label="搜索模型"
+            className="w-full sm:w-[260px]"
+            value={searchQuery}
+            onChange={setSearchQuery}
+          >
             <SearchField.Group>
               <SearchField.SearchIcon />
               <SearchField.Input placeholder="搜索模型或供应商" />
@@ -651,16 +751,134 @@ export function ModelsPage() {
           </SearchField>
         </div>
         <DataGrid
-          aria-label="模型路由"
+          aria-label="模型列表"
           className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
-          columns={MODEL_COLUMNS}
-          contentClassName="min-w-[720px]"
-          data={MODEL_ROUTES}
+          columns={modelColumns}
+          contentClassName="min-w-[980px]"
+          data={filteredModels}
+          defaultSortDescriptor={{
+            column: "displayLabel",
+            direction: "ascending",
+          }}
           getRowId={(item) => item.id}
+          renderEmptyState={() => emptyState}
         />
       </section>
     </AdminPage>
   );
+}
+
+function toAdminModel(model: ApiModel, index: number): AdminModel {
+  const displayName = model.displayName?.trim() ?? "";
+  const displayLabel =
+    model.displayName?.trim() ||
+    model.modelid?.trim() ||
+    `模型 ${model.id ?? index + 1}`;
+
+  return {
+    cacheReadPricePerMillion: model.cacheReadPricePerMillion?.trim() ?? "",
+    cacheWritePricePerMillion: model.cacheWritePricePerMillion?.trim() ?? "",
+    createdAt: formatDateTime(model.createdAt),
+    currency: model.currency?.trim() ?? "",
+    displayName,
+    displayLabel,
+    enabled: model.enabled !== false,
+    id:
+      model.id == null
+        ? model.modelid?.trim() || `model-${index}`
+        : String(model.id),
+    inputPricePerMillion: model.inputPricePerMillion?.trim() ?? "",
+    modelRecordId: model.id ?? null,
+    modelid: model.modelid?.trim() ?? "-",
+    outputPricePerMillion: model.outputPricePerMillion?.trim() ?? "",
+    provider: model.provider?.trim() || "-",
+    status: model.enabled === false ? "停用" : "启用",
+    updatedAt: formatDateTime(model.updatedAt),
+  };
+}
+
+function toEditableModelSummary(model: AdminModel, id: number) {
+  return {
+    cacheReadPricePerMillion: model.cacheReadPricePerMillion,
+    cacheWritePricePerMillion: model.cacheWritePricePerMillion,
+    currency: model.currency,
+    displayName: model.displayName,
+    enabled: model.enabled,
+    id,
+    inputPricePerMillion: model.inputPricePerMillion,
+    modelid: model.modelid === "-" ? "" : model.modelid,
+    outputPricePerMillion: model.outputPricePerMillion,
+    provider: model.provider === "-" ? "" : model.provider,
+  };
+}
+
+function filterModels(models: AdminModel[], searchQuery: string) {
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+
+  if (!normalizedQuery) return models;
+
+  return models.filter((model) =>
+    [
+      model.displayName,
+      model.displayLabel,
+      model.modelid,
+      model.provider,
+      model.currency,
+      model.status,
+    ].some((value) => value.toLowerCase().includes(normalizedQuery)),
+  );
+}
+
+function getModelStats(models: AdminModel[]) {
+  const providers = Array.from(
+    new Set(
+      models
+        .map((model) => model.provider)
+        .filter((provider) => provider && provider !== "-"),
+    ),
+  );
+
+  return {
+    disabled: models.filter((model) => model.status === "停用").length,
+    enabled: models.filter((model) => model.status === "启用").length,
+    providerHelper: providers.length ? providers.join(" / ") : "暂无供应商",
+    providers: providers.length,
+    total: models.length,
+  };
+}
+
+function formatPricePerMillion(value: string, currency: string) {
+  if (!value) return "-";
+
+  return currency ? `${value} ${currency}` : value;
+}
+
+function getModelsEmptyState({
+  error,
+  hasFilter,
+  isLoading,
+}: {
+  error: string | null;
+  hasFilter: boolean;
+  isLoading: boolean;
+}) {
+  if (isLoading) return "正在加载模型...";
+  if (error) return error;
+  if (hasFilter) return "没有匹配的模型。";
+
+  return "暂无模型数据。";
+}
+
+function getModelListError(error: unknown) {
+  if (
+    error instanceof Error &&
+    error.message.trim() &&
+    error.message !== "登录失败，请检查用户名或密码。"
+  ) {
+    return error.message;
+  }
+
+  return "模型列表加载失败。";
 }
 
 export function AgentsPage() {

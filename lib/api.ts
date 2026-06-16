@@ -70,6 +70,69 @@ export interface User {
   [property: string]: unknown;
 }
 
+export interface ReqModelCreate {
+  cacheReadPricePerMillion?: string;
+  cacheWritePricePerMillion?: string;
+  currency?: string;
+  displayName?: string;
+  enabled?: boolean;
+  inputPricePerMillion?: string;
+  modelid?: string;
+  outputPricePerMillion?: string;
+  provider?: string;
+  [property: string]: unknown;
+}
+
+export interface ReqModelDelete {
+  id?: number;
+  [property: string]: unknown;
+}
+
+export interface ReqModelDetail {
+  id?: number;
+  [property: string]: unknown;
+}
+
+export interface ReqModelUpdate {
+  cacheReadPricePerMillion?: string;
+  cacheWritePricePerMillion?: string;
+  currency?: string;
+  displayName?: string;
+  enabled?: boolean;
+  id?: number;
+  inputPricePerMillion?: string;
+  modelid?: string;
+  outputPricePerMillion?: string;
+  provider?: string;
+  [property: string]: unknown;
+}
+
+export interface ResModel {
+  data?: Model;
+  [property: string]: unknown;
+}
+
+export interface ResModels {
+  data?: Model[];
+  [property: string]: unknown;
+}
+
+export interface Model {
+  cacheReadPricePerMillion?: string;
+  cacheWritePricePerMillion?: string;
+  createdAt?: string;
+  currency?: string;
+  displayName?: string;
+  enabled?: boolean;
+  id?: number;
+  inputPricePerMillion?: string;
+  modelid?: string;
+  outputPricePerMillion?: string;
+  provider?: string;
+  updatedAt?: string;
+  [property: string]: unknown;
+}
+
 export type AuthSession = {
   expireAt?: string;
   token: string;
@@ -170,6 +233,73 @@ export async function updateUser(
 export async function deleteUser(id: number): Promise<void> {
   await requestJson<ControllerResponse | unknown>("/api/users/delete", {
     body: JSON.stringify({ id } satisfies ReqUserDetail),
+    method: "POST",
+  });
+}
+
+export async function listModels(): Promise<Model[]> {
+  const response = await requestJson<ResModels | Model[]>("/api/models/list", {
+    body: JSON.stringify({}),
+    method: "POST",
+  });
+
+  if (Array.isArray(response)) return response;
+
+  return response.data ?? [];
+}
+
+export async function createModel(
+  request: ReqModelCreate,
+): Promise<Model | undefined> {
+  const response = await requestJson<ResModel | Model | undefined>(
+    "/api/models/create",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+
+  if (!response) return undefined;
+  if ("data" in response) return (response as ResModel).data;
+
+  return response;
+}
+
+export async function getModelDetail(id: number): Promise<Model | undefined> {
+  const response = await requestJson<ResModel | Model | undefined>(
+    "/api/models/detail",
+    {
+      body: JSON.stringify({ id } satisfies ReqModelDetail),
+      method: "POST",
+    },
+  );
+
+  if (!response) return undefined;
+  if ("data" in response) return (response as ResModel).data;
+
+  return response;
+}
+
+export async function updateModel(
+  request: ReqModelUpdate,
+): Promise<Model | undefined> {
+  const response = await requestJson<ResModel | Model | undefined>(
+    "/api/models/update",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+
+  if (!response) return undefined;
+  if ("data" in response) return (response as ResModel).data;
+
+  return response;
+}
+
+export async function deleteModel(id: number): Promise<void> {
+  await requestJson<ControllerResponse | unknown>("/api/models/delete", {
+    body: JSON.stringify({ id } satisfies ReqModelDelete),
     method: "POST",
   });
 }
