@@ -2,14 +2,22 @@
 
 import type { DataGridColumn } from "@heroui-pro/react";
 import type { Key } from "react";
-import type { Model as ApiModel, User as ApiUser } from "@/lib/api";
+import type {
+  Agent as ApiAgent,
+  Model as ApiModel,
+  User as ApiUser,
+} from "@/lib/api";
 
 import { Avatar, Button, Chip, SearchField, Tabs } from "@heroui/react";
 import { DataGrid } from "@heroui-pro/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { AdminIcon } from "@/components/admin-icons";
 import { AdminPage, StatGrid } from "@/components/admin-page-kit";
+import {
+  CreateAgentDialog,
+  DeleteAgentDialog,
+  EditAgentDialog,
+} from "@/components/agent-dialog";
 import {
   CreateUserDialog,
   DeleteUserDialog,
@@ -20,7 +28,7 @@ import {
   DeleteModelDialog,
   EditModelDialog,
 } from "@/components/model-dialog";
-import { listModels, listUsers } from "@/lib/api";
+import { listAgents, listModels, listUsers } from "@/lib/api";
 
 type UserStatus = "正常" | "已停用";
 type UserFilter = "admin" | "all" | "disabled";
@@ -214,79 +222,78 @@ const MODEL_BASE_COLUMNS: DataGridColumn<AdminModel>[] = [
   },
 ];
 
-type AgentStatus = "已发布" | "草稿" | "需检查";
+type AgentFilter = "all" | "disabled" | "enabled";
+type AgentStatus = "停用" | "启用";
 
-type AgentTemplate = {
+type AdminAgent = {
+  agentId: string;
+  agentRecordId: number | null;
+  defaultModelLabel: string;
+  defaultModelid: string;
+  description: string;
+  displayLabel: string;
+  displayName: string;
+  enabled: boolean;
   id: string;
-  name: string;
-  owner: string;
-  tools: string;
+  reasoningLevel: string;
   status: AgentStatus;
+  thinkingLevel: string;
   updatedAt: string;
+  verboseLevel: string;
 };
 
-const AGENTS: AgentTemplate[] = [
-  {
-    id: "agt_product",
-    name: "商品资料分析 Agent",
-    owner: "Product Ops",
-    status: "已发布",
-    tools: "文件解析、联网检索",
-    updatedAt: "今天 09:42",
-  },
-  {
-    id: "agt_sourcing",
-    name: "采购建议 Agent",
-    owner: "Supply Team",
-    status: "需检查",
-    tools: "供应商库、报价表",
-    updatedAt: "昨天 16:20",
-  },
-  {
-    id: "agt_support",
-    name: "客户支持 Agent",
-    owner: "CS Team",
-    status: "草稿",
-    tools: "知识库、工单系统",
-    updatedAt: "周一 11:18",
-  },
-];
-
-const AGENT_STATUS_COLOR: Record<
-  AgentStatus,
-  "default" | "success" | "warning"
-> = {
-  已发布: "success",
-  草稿: "default",
-  需检查: "warning",
+type AgentsLoadState = {
+  agents: AdminAgent[];
+  error: string | null;
+  isLoading: boolean;
 };
 
-const AGENT_COLUMNS: DataGridColumn<AgentTemplate>[] = [
+const AGENT_STATUS_COLOR: Record<AgentStatus, "danger" | "success"> = {
+  停用: "danger",
+  启用: "success",
+};
+
+const AGENT_BASE_COLUMNS: DataGridColumn<AdminAgent>[] = [
   {
     allowsSorting: true,
     cell: (item) => (
       <div className="flex min-w-0 flex-col">
-        <span className="truncate text-xs font-medium">{item.name}</span>
-        <span className="text-muted truncate text-xs">{item.id}</span>
+        <span className="truncate text-xs font-medium">
+          {item.displayLabel}
+        </span>
+        <span className="text-muted truncate text-xs">{item.agentId}</span>
       </div>
     ),
     header: "Agent",
-    id: "name",
+    id: "displayLabel",
     isRowHeader: true,
     minWidth: 220,
   },
   {
-    accessorKey: "owner",
+    cell: (item) => (
+      <div className="flex min-w-0 flex-col">
+        <span className="truncate text-xs font-medium">
+          {item.defaultModelLabel}
+        </span>
+        {item.defaultModelid && item.defaultModelid !== "-" ? (
+          <span className="text-muted truncate text-xs">
+            {item.defaultModelid}
+          </span>
+        ) : null}
+      </div>
+    ),
     allowsSorting: true,
-    header: "负责人",
-    id: "owner",
-    minWidth: 150,
+    header: "默认模型",
+    id: "defaultModelLabel",
+    minWidth: 190,
   },
   {
-    accessorKey: "tools",
-    header: "授权工具",
-    id: "tools",
-    minWidth: 180,
+    cell: (item) => (
+      <span className="text-muted text-xs">{formatAgentLevels(item)}</span>
+    ),
+    header: "默认配置",
+    id: "levels",
+    minWidth: 220,
   },
   {
     cell: (item) => (
@@ -882,79 +889,319 @@ function getModelListError(error: unknown) {
 }
 
 export function AgentsPage() {
+  const isMountedRef = useRef(false);
+  const [loadState, setLoadState] = useState<AgentsLoadState>({
+    agents: [],
+    error: null,
+    isLoading: true,
+  });
+  const [agentFilter, setAgentFilter] = useState<AgentFilter>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const { agents, error, isLoading } = loadState;
+
+  const loadAgents = useCallback(async () => {
+    setLoadState((state) => ({
+      ...state,
+      error: null,
+      isLoading: true,
+    }));
+
+    try {
+      const response = await listAgents();
+
+      if (isMountedRef.current) {
+        setLoadState({
+          agents: response.map(toAdminAgent),
+          error: null,
+          isLoading: false,
+        });
+      }
+    } catch (error) {
+      if (isMountedRef.current) {
+        setLoadState({
+          agents: [],
+          error: getAgentListError(error),
+          isLoading: false,
+        });
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    void loadAgents();
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, [loadAgents]);
+
+  const filteredAgents = useMemo(
+    () => filterAgents(agents, searchQuery, agentFilter),
+    [agentFilter, agents, searchQuery],
+  );
+  const refreshAgents = useCallback(() => void loadAgents(), [loadAgents]);
+  const agentColumns = useMemo<DataGridColumn<AdminAgent>[]>(
+    () => [
+      ...AGENT_BASE_COLUMNS,
+      {
+        align: "end",
+        cell: (item) => {
+          if (item.agentRecordId == null) {
+            return <span className="text-muted text-xs">-</span>;
+          }
+
+          const agent = toEditableAgentSummary(item, item.agentRecordId);
+
+          return (
+            <div className="flex items-center justify-end gap-2">
+              <EditAgentDialog agent={agent} onUpdated={refreshAgents} />
+              <DeleteAgentDialog agent={agent} onDeleted={refreshAgents} />
+            </div>
+          );
+        },
+        header: "操作",
+        id: "actions",
+        minWidth: 160,
+      },
+    ],
+    [refreshAgents],
+  );
+  const agentStats = useMemo(() => getAgentStats(agents), [agents]);
+  const emptyState = getAgentsEmptyState({
+    error,
+    hasFilter: Boolean(searchQuery.trim()) || agentFilter !== "all",
+    isLoading,
+  });
+
   return (
     <AdminPage
-      actions={
-        <>
-          <Button size="sm" variant="tertiary">
-            发布检查
-          </Button>
-          <Button size="sm">
-            <AdminIcon className="size-4" name="plus" />
-            新建 Agent
-          </Button>
-        </>
-      }
-      description="维护 Agent 模板、工具授权、触发条件和发布状态，为后续真实编排接口预留清晰结构。"
+      actions={<CreateAgentDialog onCreated={() => void loadAgents()} />}
+      description="维护 Agent 标识、默认模型、推理配置和启用状态。"
       eyebrow="Agent Studio"
       title="Agent 编排"
     >
       <StatGrid
         stats={[
-          { helper: "18 个运行中", label: "Agent 模板", value: "23" },
           {
-            helper: "需要权限复核",
-            label: "发布检查",
-            tone: "warning",
-            value: "5",
+            helper: "当前列表总数",
+            label: "Agent 总数",
+            value: formatCount(agentStats.total, isLoading),
           },
           {
-            helper: "文件、检索、数据表",
-            label: "可用工具",
+            helper: "可被授权和使用",
+            label: "启用 Agent",
             tone: "accent",
-            value: "14",
+            value: formatCount(agentStats.enabled, isLoading),
           },
-          { helper: "过去 24 小时", label: "运行任务", value: "642" },
+          {
+            helper: "不可授权或使用",
+            label: "停用 Agent",
+            tone: "danger",
+            value: formatCount(agentStats.disabled, isLoading),
+          },
+          {
+            helper: agentStats.defaultModelHelper,
+            label: "默认模型",
+            value: formatCount(agentStats.defaultModels, isLoading),
+          },
         ]}
       />
 
       <section className="flex min-w-0 flex-col gap-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <Tabs defaultSelectedKey="templates">
+          <Tabs
+            selectedKey={agentFilter}
+            onSelectionChange={(key) => setAgentFilter(toAgentFilter(key))}
+          >
             <Tabs.ListContainer>
-              <Tabs.List aria-label="Agent 视图">
-                <Tabs.Tab id="templates">
-                  模板
+              <Tabs.List aria-label="Agent 筛选">
+                <Tabs.Tab className="whitespace-nowrap" id="all">
+                  全部
                   <Tabs.Indicator />
                 </Tabs.Tab>
-                <Tabs.Tab id="runs">
-                  运行
+                <Tabs.Tab className="whitespace-nowrap" id="enabled">
+                  启用
                   <Tabs.Indicator />
                 </Tabs.Tab>
-                <Tabs.Tab id="checks">
-                  检查
+                <Tabs.Tab className="whitespace-nowrap" id="disabled">
+                  停用
                   <Tabs.Indicator />
                 </Tabs.Tab>
               </Tabs.List>
             </Tabs.ListContainer>
           </Tabs>
-          <SearchField aria-label="搜索 Agent" className="w-full sm:w-[260px]">
+          <SearchField
+            aria-label="搜索 Agent"
+            className="w-full sm:w-[260px]"
+            value={searchQuery}
+            onChange={setSearchQuery}
+          >
             <SearchField.Group>
               <SearchField.SearchIcon />
-              <SearchField.Input placeholder="搜索 Agent 或负责人" />
+              <SearchField.Input placeholder="搜索 Agent 或模型" />
               <SearchField.ClearButton />
             </SearchField.Group>
           </SearchField>
         </div>
         <DataGrid
-          aria-label="Agent 模板"
+          aria-label="Agent 列表"
           className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
-          columns={AGENT_COLUMNS}
-          contentClassName="min-w-[780px]"
-          data={AGENTS}
+          columns={agentColumns}
+          contentClassName="min-w-[980px]"
+          data={filteredAgents}
+          defaultSortDescriptor={{
+            column: "displayLabel",
+            direction: "ascending",
+          }}
           getRowId={(item) => item.id}
+          renderEmptyState={() => emptyState}
         />
       </section>
     </AdminPage>
   );
+}
+
+function toAdminAgent(agent: ApiAgent, index: number): AdminAgent {
+  const agentId = agent.agentId?.trim() || `agent-${agent.id ?? index + 1}`;
+  const displayName = agent.displayName?.trim() ?? "";
+  const displayLabel = displayName || agentId;
+  const defaultModelid = agent.defaultModelid?.trim() ?? "";
+
+  return {
+    agentId,
+    agentRecordId: agent.id ?? null,
+    defaultModelLabel: getDefaultModelLabel(agent),
+    defaultModelid: defaultModelid || "-",
+    description: agent.description?.trim() ?? "",
+    displayLabel,
+    displayName,
+    enabled: agent.enabled !== false,
+    id: agent.id == null ? agentId : String(agent.id),
+    reasoningLevel: agent.reasoningLevel?.trim() ?? "",
+    status: agent.enabled === false ? "停用" : "启用",
+    thinkingLevel: agent.thinkingLevel?.trim() ?? "",
+    updatedAt: formatDateTime(agent.updatedAt),
+    verboseLevel: agent.verboseLevel?.trim() ?? "",
+  };
+}
+
+function toEditableAgentSummary(agent: AdminAgent, id: number) {
+  return {
+    agentId: agent.agentId,
+    defaultModelid: agent.defaultModelid === "-" ? "" : agent.defaultModelid,
+    description: agent.description,
+    displayName: agent.displayName,
+    enabled: agent.enabled,
+    id,
+    reasoningLevel: agent.reasoningLevel,
+    thinkingLevel: agent.thinkingLevel,
+    verboseLevel: agent.verboseLevel,
+  };
+}
+
+function filterAgents(
+  agents: AdminAgent[],
+  searchQuery: string,
+  agentFilter: AgentFilter,
+) {
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+
+  return agents.filter((agent) => {
+    if (agentFilter === "enabled" && agent.status !== "启用") return false;
+    if (agentFilter === "disabled" && agent.status !== "停用") return false;
+    if (!normalizedQuery) return true;
+
+    return [
+      agent.agentId,
+      agent.defaultModelid,
+      agent.defaultModelLabel,
+      agent.description,
+      agent.displayLabel,
+      agent.reasoningLevel,
+      agent.status,
+      agent.thinkingLevel,
+      agent.verboseLevel,
+    ].some((value) => value.toLowerCase().includes(normalizedQuery));
+  });
+}
+
+function getAgentStats(agents: AdminAgent[]) {
+  const defaultModels = Array.from(
+    new Set(
+      agents
+        .map((agent) => agent.defaultModelid)
+        .filter((defaultModelid) => defaultModelid && defaultModelid !== "-"),
+    ),
+  );
+
+  return {
+    defaultModelHelper: defaultModels.length
+      ? defaultModels.slice(0, 3).join(" / ")
+      : "暂无默认模型",
+    defaultModels: defaultModels.length,
+    disabled: agents.filter((agent) => agent.status === "停用").length,
+    enabled: agents.filter((agent) => agent.status === "启用").length,
+    total: agents.length,
+  };
+}
+
+function getDefaultModelLabel(agent: ApiAgent) {
+  const displayName = agent.defaultModel?.displayName?.trim();
+  const provider = agent.defaultModel?.provider?.trim();
+  const modelid = agent.defaultModel?.modelid?.trim();
+  const defaultModelid = agent.defaultModelid?.trim();
+
+  if (displayName) return displayName;
+  if (provider && modelid) return `${provider}/${modelid}`;
+  if (defaultModelid) return defaultModelid;
+
+  return "-";
+}
+
+function formatAgentLevels(
+  agent: Pick<AdminAgent, "reasoningLevel" | "thinkingLevel" | "verboseLevel">,
+) {
+  const levels = [
+    agent.reasoningLevel ? `reasoning: ${agent.reasoningLevel}` : null,
+    agent.thinkingLevel ? `thinking: ${agent.thinkingLevel}` : null,
+    agent.verboseLevel ? `verbose: ${agent.verboseLevel}` : null,
+  ].filter(Boolean);
+
+  return levels.length ? levels.join(" / ") : "-";
+}
+
+function toAgentFilter(key: Key): AgentFilter {
+  if (key === "enabled" || key === "disabled") return key;
+
+  return "all";
+}
+
+function getAgentsEmptyState({
+  error,
+  hasFilter,
+  isLoading,
+}: {
+  error: string | null;
+  hasFilter: boolean;
+  isLoading: boolean;
+}) {
+  if (isLoading) return "正在加载 Agent...";
+  if (error) return error;
+  if (hasFilter) return "没有匹配的 Agent。";
+
+  return "暂无 Agent 数据。";
+}
+
+function getAgentListError(error: unknown) {
+  if (
+    error instanceof Error &&
+    error.message.trim() &&
+    error.message !== "登录失败，请检查用户名或密码。"
+  ) {
+    return error.message;
+  }
+
+  return "Agent 列表加载失败。";
 }

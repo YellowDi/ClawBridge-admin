@@ -133,6 +133,67 @@ export interface Model {
   [property: string]: unknown;
 }
 
+export interface ReqAgentCreate {
+  agentId?: string;
+  defaultModelid?: string;
+  description?: string;
+  displayName?: string;
+  enabled?: boolean;
+  reasoningLevel?: string;
+  thinkingLevel?: string;
+  verboseLevel?: string;
+  [property: string]: unknown;
+}
+
+export interface ReqAgentDelete {
+  id?: number;
+  [property: string]: unknown;
+}
+
+export interface ReqAgentDetail {
+  id?: number;
+  [property: string]: unknown;
+}
+
+export interface ReqAgentUpdate {
+  agentId?: string;
+  defaultModelid?: string;
+  description?: string;
+  displayName?: string;
+  enabled?: boolean;
+  id?: number;
+  reasoningLevel?: string;
+  thinkingLevel?: string;
+  verboseLevel?: string;
+  [property: string]: unknown;
+}
+
+export interface ResAgent {
+  data?: Agent;
+  [property: string]: unknown;
+}
+
+export interface ResAgents {
+  data?: Agent[];
+  [property: string]: unknown;
+}
+
+export interface Agent {
+  agentId?: string;
+  createdAt?: string;
+  defaultModel?: Model;
+  defaultModelid?: string;
+  description?: string;
+  displayName?: string;
+  enabled?: boolean;
+  id?: number;
+  reasoningLevel?: string;
+  thinkingLevel?: string;
+  updatedAt?: string;
+  verboseLevel?: string;
+  [property: string]: unknown;
+}
+
 export type AuthSession = {
   expireAt?: string;
   token: string;
@@ -300,6 +361,73 @@ export async function updateModel(
 export async function deleteModel(id: number): Promise<void> {
   await requestJson<ControllerResponse | unknown>("/api/models/delete", {
     body: JSON.stringify({ id } satisfies ReqModelDelete),
+    method: "POST",
+  });
+}
+
+export async function listAgents(): Promise<Agent[]> {
+  const response = await requestJson<ResAgents | Agent[]>("/api/agents/list", {
+    body: JSON.stringify({}),
+    method: "POST",
+  });
+
+  if (Array.isArray(response)) return response;
+
+  return response.data ?? [];
+}
+
+export async function createAgent(
+  request: ReqAgentCreate,
+): Promise<Agent | undefined> {
+  const response = await requestJson<ResAgent | Agent | undefined>(
+    "/api/agents/create",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+
+  if (!response) return undefined;
+  if ("data" in response) return (response as ResAgent).data;
+
+  return response;
+}
+
+export async function getAgentDetail(id: number): Promise<Agent | undefined> {
+  const response = await requestJson<ResAgent | Agent | undefined>(
+    "/api/agents/detail",
+    {
+      body: JSON.stringify({ id } satisfies ReqAgentDetail),
+      method: "POST",
+    },
+  );
+
+  if (!response) return undefined;
+  if ("data" in response) return (response as ResAgent).data;
+
+  return response;
+}
+
+export async function updateAgent(
+  request: ReqAgentUpdate,
+): Promise<Agent | undefined> {
+  const response = await requestJson<ResAgent | Agent | undefined>(
+    "/api/agents/update",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+
+  if (!response) return undefined;
+  if ("data" in response) return (response as ResAgent).data;
+
+  return response;
+}
+
+export async function deleteAgent(id: number): Promise<void> {
+  await requestJson<ControllerResponse | unknown>("/api/agents/delete", {
+    body: JSON.stringify({ id } satisfies ReqAgentDelete),
     method: "POST",
   });
 }
