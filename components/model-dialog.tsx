@@ -448,8 +448,9 @@ export function DeleteModelDialog({
             </Modal.Header>
             <Modal.Body className="flex min-w-0 flex-col gap-3">
               <p className="text-muted text-sm">
-                确认删除模型「{modelName}
-                」？删除后该模型将无法继续被授权或使用。
+                {"确认删除模型「"}
+                <span className="break-all">{modelName}</span>
+                {"」？删除后该模型将无法继续被授权或使用。"}
               </p>
               {error ? <ModelFormError>{error}</ModelFormError> : null}
             </Modal.Body>
