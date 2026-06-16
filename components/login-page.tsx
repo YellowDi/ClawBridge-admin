@@ -2,12 +2,11 @@
 
 import type { FormEvent } from "react";
 
-import { Button, Chip, InputGroup, TextField } from "@heroui/react";
+import { Button, InputGroup, Label, TextField } from "@heroui/react";
 import { useState } from "react";
 
 import { AdminIcon } from "@/components/admin-icons";
 import { useAuth } from "@/components/auth-provider";
-import { API_BASE_URL } from "@/lib/api";
 
 export function LoginPage() {
   const { login } = useAuth();
@@ -42,99 +41,93 @@ export function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
-      <div className="grid w-full max-w-5xl grid-cols-1 overflow-hidden rounded-lg border border-separator bg-surface shadow-xl lg:grid-cols-[1fr_420px]">
-        <section className="flex min-h-[420px] flex-col justify-between bg-surface-secondary p-8 sm:p-10">
-          <div>
-            <div className="mb-5 flex items-center gap-3">
-              <div className="flex size-11 items-center justify-center rounded-md bg-accent text-accent-foreground">
-                <AdminIcon className="size-5" name="shield" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-foreground text-xl font-semibold tracking-normal">
-                  ClawBridge Admin
-                </h1>
-                <p className="text-muted mt-1 text-sm">管理后台登录</p>
-              </div>
-            </div>
-            <p className="text-muted max-w-xl text-sm leading-6">
-              当前处于接口开发阶段，登录成功后会保存
-              JWT，用于后续接入用户、模型和审计接口。
-            </p>
+    <main className="flex min-h-screen items-center justify-center bg-background px-4 py-8 text-foreground sm:px-6">
+      <section className="w-full max-w-[420px]">
+        <div className="mb-7 flex flex-col items-center text-center">
+          <div className="flex size-12 items-center justify-center rounded-lg bg-accent text-accent-foreground shadow-[0_12px_32px_-18px_rgba(34,197,94,0.9)]">
+            <AdminIcon className="size-5" name="shield" />
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Chip color="warning" size="sm" variant="soft">
-              Dev API
-            </Chip>
-            <span className="text-muted text-xs">{API_BASE_URL}</span>
-          </div>
-        </section>
+          <h1 className="mt-4 text-xl font-semibold tracking-normal text-foreground">
+            ClawBridge Admin
+          </h1>
+          <p className="mt-2 text-sm text-muted">登录管理控制台</p>
+        </div>
 
-        <section className="bg-background p-6 sm:p-8">
-          <form
-            className="flex h-full flex-col justify-center gap-5"
-            onSubmit={handleSubmit}
+        <form
+          className="flex flex-col gap-5 rounded-lg bg-surface p-6 shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_16px_44px_-28px_rgba(0,0,0,0.42)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.09)] sm:p-7"
+          onSubmit={handleSubmit}
+        >
+          <TextField
+            fullWidth
+            aria-label="用户名"
+            isDisabled={isSubmitting}
+            name="username"
           >
-            <div>
-              <h2 className="text-foreground text-lg font-semibold">登录</h2>
-              <p className="text-muted mt-1 text-sm">
-                使用后台账号继续访问控制台。
-              </p>
+            <Label className="text-sm font-medium text-foreground">
+              用户名
+            </Label>
+            <InputGroup fullWidth variant="secondary">
+              <InputGroup.Prefix>
+                <AdminIcon className="size-4 text-muted" name="users" />
+              </InputGroup.Prefix>
+              <InputGroup.Input
+                autoComplete="username"
+                className="text-sm"
+                id="login-username"
+                placeholder="请输入用户名"
+                value={username}
+                onChange={(event) => setUsername(event.target.value)}
+              />
+            </InputGroup>
+          </TextField>
+
+          <TextField
+            fullWidth
+            aria-label="密码"
+            isDisabled={isSubmitting}
+            name="password"
+          >
+            <Label className="text-sm font-medium text-foreground">密码</Label>
+            <InputGroup fullWidth variant="secondary">
+              <InputGroup.Prefix>
+                <AdminIcon className="size-4 text-muted" name="shield" />
+              </InputGroup.Prefix>
+              <InputGroup.Input
+                autoComplete="current-password"
+                className="text-sm"
+                id="login-password"
+                placeholder="请输入密码"
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+              />
+            </InputGroup>
+          </TextField>
+
+          {error ? (
+            <div
+              className="rounded-md bg-danger/10 px-3 py-2.5 text-sm leading-5 text-danger shadow-[0_0_0_1px_rgba(239,68,68,0.22)]"
+              role="alert"
+            >
+              {error}
             </div>
+          ) : null}
 
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-2">
-                <label
-                  className="text-foreground text-sm font-medium"
-                  htmlFor="login-username"
-                >
-                  用户名
-                </label>
-                <TextField aria-label="用户名" isDisabled={isSubmitting}>
-                  <InputGroup>
-                    <InputGroup.Input
-                      autoComplete="username"
-                      id="login-username"
-                      value={username}
-                      onChange={(event) => setUsername(event.target.value)}
-                    />
-                  </InputGroup>
-                </TextField>
-              </div>
+          <Button
+            fullWidth
+            className="h-11 font-medium"
+            isDisabled={isSubmitting}
+            isPending={isSubmitting}
+            type="submit"
+          >
+            {isSubmitting ? "验证中..." : "登录"}
+          </Button>
+        </form>
 
-              <div className="flex flex-col gap-2">
-                <label
-                  className="text-foreground text-sm font-medium"
-                  htmlFor="login-password"
-                >
-                  密码
-                </label>
-                <TextField aria-label="密码" isDisabled={isSubmitting}>
-                  <InputGroup>
-                    <InputGroup.Input
-                      autoComplete="current-password"
-                      id="login-password"
-                      type="password"
-                      value={password}
-                      onChange={(event) => setPassword(event.target.value)}
-                    />
-                  </InputGroup>
-                </TextField>
-              </div>
-            </div>
-
-            {error ? (
-              <div className="rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
-                {error}
-              </div>
-            ) : null}
-
-            <Button fullWidth isDisabled={isSubmitting} type="submit">
-              {isSubmitting ? "登录中..." : "登录"}
-            </Button>
-          </form>
-        </section>
-      </div>
+        <p className="mt-5 text-center text-xs text-muted">
+          仅限授权管理员访问
+        </p>
+      </section>
     </main>
   );
 }
