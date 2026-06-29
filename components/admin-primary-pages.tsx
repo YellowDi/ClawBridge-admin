@@ -24,7 +24,10 @@ import {
   EditUserDialog,
 } from "@/components/create-user-dialog";
 import { ModelConfigurationPage } from "@/components/model-configuration-page";
-import { UserAccessDialog } from "@/components/user-access-dialog";
+import {
+  UserAuthorizationDialog,
+  UserBalanceDialog,
+} from "@/components/user-access-dialog";
 import { listAgents, listModels, listUsers } from "@/lib/api";
 
 type UserStatus = "正常" | "已停用";
@@ -301,7 +304,8 @@ export function UsersPage() {
 
           return (
             <div className="flex items-center justify-end gap-2">
-              <UserAccessDialog user={user} />
+              <UserAuthorizationDialog user={user} />
+              <UserBalanceDialog user={user} />
               <EditUserDialog user={user} onUpdated={refreshUsers} />
               <DeleteUserDialog user={user} onDeleted={refreshUsers} />
             </div>
@@ -309,7 +313,8 @@ export function UsersPage() {
         },
         header: "操作",
         id: "actions",
-        minWidth: 260,
+        minWidth: 320,
+        pinned: "end",
       },
     ],
     [refreshUsers],
@@ -528,7 +533,15 @@ function getUserListError(error: unknown) {
 }
 
 export function ModelsPage() {
-  return <ModelConfigurationPage />;
+  return (
+    <AdminPage
+      description="保存可用模型，配置供应商、模型 ID 和模型能力。"
+      eyebrow="Model Config"
+      title="模型配置"
+    >
+      <ModelConfigurationPage />
+    </AdminPage>
+  );
 }
 
 export function AgentsPage() {
@@ -627,6 +640,7 @@ export function AgentsPage() {
         header: "操作",
         id: "actions",
         minWidth: 160,
+        pinned: "end",
       },
     ],
     [agentModelOptions, refreshAgents],

@@ -63,6 +63,8 @@ type UsageUserRow = {
   username: string;
 };
 
+type UsageView = "time" | "users";
+
 type ConversationFilter = "active" | "all" | "archived";
 
 type ConversationLoadState = {
@@ -165,6 +167,7 @@ const USAGE_USER_COLUMNS: DataGridColumn<UsageUserRow>[] = [
 
 export function UsagePage() {
   const isMountedRef = useRef(false);
+  const [usageView, setUsageView] = useState<UsageView>("time");
   const [loadState, setLoadState] = useState<UsageLoadState>({
     error: null,
     isLoading: true,
@@ -268,21 +271,41 @@ export function UsagePage() {
         ]}
       />
 
-      <section className="grid gap-4 xl:grid-cols-2">
-        <UsageTable
-          columns={USAGE_TIME_COLUMNS}
-          data={timeRows}
-          emptyText={getUsageEmptyText(error, isLoading)}
-          label="按日用量"
-          rowId={(item) => item.id}
-        />
-        <UsageTable
-          columns={USAGE_USER_COLUMNS}
-          data={userRows}
-          emptyText={getUsageEmptyText(error, isLoading)}
-          label="按用户用量"
-          rowId={(item) => item.id}
-        />
+      <section className="flex min-w-0 flex-col gap-3">
+        <Tabs
+          selectedKey={usageView}
+          onSelectionChange={(key) => setUsageView(toUsageView(key))}
+        >
+          <Tabs.ListContainer>
+            <Tabs.List aria-label="用量视图">
+              <Tabs.Tab className="whitespace-nowrap" id="time">
+                按日用量
+                <Tabs.Indicator />
+              </Tabs.Tab>
+              <Tabs.Tab className="whitespace-nowrap" id="users">
+                按用户用量
+                <Tabs.Indicator />
+              </Tabs.Tab>
+            </Tabs.List>
+          </Tabs.ListContainer>
+        </Tabs>
+        {usageView === "time" ? (
+          <UsageTable
+            columns={USAGE_TIME_COLUMNS}
+            data={timeRows}
+            emptyText={getUsageEmptyText(error, isLoading)}
+            label="按日用量"
+            rowId={(item) => item.id}
+          />
+        ) : (
+          <UsageTable
+            columns={USAGE_USER_COLUMNS}
+            data={userRows}
+            emptyText={getUsageEmptyText(error, isLoading)}
+            label="按用户用量"
+            rowId={(item) => item.id}
+          />
+        )}
       </section>
     </AdminPage>
   );
@@ -384,6 +407,7 @@ export function ConversationsPage() {
         header: "操作",
         id: "actions",
         minWidth: 180,
+        pinned: "end",
       },
     ],
     [archiveAction],
@@ -440,15 +464,15 @@ export function ConversationsPage() {
           >
             <Tabs.ListContainer>
               <Tabs.List aria-label="会话筛选">
-                <Tabs.Tab id="active">
+                <Tabs.Tab className="whitespace-nowrap" id="active">
                   活跃
                   <Tabs.Indicator />
                 </Tabs.Tab>
-                <Tabs.Tab id="archived">
+                <Tabs.Tab className="whitespace-nowrap" id="archived">
                   已归档
                   <Tabs.Indicator />
                 </Tabs.Tab>
-                <Tabs.Tab id="all">
+                <Tabs.Tab className="whitespace-nowrap" id="all">
                   全部
                   <Tabs.Indicator />
                 </Tabs.Tab>
@@ -841,6 +865,10 @@ function toConversationFilter(key: unknown): ConversationFilter {
   if (key === "all" || key === "archived") return key;
 
   return "active";
+}
+
+function toUsageView(key: unknown): UsageView {
+  return key === "users" ? "users" : "time";
 }
 
 function getUsageEmptyText(error: string | null, isLoading: boolean) {

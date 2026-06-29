@@ -23,7 +23,7 @@ export function AdminPage({
   title: string;
 }) {
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
+    <div className="flex w-full flex-col gap-6">
       <section className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           {eyebrow ? (
