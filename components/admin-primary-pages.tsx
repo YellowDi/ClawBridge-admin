@@ -8,7 +8,7 @@ import type {
   User as ApiUser,
 } from "@/lib/api";
 
-import { Avatar, Button, Chip, SearchField, Tabs } from "@heroui/react";
+import { Avatar, Chip, SearchField, Tabs } from "@heroui/react";
 import { DataGrid } from "@heroui-pro/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -24,6 +24,7 @@ import {
   EditUserDialog,
 } from "@/components/create-user-dialog";
 import { ModelConfigurationPage } from "@/components/model-configuration-page";
+import { UserAccessDialog } from "@/components/user-access-dialog";
 import { listAgents, listModels, listUsers } from "@/lib/api";
 
 type UserStatus = "正常" | "已停用";
@@ -300,6 +301,7 @@ export function UsersPage() {
 
           return (
             <div className="flex items-center justify-end gap-2">
+              <UserAccessDialog user={user} />
               <EditUserDialog user={user} onUpdated={refreshUsers} />
               <DeleteUserDialog user={user} onDeleted={refreshUsers} />
             </div>
@@ -307,7 +309,7 @@ export function UsersPage() {
         },
         header: "操作",
         id: "actions",
-        minWidth: 160,
+        minWidth: 260,
       },
     ],
     [refreshUsers],
@@ -321,14 +323,7 @@ export function UsersPage() {
 
   return (
     <AdminPage
-      actions={
-        <>
-          <Button size="sm" variant="tertiary">
-            导出用户
-          </Button>
-          <CreateUserDialog onCreated={() => void loadUsers()} />
-        </>
-      }
+      actions={<CreateUserDialog onCreated={() => void loadUsers()} />}
       description="集中管理登录用户、管理员身份和账号状态。"
       eyebrow="Identity"
       title="用户管理"
