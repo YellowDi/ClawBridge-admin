@@ -2,7 +2,11 @@
 
 import type { DataGridColumn } from "@heroui-pro/react";
 import type { Key } from "react";
-import type { Agent as ApiAgent, User as ApiUser } from "@/lib/api";
+import type {
+  Agent as ApiAgent,
+  Model as ApiModel,
+  User as ApiUser,
+} from "@/lib/api";
 
 import { Avatar, Button, Chip, SearchField, Tabs } from "@heroui/react";
 import { DataGrid } from "@heroui-pro/react";
@@ -20,7 +24,7 @@ import {
   EditUserDialog,
 } from "@/components/create-user-dialog";
 import { ModelConfigurationPage } from "@/components/model-configuration-page";
-import { listAgents, listUsers } from "@/lib/api";
+import { listAgents, listModels, listUsers } from "@/lib/api";
 
 type UserStatus = "正常" | "已停用";
 type UserFilter = "admin" | "all" | "disabled";
@@ -126,8 +130,14 @@ type AgentStatus = "停用" | "启用";
 type AdminAgent = {
   agentId: string;
   agentRecordId: number | null;
+  capabilityModelSummary: string;
+  defaultImageGenerationModelid: string;
+  defaultImageModelid: string;
+  defaultMusicGenerationModelid: string;
   defaultModelLabel: string;
   defaultModelid: string;
+  defaultPdfModelid: string;
+  defaultVideoGenerationModelid: string;
   description: string;
   displayLabel: string;
   displayName: string;
@@ -184,6 +194,16 @@ const AGENT_BASE_COLUMNS: DataGridColumn<AdminAgent>[] = [
     header: "默认模型",
     id: "defaultModelLabel",
     minWidth: 190,
+  },
+  {
+    cell: (item) => (
+      <span className="text-muted line-clamp-2 text-xs">
+        {item.capabilityModelSummary || "-"}
+      </span>
+    ),
+    header: "能力模型",
+    id: "capabilityModelSummary",
+    minWidth: 260,
   },
   {
     cell: (item) => (
@@ -524,6 +544,7 @@ export function AgentsPage() {
     isLoading: true,
   });
   const [agentFilter, setAgentFilter] = useState<AgentFilter>("all");
+  const [agentModelOptions, setAgentModelOptions] = useState<ApiModel[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const { agents, error, isLoading } = loadState;
 
@@ -555,15 +576,30 @@ export function AgentsPage() {
     }
   }, []);
 
+  const loadAgentModelOptions = useCallback(async () => {
+    try {
+      const response = await listModels({ pageSize: 500 });
+
+      if (isMountedRef.current) {
+        setAgentModelOptions(response);
+      }
+    } catch {
+      if (isMountedRef.current) {
+        setAgentModelOptions([]);
+      }
+    }
+  }, []);
+
   useEffect(() => {
     isMountedRef.current = true;
 
     void loadAgents();
+    void loadAgentModelOptions();
 
     return () => {
       isMountedRef.current = false;
     };
-  }, [loadAgents]);
+  }, [loadAgentModelOptions, loadAgents]);
 
   const filteredAgents = useMemo(
     () => filterAgents(agents, searchQuery, agentFilter),
@@ -584,7 +620,11 @@ export function AgentsPage() {
 
           return (
             <div className="flex items-center justify-end gap-2">
-              <EditAgentDialog agent={agent} onUpdated={refreshAgents} />
+              <EditAgentDialog
+                agent={agent}
+                modelOptions={agentModelOptions}
+                onUpdated={refreshAgents}
+              />
               <DeleteAgentDialog agent={agent} onDeleted={refreshAgents} />
             </div>
           );
@@ -594,7 +634,7 @@ export function AgentsPage() {
         minWidth: 160,
       },
     ],
-    [refreshAgents],
+    [agentModelOptions, refreshAgents],
   );
   const agentStats = useMemo(() => getAgentStats(agents), [agents]);
   const emptyState = getAgentsEmptyState({
@@ -605,7 +645,12 @@ export function AgentsPage() {
 
   return (
     <AdminPage
-      actions={<CreateAgentDialog onCreated={() => void loadAgents()} />}
+      actions={
+        <CreateAgentDialog
+          modelOptions={agentModelOptions}
+          onCreated={() => void loadAgents()}
+        />
+      }
       description="维护 Agent 标识、默认模型、推理配置和启用状态。"
       eyebrow="Agent Studio"
       title="Agent 编排"
@@ -677,7 +722,7 @@ export function AgentsPage() {
           aria-label="Agent 列表"
           className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
           columns={agentColumns}
-          contentClassName="min-w-[980px]"
+          contentClassName="min-w-[1180px]"
           data={filteredAgents}
           defaultSortDescriptor={{
             column: "displayLabel",
@@ -696,12 +741,32 @@ function toAdminAgent(agent: ApiAgent, index: number): AdminAgent {
   const displayName = agent.displayName?.trim() ?? "";
   const displayLabel = displayName || agentId;
   const defaultModelid = agent.defaultModelid?.trim() ?? "";
+  const defaultImageGenerationModelid =
+    agent.defaultImageGenerationModelid?.trim() ?? "";
+  const defaultVideoGenerationModelid =
+    agent.defaultVideoGenerationModelid?.trim() ?? "";
+  const defaultMusicGenerationModelid =
+    agent.defaultMusicGenerationModelid?.trim() ?? "";
+  const defaultImageModelid = agent.defaultImageModelid?.trim() ?? "";
+  const defaultPdfModelid = agent.defaultPdfModelid?.trim() ?? "";
 
   return {
     agentId,
     agentRecordId: agent.id ?? null,
+    capabilityModelSummary: formatCapabilityModelSummary({
+      defaultImageGenerationModelid,
+      defaultImageModelid,
+      defaultMusicGenerationModelid,
+      defaultPdfModelid,
+      defaultVideoGenerationModelid,
+    }),
+    defaultImageGenerationModelid,
+    defaultImageModelid,
+    defaultMusicGenerationModelid,
     defaultModelLabel: getDefaultModelLabel(agent),
     defaultModelid: defaultModelid || "-",
+    defaultPdfModelid,
+    defaultVideoGenerationModelid,
     description: agent.description?.trim() ?? "",
     displayLabel,
     displayName,
@@ -718,7 +783,12 @@ function toAdminAgent(agent: ApiAgent, index: number): AdminAgent {
 function toEditableAgentSummary(agent: AdminAgent, id: number) {
   return {
     agentId: agent.agentId,
+    defaultImageGenerationModelid: agent.defaultImageGenerationModelid,
+    defaultImageModelid: agent.defaultImageModelid,
+    defaultMusicGenerationModelid: agent.defaultMusicGenerationModelid,
     defaultModelid: agent.defaultModelid === "-" ? "" : agent.defaultModelid,
+    defaultPdfModelid: agent.defaultPdfModelid,
+    defaultVideoGenerationModelid: agent.defaultVideoGenerationModelid,
     description: agent.description,
     displayName: agent.displayName,
     enabled: agent.enabled,
@@ -743,8 +813,14 @@ function filterAgents(
 
     return [
       agent.agentId,
+      agent.capabilityModelSummary,
+      agent.defaultImageGenerationModelid,
+      agent.defaultImageModelid,
+      agent.defaultMusicGenerationModelid,
       agent.defaultModelid,
       agent.defaultModelLabel,
+      agent.defaultPdfModelid,
+      agent.defaultVideoGenerationModelid,
       agent.description,
       agent.displayLabel,
       agent.reasoningLevel,
@@ -753,6 +829,37 @@ function filterAgents(
       agent.verboseLevel,
     ].some((value) => value.toLowerCase().includes(normalizedQuery));
   });
+}
+
+function formatCapabilityModelSummary({
+  defaultImageGenerationModelid,
+  defaultImageModelid,
+  defaultMusicGenerationModelid,
+  defaultPdfModelid,
+  defaultVideoGenerationModelid,
+}: Pick<
+  AdminAgent,
+  | "defaultImageGenerationModelid"
+  | "defaultImageModelid"
+  | "defaultMusicGenerationModelid"
+  | "defaultPdfModelid"
+  | "defaultVideoGenerationModelid"
+>) {
+  return [
+    defaultImageGenerationModelid
+      ? `图像生成 ${defaultImageGenerationModelid}`
+      : null,
+    defaultVideoGenerationModelid
+      ? `视频 ${defaultVideoGenerationModelid}`
+      : null,
+    defaultMusicGenerationModelid
+      ? `音乐 ${defaultMusicGenerationModelid}`
+      : null,
+    defaultImageModelid ? `图像理解 ${defaultImageModelid}` : null,
+    defaultPdfModelid ? `PDF ${defaultPdfModelid}` : null,
+  ]
+    .filter(Boolean)
+    .join(" / ");
 }
 
 function getAgentStats(agents: AdminAgent[]) {

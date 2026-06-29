@@ -1,7 +1,7 @@
 "use client";
 
 import type { FormEvent, Key } from "react";
-import type { Agent, ReqAgentCreate, ReqAgentUpdate } from "@/lib/api";
+import type { Agent, Model, ReqAgentCreate, ReqAgentUpdate } from "@/lib/api";
 
 import {
   Button,
@@ -25,7 +25,12 @@ import {
 
 type AgentForm = {
   agentId: string;
+  defaultImageGenerationModelid: string;
+  defaultImageModelid: string;
+  defaultMusicGenerationModelid: string;
   defaultModelid: string;
+  defaultPdfModelid: string;
+  defaultVideoGenerationModelid: string;
   description: string;
   displayName: string;
   enabled: boolean;
@@ -56,7 +61,12 @@ type DeleteAgentState = {
 export type EditableAgentSummary = Pick<
   Agent,
   | "agentId"
+  | "defaultImageGenerationModelid"
+  | "defaultImageModelid"
+  | "defaultMusicGenerationModelid"
   | "defaultModelid"
+  | "defaultPdfModelid"
+  | "defaultVideoGenerationModelid"
   | "description"
   | "displayName"
   | "enabled"
@@ -68,11 +78,21 @@ export type EditableAgentSummary = Pick<
   id: number;
 };
 
+type AgentDialogProps = {
+  modelOptions?: Model[];
+};
+
 const UNSET_LEVEL = "__unset";
+const UNSET_MODEL = "__unset";
 
 const DEFAULT_AGENT_FORM: AgentForm = {
   agentId: "",
+  defaultImageGenerationModelid: "",
+  defaultImageModelid: "",
+  defaultMusicGenerationModelid: "",
   defaultModelid: "",
+  defaultPdfModelid: "",
+  defaultVideoGenerationModelid: "",
   description: "",
   displayName: "",
   enabled: true,
@@ -107,7 +127,10 @@ const VERBOSE_LEVELS = [
   { id: "full", label: "full" },
 ] as const;
 
-export function CreateAgentDialog({ onCreated }: { onCreated: () => void }) {
+export function CreateAgentDialog({
+  modelOptions = [],
+  onCreated,
+}: AgentDialogProps & { onCreated: () => void }) {
   const [state, setState] = useState<CreateAgentState>({
     error: null,
     form: DEFAULT_AGENT_FORM,
@@ -202,6 +225,7 @@ export function CreateAgentDialog({ onCreated }: { onCreated: () => void }) {
                 <AgentFormFields
                   form={form}
                   isDisabled={isCreating}
+                  modelOptions={modelOptions}
                   onChange={updateForm}
                 />
 
@@ -230,11 +254,12 @@ export function CreateAgentDialog({ onCreated }: { onCreated: () => void }) {
 
 export function EditAgentDialog({
   agent,
+  modelOptions = [],
   onUpdated,
 }: {
   agent: EditableAgentSummary;
   onUpdated: () => void;
-}) {
+} & AgentDialogProps) {
   const loadRequestRef = useRef(0);
   const [state, setState] = useState<EditAgentState>({
     error: null,
@@ -377,6 +402,7 @@ export function EditAgentDialog({
                 <AgentFormFields
                   form={form}
                   isDisabled={isBusy || loadedAgentId == null}
+                  modelOptions={modelOptions}
                   onChange={updateForm}
                 />
                 {error ? <AgentFormError>{error}</AgentFormError> : null}
@@ -509,10 +535,12 @@ export function DeleteAgentDialog({
 function AgentFormFields({
   form,
   isDisabled,
+  modelOptions,
   onChange,
 }: {
   form: AgentForm;
   isDisabled: boolean;
+  modelOptions: Model[];
   onChange: (patch: Partial<AgentForm>) => void;
 }) {
   return (
@@ -546,21 +574,13 @@ function AgentFormFields({
           />
         </TextField>
 
-        <TextField
-          fullWidth
-          className="flex min-w-0 flex-col gap-2"
+        <ModelSelectField
           isDisabled={isDisabled}
-          variant="secondary"
-        >
-          <Label>默认模型 ID</Label>
-          <Input
-            fullWidth
-            value={form.defaultModelid}
-            onChange={(event) =>
-              onChange({ defaultModelid: event.target.value })
-            }
-          />
-        </TextField>
+          label="默认模型"
+          modelOptions={modelOptions}
+          value={form.defaultModelid}
+          onChange={(defaultModelid) => onChange({ defaultModelid })}
+        />
 
         <Select
           fullWidth
@@ -607,6 +627,52 @@ function AgentFormFields({
           onChange={(verboseLevel) => onChange({ verboseLevel })}
         />
 
+        <ModelSelectField
+          isDisabled={isDisabled}
+          label="图像生成模型"
+          modelOptions={modelOptions}
+          value={form.defaultImageGenerationModelid}
+          onChange={(defaultImageGenerationModelid) =>
+            onChange({ defaultImageGenerationModelid })
+          }
+        />
+
+        <ModelSelectField
+          isDisabled={isDisabled}
+          label="视频生成模型"
+          modelOptions={modelOptions}
+          value={form.defaultVideoGenerationModelid}
+          onChange={(defaultVideoGenerationModelid) =>
+            onChange({ defaultVideoGenerationModelid })
+          }
+        />
+
+        <ModelSelectField
+          isDisabled={isDisabled}
+          label="音乐生成模型"
+          modelOptions={modelOptions}
+          value={form.defaultMusicGenerationModelid}
+          onChange={(defaultMusicGenerationModelid) =>
+            onChange({ defaultMusicGenerationModelid })
+          }
+        />
+
+        <ModelSelectField
+          isDisabled={isDisabled}
+          label="图像理解模型"
+          modelOptions={modelOptions}
+          value={form.defaultImageModelid}
+          onChange={(defaultImageModelid) => onChange({ defaultImageModelid })}
+        />
+
+        <ModelSelectField
+          isDisabled={isDisabled}
+          label="PDF 理解模型"
+          modelOptions={modelOptions}
+          value={form.defaultPdfModelid}
+          onChange={(defaultPdfModelid) => onChange({ defaultPdfModelid })}
+        />
+
         <TextField
           fullWidth
           className="flex min-w-0 flex-col gap-2"
@@ -622,6 +688,68 @@ function AgentFormFields({
         </TextField>
       </div>
     </>
+  );
+}
+
+function ModelSelectField({
+  isDisabled,
+  label,
+  modelOptions,
+  onChange,
+  value,
+}: {
+  isDisabled: boolean;
+  label: string;
+  modelOptions: Model[];
+  onChange: (value: string) => void;
+  value: string;
+}) {
+  const options = getModelSelectOptions(modelOptions, value);
+
+  if (options.length === 0) {
+    return (
+      <TextField
+        fullWidth
+        className="flex min-w-0 flex-col gap-2"
+        isDisabled={isDisabled}
+        variant="secondary"
+      >
+        <Label>{label}</Label>
+        <Input
+          fullWidth
+          placeholder="provider/modelid"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      </TextField>
+    );
+  }
+
+  return (
+    <Select
+      fullWidth
+      className="min-w-0"
+      isDisabled={isDisabled}
+      selectedKey={value || UNSET_MODEL}
+      variant="secondary"
+      onSelectionChange={(key) => onChange(toModelValue(key))}
+    >
+      <Label>{label}</Label>
+      <Select.Trigger>
+        <Select.Value />
+        <Select.Indicator />
+      </Select.Trigger>
+      <Select.Popover>
+        <ListBox>
+          <ListBox.Item id={UNSET_MODEL}>不设置</ListBox.Item>
+          {options.map((option) => (
+            <ListBox.Item key={option.value} id={option.value}>
+              {option.label}
+            </ListBox.Item>
+          ))}
+        </ListBox>
+      </Select.Popover>
+    </Select>
   );
 }
 
@@ -676,7 +804,18 @@ function AgentFormError({ children }: { children: string }) {
 function toCreateAgentRequest(form: AgentForm): ReqAgentCreate {
   return {
     agentId: form.agentId.trim(),
+    defaultImageGenerationModelid: toOptionalString(
+      form.defaultImageGenerationModelid,
+    ),
+    defaultImageModelid: toOptionalString(form.defaultImageModelid),
+    defaultMusicGenerationModelid: toOptionalString(
+      form.defaultMusicGenerationModelid,
+    ),
     defaultModelid: toOptionalString(form.defaultModelid),
+    defaultPdfModelid: toOptionalString(form.defaultPdfModelid),
+    defaultVideoGenerationModelid: toOptionalString(
+      form.defaultVideoGenerationModelid,
+    ),
     description: toOptionalString(form.description),
     displayName: toOptionalString(form.displayName),
     enabled: form.enabled,
@@ -696,7 +835,15 @@ function toUpdateAgentRequest(form: AgentForm, id: number): ReqAgentUpdate {
 function toAgentForm(agent: EditableAgentSummary): AgentForm {
   return {
     agentId: agent.agentId?.trim() ?? "",
+    defaultImageGenerationModelid:
+      agent.defaultImageGenerationModelid?.trim() ?? "",
+    defaultImageModelid: agent.defaultImageModelid?.trim() ?? "",
+    defaultMusicGenerationModelid:
+      agent.defaultMusicGenerationModelid?.trim() ?? "",
     defaultModelid: agent.defaultModelid?.trim() ?? "",
+    defaultPdfModelid: agent.defaultPdfModelid?.trim() ?? "",
+    defaultVideoGenerationModelid:
+      agent.defaultVideoGenerationModelid?.trim() ?? "",
     description: agent.description?.trim() ?? "",
     displayName: agent.displayName?.trim() ?? "",
     enabled: agent.enabled !== false,
@@ -729,6 +876,52 @@ function toOptionalString(value: string) {
 
 function toSelectedLevelKey(value: string) {
   return value || UNSET_LEVEL;
+}
+
+function getModelSelectOptions(models: Model[], currentValue: string) {
+  const options = models
+    .map((model) => {
+      const value = getModelReference(model);
+
+      if (!value) return null;
+
+      return {
+        label: getModelOptionLabel(model, value),
+        value,
+      };
+    })
+    .filter((item): item is { label: string; value: string } => Boolean(item));
+  const current = currentValue.trim();
+
+  if (current && !options.some((option) => option.value === current)) {
+    return [{ label: current, value: current }, ...options];
+  }
+
+  return options;
+}
+
+function getModelReference(model: Model) {
+  const provider = model.provider?.trim();
+  const modelid = model.modelid?.trim();
+
+  if (!modelid) return "";
+  if (!provider || modelid.includes("/")) return modelid;
+
+  return `${provider}/${modelid}`;
+}
+
+function getModelOptionLabel(model: Model, value: string) {
+  const displayName = model.displayName?.trim();
+
+  if (!displayName || displayName === value) return value;
+
+  return `${displayName} · ${value}`;
+}
+
+function toModelValue(key: Key | null) {
+  const value = String(key ?? UNSET_MODEL);
+
+  return value === UNSET_MODEL ? "" : value;
 }
 
 function toLevelValue(key: Key | null) {
