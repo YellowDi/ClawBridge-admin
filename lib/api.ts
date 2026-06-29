@@ -19,8 +19,24 @@ export interface ResLogin {
   [property: string]: unknown;
 }
 
+export interface ReqPagination {
+  page?: number;
+  pageSize?: number;
+  [property: string]: unknown;
+}
+
+export interface Pagination {
+  page?: number;
+  pageSize?: number;
+  total?: number;
+  [property: string]: unknown;
+}
+
+export interface ReqUserList extends ReqPagination {}
+
 export interface ResUsers {
   data?: User[];
+  pagination?: Pagination;
   [property: string]: unknown;
 }
 
@@ -59,6 +75,10 @@ export interface ControllerResponse {
   [property: string]: unknown;
 }
 
+export interface HealthStatus {
+  [property: string]: unknown;
+}
+
 export interface User {
   createdAt?: string;
   enabled?: boolean;
@@ -83,6 +103,8 @@ export interface ReqModelCreate {
   provider?: string;
   [property: string]: unknown;
 }
+
+export interface ReqModelList extends ReqPagination {}
 
 export interface ReqModelDelete {
   id?: number;
@@ -116,6 +138,7 @@ export interface ResModel {
 
 export interface ResModels {
   data?: Model[];
+  pagination?: Pagination;
   [property: string]: unknown;
 }
 
@@ -139,7 +162,12 @@ export interface Model {
 
 export interface ReqAgentCreate {
   agentId?: string;
+  defaultImageGenerationModelid?: string;
+  defaultImageModelid?: string;
+  defaultMusicGenerationModelid?: string;
   defaultModelid?: string;
+  defaultPdfModelid?: string;
+  defaultVideoGenerationModelid?: string;
   description?: string;
   displayName?: string;
   enabled?: boolean;
@@ -148,6 +176,8 @@ export interface ReqAgentCreate {
   verboseLevel?: string;
   [property: string]: unknown;
 }
+
+export interface ReqAgentList extends ReqPagination {}
 
 export interface ReqAgentDelete {
   id?: number;
@@ -161,7 +191,12 @@ export interface ReqAgentDetail {
 
 export interface ReqAgentUpdate {
   agentId?: string;
+  defaultImageGenerationModelid?: string;
+  defaultImageModelid?: string;
+  defaultMusicGenerationModelid?: string;
   defaultModelid?: string;
+  defaultPdfModelid?: string;
+  defaultVideoGenerationModelid?: string;
   description?: string;
   displayName?: string;
   enabled?: boolean;
@@ -179,22 +214,401 @@ export interface ResAgent {
 
 export interface ResAgents {
   data?: Agent[];
+  pagination?: Pagination;
   [property: string]: unknown;
 }
 
 export interface Agent {
   agentId?: string;
   createdAt?: string;
+  defaultImageGenerationModel?: Model;
+  defaultImageGenerationModelid?: string;
+  defaultImageModel?: Model;
+  defaultImageModelid?: string;
+  defaultMusicGenerationModel?: Model;
+  defaultMusicGenerationModelid?: string;
   defaultModel?: Model;
   defaultModelid?: string;
+  defaultPdfModel?: Model;
+  defaultPdfModelid?: string;
+  defaultVideoGenerationModel?: Model;
+  defaultVideoGenerationModelid?: string;
   description?: string;
   displayName?: string;
   enabled?: boolean;
   id?: number;
+  isDelete?: number;
   reasoningLevel?: string;
   thinkingLevel?: string;
   updatedAt?: string;
   verboseLevel?: string;
+  [property: string]: unknown;
+}
+
+export interface ReqUserModelsList extends ReqPagination {
+  userId?: number;
+  [property: string]: unknown;
+}
+
+export interface ReqUserModelsReplace {
+  modelIds?: number[];
+  userId?: number;
+  [property: string]: unknown;
+}
+
+export interface ReqUserAgentsList extends ReqPagination {
+  userId?: number;
+  [property: string]: unknown;
+}
+
+export interface ReqUserAgentsReplace {
+  agentIds?: number[];
+  userId?: number;
+  [property: string]: unknown;
+}
+
+export interface ReqUserBalanceDetail {
+  currency?: string;
+  userId?: number;
+  [property: string]: unknown;
+}
+
+export interface ReqUserBalanceTransactionsList extends ReqPagination {
+  currency?: string;
+  type?: string;
+  userId?: number;
+  [property: string]: unknown;
+}
+
+export interface ReqUserBalanceAdjust {
+  amount?: string;
+  currency?: string;
+  description?: string;
+  direction?: "credit" | "debit" | string;
+  type?: string;
+  userId?: number;
+  [property: string]: unknown;
+}
+
+export interface UserBalance {
+  availableAmount?: string;
+  createdAt?: string;
+  currency?: string;
+  frozenAmount?: string;
+  id?: number;
+  isDelete?: number;
+  totalConsumedAmount?: string;
+  totalRechargedAmount?: string;
+  updatedAt?: string;
+  userId?: number;
+  [property: string]: unknown;
+}
+
+export interface UserBalanceTransaction {
+  amount?: string;
+  balanceAfter?: string;
+  balanceBefore?: string;
+  createdAt?: string;
+  currency?: string;
+  description?: string;
+  direction?: string;
+  id?: number;
+  isDelete?: number;
+  metadataJson?: string;
+  relatedId?: string;
+  relatedType?: string;
+  type?: string;
+  updatedAt?: string;
+  userId?: number;
+  [property: string]: unknown;
+}
+
+export interface UserBalanceAdjustResult {
+  balance?: UserBalance;
+  transaction?: UserBalanceTransaction;
+  [property: string]: unknown;
+}
+
+export interface ReqConversationList extends ReqPagination {
+  archiveStatus?: number;
+  userId?: number;
+  [property: string]: unknown;
+}
+
+export interface ReqConversationDetail {
+  conversationId?: string;
+  [property: string]: unknown;
+}
+
+export interface ReqConversationArchive {
+  conversationId?: string;
+  [property: string]: unknown;
+}
+
+export interface BridgeConversation {
+  agentId?: string;
+  archivedAt?: string | null;
+  conversationId?: string;
+  createdAt?: string;
+  defaultModelid?: string;
+  id?: number;
+  isArchived?: number;
+  isDelete?: number;
+  lastMessageAt?: string;
+  lastModelid?: string;
+  pluginId?: string;
+  title?: string;
+  updatedAt?: string;
+  userId?: number;
+  [property: string]: unknown;
+}
+
+export interface ReqMessageList extends ReqPagination {
+  conversationId?: string;
+  [property: string]: unknown;
+}
+
+export interface BridgeMessage {
+  agentId?: string;
+  conversationId?: string;
+  createdAt?: string;
+  id?: number;
+  isDelete?: number;
+  messageId?: string;
+  metadataJson?: string;
+  modelid?: string;
+  pluginId?: string;
+  provider?: string;
+  replyTo?: string;
+  role?: string;
+  state?: string;
+  text?: string;
+  updatedAt?: string;
+  userId?: number;
+  [property: string]: unknown;
+}
+
+export interface ReqContextSnapshotCreate {
+  agentId?: string;
+  contextBudgetTokens?: number;
+  contextFresh?: boolean;
+  contextUsedRatio?: number;
+  contextUsedTokens?: number;
+  conversationId?: string;
+  createdAt?: string;
+  pluginId?: string;
+  sessionId?: string;
+  sessionKey?: string;
+  source?: string;
+  [property: string]: unknown;
+}
+
+export interface ReqConversationContext {
+  conversationId?: string;
+  pluginId?: string;
+  [property: string]: unknown;
+}
+
+export interface ContextSnapshot {
+  agentId?: string;
+  contextBudgetTokens?: number;
+  contextFresh?: boolean;
+  contextUsedPercent?: number;
+  contextUsedRatio?: number;
+  contextUsedTokens?: number;
+  conversationId?: string;
+  createdAt?: string;
+  id?: number;
+  isDelete?: number;
+  pluginId?: string;
+  rawPayloadJson?: string;
+  sessionId?: string;
+  sessionKey?: string;
+  snapshotCreatedAt?: string;
+  source?: string;
+  updatedAt?: string;
+  userId?: number;
+  [property: string]: unknown;
+}
+
+export interface TokenUsageNumbers {
+  cacheRead?: number;
+  cacheWrite?: number;
+  input?: number;
+  output?: number;
+  total?: number;
+  [property: string]: unknown;
+}
+
+export interface ReqTokenUsageCreate {
+  agentId?: string;
+  contextTokenBudget?: number;
+  conversationId?: string;
+  createdAt?: string;
+  model?: string;
+  modelid?: string;
+  pluginId?: string;
+  provider?: string;
+  resolvedRef?: string;
+  runId?: string;
+  sessionId?: string;
+  sessionKey?: string;
+  usage?: TokenUsageNumbers;
+  usageId?: string;
+  [property: string]: unknown;
+}
+
+export interface TokenUsage {
+  agentId?: string;
+  balanceTransactionId?: number;
+  billingCurrency?: string;
+  billingError?: string;
+  billingStatus?: string;
+  cacheReadCostAmount?: string;
+  cacheReadTokens?: number;
+  cacheReadUnitPricePerMillion?: string;
+  cacheWriteCostAmount?: string;
+  cacheWriteTokens?: number;
+  cacheWriteUnitPricePerMillion?: string;
+  contextTokenBudget?: number;
+  conversationId?: string;
+  createdAt?: string;
+  id?: number;
+  inputCostAmount?: string;
+  inputTokens?: number;
+  inputUnitPricePerMillion?: string;
+  isDelete?: number;
+  modelKey?: string;
+  modelid?: string;
+  outputCostAmount?: string;
+  outputTokens?: number;
+  outputUnitPricePerMillion?: string;
+  pluginId?: string;
+  provider?: string;
+  rawPayloadJson?: string;
+  resolvedRef?: string;
+  runId?: string;
+  sessionId?: string;
+  sessionKey?: string;
+  totalCostAmount?: string;
+  totalTokens?: number;
+  updatedAt?: string;
+  usageCreatedAt?: string;
+  usageId?: string;
+  userId?: number;
+  [property: string]: unknown;
+}
+
+export type UsageStatsBucket = "hour" | "day" | "week" | "month" | "year";
+
+export interface ReqTokenUsageStatsConversation {
+  conversationId?: string;
+  [property: string]: unknown;
+}
+
+export interface ReqTokenUsageStatsTime {
+  bucket?: UsageStatsBucket | string;
+  endDate?: string;
+  modelKey?: string;
+  startDate?: string;
+  userId?: number;
+  [property: string]: unknown;
+}
+
+export interface ReqTokenUsageStatsUsers extends ReqTokenUsageStatsTime {}
+
+export interface TokenUsageStatsModel {
+  cacheReadCostAmount?: string;
+  cacheReadTokens?: number;
+  cacheWriteCostAmount?: string;
+  cacheWriteTokens?: number;
+  currency?: string;
+  inputCostAmount?: string;
+  inputTokens?: number;
+  modelKey?: string;
+  modelid?: string;
+  outputCostAmount?: string;
+  outputTokens?: number;
+  provider?: string;
+  totalCostAmount?: string;
+  totalTokens?: number;
+  usageCount?: number;
+  [property: string]: unknown;
+}
+
+export interface TokenUsageStatsTimeBucket {
+  bucketStartAt?: string;
+  models?: TokenUsageStatsModel[];
+  [property: string]: unknown;
+}
+
+export interface TokenUsageStatsUser extends TokenUsageStatsModel {
+  bucketStartAt?: string;
+  userId?: number;
+  username?: string;
+}
+
+export interface TokenUsageStatsConversation {
+  conversationId?: string;
+  items?: TokenUsageStatsModel[];
+  [property: string]: unknown;
+}
+
+export interface TokenUsageStatsTime {
+  bucket?: string;
+  endDate?: string;
+  items?: TokenUsageStatsTimeBucket[];
+  startDate?: string;
+  [property: string]: unknown;
+}
+
+export interface TokenUsageStatsUsers {
+  bucket?: string;
+  endDate?: string;
+  items?: TokenUsageStatsUser[];
+  startDate?: string;
+  [property: string]: unknown;
+}
+
+export interface ReqOpenClawModelConfig {
+  capabilities?: string[];
+  displayName?: string;
+  enabled?: boolean;
+  modelid?: string;
+  provider?: string;
+  [property: string]: unknown;
+}
+
+export interface ReqOpenClawAgentConfig {
+  agentId?: string;
+  defaultImageGenerationModelid?: string;
+  defaultImageModelid?: string;
+  defaultMusicGenerationModelid?: string;
+  defaultModelid?: string;
+  defaultPdfModelid?: string;
+  defaultVideoGenerationModelid?: string;
+  description?: string;
+  displayName?: string;
+  enabled?: boolean;
+  reasoningLevel?: string;
+  thinkingLevel?: string;
+  verboseLevel?: string;
+  [property: string]: unknown;
+}
+
+export interface ReqApplyOpenClawConfig {
+  agents?: ReqOpenClawAgentConfig[];
+  dryRun?: boolean;
+  models?: ReqOpenClawModelConfig[];
+  pluginId?: string;
+  [property: string]: unknown;
+}
+
+export interface ApplyOpenClawConfigResult {
+  changed?: string[];
+  dryRun?: boolean;
+  message?: string;
+  success?: boolean;
   [property: string]: unknown;
 }
 
@@ -235,9 +649,16 @@ export async function login(request: ReqLogin): Promise<ResLogin> {
   });
 }
 
-export async function listUsers(): Promise<User[]> {
+export async function getHealthStatus(): Promise<HealthStatus | undefined> {
+  return requestJson<HealthStatus | undefined>("/healthz", {
+    auth: false,
+    method: "POST",
+  });
+}
+
+export async function listUsers(request: ReqUserList = {}): Promise<User[]> {
   const response = await requestJson<ResUsers | User[]>("/api/users/list", {
-    body: JSON.stringify({}),
+    body: JSON.stringify(request),
     method: "POST",
   });
 
@@ -302,9 +723,9 @@ export async function deleteUser(id: number): Promise<void> {
   });
 }
 
-export async function listModels(): Promise<Model[]> {
+export async function listModels(request: ReqModelList = {}): Promise<Model[]> {
   const response = await requestJson<ResModels | Model[]>("/api/models/list", {
-    body: JSON.stringify({}),
+    body: JSON.stringify(request),
     method: "POST",
   });
 
@@ -369,9 +790,9 @@ export async function deleteModel(id: number): Promise<void> {
   });
 }
 
-export async function listAgents(): Promise<Agent[]> {
+export async function listAgents(request: ReqAgentList = {}): Promise<Agent[]> {
   const response = await requestJson<ResAgents | Agent[]>("/api/agents/list", {
-    body: JSON.stringify({}),
+    body: JSON.stringify(request),
     method: "POST",
   });
 
@@ -434,6 +855,269 @@ export async function deleteAgent(id: number): Promise<void> {
     body: JSON.stringify({ id } satisfies ReqAgentDelete),
     method: "POST",
   });
+}
+
+export async function listUserModels(
+  request: ReqUserModelsList,
+): Promise<Model[]> {
+  const response = await requestJson<ResModels | Model[]>(
+    "/api/users/models/list",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+
+  if (Array.isArray(response)) return response;
+
+  return response.data ?? [];
+}
+
+export async function replaceUserModels(
+  request: ReqUserModelsReplace,
+): Promise<Model[]> {
+  const response = await requestJson<ResModels | Model[]>(
+    "/api/users/models/replace",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+
+  if (Array.isArray(response)) return response;
+
+  return response.data ?? [];
+}
+
+export async function listUserAgents(
+  request: ReqUserAgentsList,
+): Promise<Agent[]> {
+  const response = await requestJson<ResAgents | Agent[]>(
+    "/api/users/agents/list",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+
+  if (Array.isArray(response)) return response;
+
+  return response.data ?? [];
+}
+
+export async function replaceUserAgents(
+  request: ReqUserAgentsReplace,
+): Promise<Agent[]> {
+  const response = await requestJson<ResAgents | Agent[]>(
+    "/api/users/agents/replace",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+
+  if (Array.isArray(response)) return response;
+
+  return response.data ?? [];
+}
+
+export async function getUserBalance(
+  request: ReqUserBalanceDetail,
+): Promise<UserBalance | undefined> {
+  return requestJson<UserBalance | undefined>("/api/users/balances/detail", {
+    body: JSON.stringify(request),
+    method: "POST",
+  });
+}
+
+export async function listUserBalanceTransactions(
+  request: ReqUserBalanceTransactionsList,
+): Promise<UserBalanceTransaction[]> {
+  const response = await requestJson<
+    { data?: UserBalanceTransaction[] } | UserBalanceTransaction[]
+  >("/api/users/balances/transactions/list", {
+    body: JSON.stringify(request),
+    method: "POST",
+  });
+
+  if (Array.isArray(response)) return response;
+
+  return response.data ?? [];
+}
+
+export async function adjustUserBalance(
+  request: ReqUserBalanceAdjust,
+): Promise<UserBalanceAdjustResult | undefined> {
+  return requestJson<UserBalanceAdjustResult | undefined>(
+    "/api/users/balances/adjust",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+}
+
+export async function listConversations(
+  request: ReqConversationList = {},
+): Promise<BridgeConversation[]> {
+  const response = await requestJson<
+    { data?: BridgeConversation[] } | BridgeConversation[]
+  >("/api/conversations/list", {
+    body: JSON.stringify(request),
+    method: "POST",
+  });
+
+  if (Array.isArray(response)) return response;
+
+  return response.data ?? [];
+}
+
+export async function getConversationDetail(
+  conversationId: string,
+): Promise<BridgeConversation | undefined> {
+  return requestJson<BridgeConversation | undefined>(
+    "/api/conversations/detail",
+    {
+      body: JSON.stringify({ conversationId } satisfies ReqConversationDetail),
+      method: "POST",
+    },
+  );
+}
+
+export async function archiveConversation(
+  conversationId: string,
+): Promise<void> {
+  await requestJson<ControllerResponse | unknown>(
+    "/api/conversations/archive",
+    {
+      body: JSON.stringify({ conversationId } satisfies ReqConversationArchive),
+      method: "POST",
+    },
+  );
+}
+
+export async function unarchiveConversation(
+  conversationId: string,
+): Promise<void> {
+  await requestJson<ControllerResponse | unknown>(
+    "/api/conversations/unarchive",
+    {
+      body: JSON.stringify({ conversationId } satisfies ReqConversationArchive),
+      method: "POST",
+    },
+  );
+}
+
+export async function listMessages(
+  request: ReqMessageList,
+): Promise<BridgeMessage[]> {
+  const response = await requestJson<
+    { data?: BridgeMessage[] } | BridgeMessage[]
+  >("/api/messages/list", {
+    body: JSON.stringify(request),
+    method: "POST",
+  });
+
+  if (Array.isArray(response)) return response;
+
+  return response.data ?? [];
+}
+
+export async function getConversationContext(
+  request: ReqConversationContext,
+): Promise<ContextSnapshot | undefined> {
+  return requestJson<ContextSnapshot | undefined>(
+    "/api/conversations/context",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+}
+
+export async function createContextSnapshot(
+  request: ReqContextSnapshotCreate,
+  ingestToken?: string,
+): Promise<ContextSnapshot | undefined> {
+  const headers = ingestToken
+    ? { Authorization: `Bearer ${ingestToken}` }
+    : undefined;
+
+  return requestJson<ContextSnapshot | undefined>(
+    "/api/openclaw/context-snapshots",
+    {
+      auth: false,
+      body: JSON.stringify(request),
+      headers,
+      method: "POST",
+    },
+  );
+}
+
+export async function createTokenUsage(
+  request: ReqTokenUsageCreate,
+  ingestToken?: string,
+): Promise<TokenUsage | undefined> {
+  const headers = ingestToken
+    ? { Authorization: `Bearer ${ingestToken}` }
+    : undefined;
+
+  return requestJson<TokenUsage | undefined>("/api/openclaw/token-usages", {
+    auth: false,
+    body: JSON.stringify(request),
+    headers,
+    method: "POST",
+  });
+}
+
+export async function getTokenUsageStatsByConversation(
+  conversationId: string,
+): Promise<TokenUsageStatsConversation | undefined> {
+  return requestJson<TokenUsageStatsConversation | undefined>(
+    "/api/token-usages/stats/conversation",
+    {
+      body: JSON.stringify({
+        conversationId,
+      } satisfies ReqTokenUsageStatsConversation),
+      method: "POST",
+    },
+  );
+}
+
+export async function getTokenUsageStatsByTime(
+  request: ReqTokenUsageStatsTime,
+): Promise<TokenUsageStatsTime | undefined> {
+  return requestJson<TokenUsageStatsTime | undefined>(
+    "/api/token-usages/stats/time",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+}
+
+export async function getTokenUsageStatsByUsers(
+  request: ReqTokenUsageStatsUsers,
+): Promise<TokenUsageStatsUsers | undefined> {
+  return requestJson<TokenUsageStatsUsers | undefined>(
+    "/api/token-usages/stats/users",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+}
+
+export async function applyOpenClawConfig(
+  request: ReqApplyOpenClawConfig,
+): Promise<ApplyOpenClawConfigResult | undefined> {
+  return requestJson<ApplyOpenClawConfigResult | undefined>(
+    "/api/openclaw/config/apply",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
 }
 
 export async function apiFetch<T>(path: string, init: ApiRequestInit = {}) {
