@@ -4,6 +4,7 @@ import type { FormEvent, ReactNode } from "react";
 
 import {
   Button,
+  Checkbox,
   Chip,
   FieldError,
   Form,
@@ -12,7 +13,6 @@ import {
   ListBox,
   Modal,
   Select,
-  Switch,
   TextField,
   Tooltip,
   toast,
@@ -23,7 +23,6 @@ import { useMemo, useState } from "react";
 import { AdminIcon } from "@/components/admin-icons";
 import { ModelProviderLogo } from "@/components/model-provider-logo";
 
-const DEFAULT_MODEL_CONTEXT_WINDOW = 50000;
 const PROVIDER_DEFAULT_MODEL = "__provider_default_model__";
 
 type ModelCapabilityId =
@@ -38,25 +37,17 @@ type ModelProviderPreset = {
   id: string;
   label: string;
   defaultModel: string;
-  apiBase?: string;
-  apiBasePlaceholder?: string;
-  contextWindow?: number;
-  requiresApiBase?: boolean;
 };
 
-type ModelProvider = {
+type ModelConfiguration = {
   id: string;
   name: string;
   provider_type: string;
   model: string;
   models?: string[];
-  api_base?: string;
-  has_api_key?: boolean;
   tts_voice_id?: string;
-  context_window: number;
-  is_default: boolean;
+  capabilities: ModelCapabilityId[];
   status: string;
-  scope?: string;
 };
 
 type ModelCapabilityRoute = {
@@ -110,13 +101,11 @@ const mimoTtsVoiceOptions = [
 
 const modelProviderPresets: ModelProviderPreset[] = [
   {
-    apiBase: "https://api.deepseek.com/v1",
     defaultModel: "deepseek-v4-flash",
     id: "deepseek",
     label: "DeepSeek",
   },
   {
-    apiBase: "https://api.openai.com/v1",
     defaultModel: "gpt-5.5",
     id: "openai",
     label: "OpenAI",
@@ -127,38 +116,32 @@ const modelProviderPresets: ModelProviderPreset[] = [
     label: "通义千问",
   },
   {
-    apiBase: "https://ark.cn-beijing.volces.com/api/v3",
     defaultModel: "doubao-seed-2-0-pro-260215",
     id: "doubao",
     label: "豆包",
   },
   {
-    apiBase: "https://api.moonshot.cn/v1",
     defaultModel: "kimi-k2.7-code",
     id: "moonshot",
     label: "Kimi",
   },
   {
-    apiBase: "https://open.bigmodel.cn/api/paas/v4",
     defaultModel:
       "glm-5.2\nglm-image\ncogview-4-250304\ncogview-4\ncogview-3-flash",
     id: "zhipu",
     label: "智谱 AI",
   },
   {
-    apiBase: "https://api.anthropic.com/v1",
     defaultModel: "claude-fable-5",
     id: "claudeAPI",
     label: "Claude",
   },
   {
-    apiBase: "https://generativelanguage.googleapis.com",
     defaultModel: "gemini-3.5-flash",
     id: "gemini",
     label: "Gemini",
   },
   {
-    apiBase: "https://qianfan.baidubce.com/v2",
     defaultModel: "ernie-5.1",
     id: "qianfan",
     label: "百度千帆",
@@ -169,18 +152,14 @@ const modelProviderPresets: ModelProviderPreset[] = [
     label: "MiniMax",
   },
   {
-    apiBase: "https://token-plan-cn.xiaomimimo.com/v1",
-    contextWindow: 1000000,
     defaultModel: "mimo-v2.5-pro\nmimo-v2.5\nmimo-v2.5-asr\nmimo-v2.5-tts",
     id: "mimo",
     label: "小米 MiMo",
   },
   {
-    apiBasePlaceholder: "https://example.test/v1",
     defaultModel: "",
     id: "custom",
     label: "自定义 OpenAI 兼容",
-    requiresApiBase: true,
   },
 ];
 
@@ -234,49 +213,52 @@ const searchStrategyOptions = [
   { id: "fixed", label: "固定供应商" },
 ] as const;
 
-const INITIAL_PROVIDERS: ModelProvider[] = [
-  createStaticProvider({
-    has_api_key: true,
-    id: "provider-deepseek",
-    is_default: true,
+const INITIAL_MODEL_CONFIGURATIONS: ModelConfiguration[] = [
+  createStaticModelConfiguration({
+    capabilities: ["chat", "embedding"],
+    id: "model-default",
+    name: "默认主模型",
     provider_type: "deepseek",
   }),
-  createStaticProvider({
-    has_api_key: true,
-    id: "provider-openai",
+  createStaticModelConfiguration({
+    capabilities: ["vision"],
+    id: "model-vision",
+    name: "图像理解",
     provider_type: "openai",
   }),
-  createStaticProvider({
-    has_api_key: true,
-    id: "provider-zhipu",
+  createStaticModelConfiguration({
+    capabilities: ["image"],
+    id: "model-image",
+    model: "glm-image",
+    name: "图像生成",
     provider_type: "zhipu",
   }),
-  createStaticProvider({
-    has_api_key: true,
-    id: "provider-mimo",
+  createStaticModelConfiguration({
+    capabilities: ["asr", "tts"],
+    id: "model-speech",
     model: "mimo-v2.5-tts",
+    name: "语音模型",
     provider_type: "mimo",
     tts_voice_id: "mimo_default",
-  }),
-  createStaticProvider({
-    has_api_key: true,
-    id: "provider-qianfan",
-    provider_type: "qianfan",
   }),
 ];
 
 const INITIAL_CAPABILITIES: ModelCapabilityRoute[] = [
-  createCapabilityRoute("chat", INITIAL_PROVIDERS[0]),
-  createCapabilityRoute("vision", INITIAL_PROVIDERS[1]),
-  createCapabilityRoute("image", INITIAL_PROVIDERS[2], "glm-image"),
-  createCapabilityRoute("asr", INITIAL_PROVIDERS[3], "mimo-v2.5-asr"),
+  createCapabilityRoute("chat", INITIAL_MODEL_CONFIGURATIONS[0]),
+  createCapabilityRoute("vision", INITIAL_MODEL_CONFIGURATIONS[1]),
+  createCapabilityRoute("image", INITIAL_MODEL_CONFIGURATIONS[2], "glm-image"),
+  createCapabilityRoute(
+    "asr",
+    INITIAL_MODEL_CONFIGURATIONS[3],
+    "mimo-v2.5-asr",
+  ),
   createCapabilityRoute(
     "tts",
-    INITIAL_PROVIDERS[3],
+    INITIAL_MODEL_CONFIGURATIONS[3],
     "mimo-v2.5-tts",
     "mimo_default",
   ),
-  createCapabilityRoute("embedding", INITIAL_PROVIDERS[4]),
+  createCapabilityRoute("embedding", INITIAL_MODEL_CONFIGURATIONS[0]),
 ];
 
 const INITIAL_WEB_SEARCH_TOOL: CatalogItem = {
@@ -336,47 +318,65 @@ function ProviderPresetOption({ provider }: { provider: ModelProviderPreset }) {
 function CapabilitySettingsPanel({
   definition,
   isSaving,
-  providers,
+  modelConfigurations,
   route,
   onSave,
 }: {
   definition: CapabilityDefinition;
   isSaving: boolean;
-  providers: ModelProvider[];
+  modelConfigurations: ModelConfiguration[];
   route: ModelCapabilityRoute | undefined;
   onSave: (
     capability: ModelCapabilityId,
-    providerId: string,
+    modelConfigurationId: string,
     model: string,
     ttsVoiceId?: string,
   ) => void;
 }) {
-  const initialProvider = route
-    ? providers.find((provider) => provider.id === route.provider_id)
-    : providers[0];
-  const [providerId, setProviderId] = useState(initialProvider?.id ?? "");
+  const eligibleModelConfigurations = modelConfigurations.filter((item) =>
+    item.capabilities.includes(definition.id),
+  );
+  const routeModelConfiguration = route
+    ? modelConfigurations.find((item) => item.id === route.provider_id)
+    : undefined;
+  const modelConfigurationOptions = routeModelConfiguration
+    ? Array.from(
+        new Map(
+          [routeModelConfiguration, ...eligibleModelConfigurations].map(
+            (item) => [item.id, item],
+          ),
+        ).values(),
+      )
+    : eligibleModelConfigurations;
+  const initialModelConfiguration =
+    routeModelConfiguration ?? modelConfigurationOptions[0];
+  const [modelConfigurationId, setModelConfigurationId] = useState(
+    initialModelConfiguration?.id ?? "",
+  );
   const [modelValue, setModelValue] = useState(
-    route?.model || initialProvider?.model || "",
+    route?.model || initialModelConfiguration?.model || "",
   );
   const [voiceId, setVoiceId] = useState(
-    route?.tts_voice_id || initialProvider?.tts_voice_id || "mimo_default",
+    route?.tts_voice_id ||
+      initialModelConfiguration?.tts_voice_id ||
+      "mimo_default",
   );
-  const selectedProvider = providerId
-    ? providers.find((provider) => provider.id === providerId)
+  const selectedModelConfiguration = modelConfigurationId
+    ? modelConfigurationOptions.find((item) => item.id === modelConfigurationId)
     : undefined;
-  const savedProviderModels = selectedProvider?.models?.length
-    ? selectedProvider.models
-    : selectedProvider?.model
-      ? [selectedProvider.model]
+  const savedModels = selectedModelConfiguration?.models?.length
+    ? selectedModelConfiguration.models
+    : selectedModelConfiguration?.model
+      ? [selectedModelConfiguration.model]
       : [];
-  const presetProvider = selectedProvider
+  const presetProvider = selectedModelConfiguration
     ? modelProviderPresets.find(
-        (provider) => provider.id === selectedProvider.provider_type,
+        (provider) => provider.id === selectedModelConfiguration.provider_type,
       )
     : undefined;
   const providerModels = Array.from(
     new Set([
-      ...savedProviderModels,
+      ...savedModels,
       ...(presetProvider ? providerPresetModels(presetProvider) : []),
     ]),
   );
@@ -384,16 +384,18 @@ function CapabilitySettingsPanel({
     modelValue && !providerModels.includes(modelValue)
       ? [modelValue, ...providerModels]
       : providerModels;
-  const isConfigured = Boolean(route && selectedProvider?.status === "active");
+  const isConfigured = Boolean(
+    route && selectedModelConfiguration?.status === "active",
+  );
 
-  function handleProviderChange(nextProviderId: string) {
-    const nextProvider = providers.find(
-      (provider) => provider.id === nextProviderId,
+  function handleModelConfigurationChange(nextModelConfigurationId: string) {
+    const nextModelConfiguration = modelConfigurationOptions.find(
+      (item) => item.id === nextModelConfigurationId,
     );
 
-    setProviderId(nextProviderId);
-    setModelValue(nextProvider?.model || "");
-    setVoiceId(nextProvider?.tts_voice_id || "mimo_default");
+    setModelConfigurationId(nextModelConfigurationId);
+    setModelValue(nextModelConfiguration?.model || "");
+    setVoiceId(nextModelConfiguration?.tts_voice_id || "mimo_default");
   }
 
   return (
@@ -433,29 +435,29 @@ function CapabilitySettingsPanel({
             <Select
               fullWidth
               isRequired
-              name={`${definition.id}_provider`}
-              selectedKey={providerId}
+              name={`${definition.id}_model_config`}
+              selectedKey={modelConfigurationId}
               variant="secondary"
               onSelectionChange={(key) => {
                 if (key) {
-                  handleProviderChange(String(key));
+                  handleModelConfigurationChange(String(key));
                 }
               }}
             >
-              <Label>供应商</Label>
+              <Label>模型配置</Label>
               <Select.Trigger>
                 <Select.Value />
                 <Select.Indicator />
               </Select.Trigger>
               <Select.Popover>
                 <ListBox>
-                  {providers.map((provider) => (
+                  {modelConfigurationOptions.map((modelConfiguration) => (
                     <ListBox.Item
-                      key={provider.id}
-                      id={provider.id}
-                      textValue={modelProviderLabel(provider.provider_type)}
+                      key={modelConfiguration.id}
+                      id={modelConfiguration.id}
+                      textValue={modelConfiguration.name}
                     >
-                      {providerDisplayName(provider)}
+                      {modelConfiguration.name}
                       <ListBox.ItemIndicator />
                     </ListBox.Item>
                   ))}
@@ -487,9 +489,9 @@ function CapabilitySettingsPanel({
                 <ListBox>
                   <ListBox.Item
                     id={PROVIDER_DEFAULT_MODEL}
-                    textValue="使用供应商默认模型"
+                    textValue="使用模型配置默认模型"
                   >
-                    使用供应商默认模型
+                    使用模型配置默认模型
                     <ListBox.ItemIndicator />
                   </ListBox.Item>
                   {modelOptions.map((modelOption) => (
@@ -541,16 +543,16 @@ function CapabilitySettingsPanel({
           </div>
           <div className="flex min-w-0 items-center justify-between gap-3">
             <Typography className="truncate" color="muted" type="body-sm">
-              当前：{providerDisplayName(selectedProvider)} ·{" "}
-              <span className="font-mono">{routeModel(route)}</span>
+              当前：{modelConfigurationDisplayName(selectedModelConfiguration)}{" "}
+              · <span className="font-mono">{routeModel(route)}</span>
             </Typography>
             <Button
-              isDisabled={!providerId}
+              isDisabled={!modelConfigurationId}
               isPending={isSaving}
               onPress={() => {
                 onSave(
                   definition.id,
-                  providerId,
+                  modelConfigurationId,
                   modelValue,
                   definition.id === "tts" ? voiceId : undefined,
                 );
@@ -566,21 +568,18 @@ function CapabilitySettingsPanel({
 }
 
 export function ModelConfigurationPage() {
+  const [modelConfigName, setModelConfigName] = useState("");
   const [providerType, setProviderType] = useState(
     defaultModelProviderPreset.id,
   );
   const [model, setModel] = useState(defaultModelProviderPreset.defaultModel);
-  const [apiBase, setApiBase] = useState(
-    defaultModelProviderPreset.apiBase ?? "",
-  );
-  const [contextWindow, setContextWindow] = useState(
-    String(DEFAULT_MODEL_CONTEXT_WINDOW),
-  );
-  const [apiKey, setApiKey] = useState("");
-  const [isDefault, setIsDefault] = useState(false);
-  const [providerStatus, setProviderStatus] = useState("active");
+  const [selectedCapabilities, setSelectedCapabilities] = useState<
+    ModelCapabilityId[]
+  >(["chat"]);
   const [isProviderDialogOpen, setIsProviderDialogOpen] = useState(false);
-  const [globalProviders, setGlobalProviders] = useState(INITIAL_PROVIDERS);
+  const [modelConfigurations, setModelConfigurations] = useState(
+    INITIAL_MODEL_CONFIGURATIONS,
+  );
   const [globalCapabilities, setGlobalCapabilities] =
     useState(INITIAL_CAPABILITIES);
   const [webSearchTool, setWebSearchTool] = useState(INITIAL_WEB_SEARCH_TOOL);
@@ -598,19 +597,20 @@ export function ModelConfigurationPage() {
   const [zhipuApiKey, setZhipuApiKey] = useState("");
   const [qianfanApiBase, setQianfanApiBase] = useState("");
   const [zhipuApiBase, setZhipuApiBase] = useState("");
-  const [editingProvider, setEditingProvider] = useState<ModelProvider | null>(
-    null,
-  );
+  const [editingModelConfiguration, setEditingModelConfiguration] =
+    useState<ModelConfiguration | null>(null);
 
   const selectedProvider =
     modelProviderPresets.find((provider) => provider.id === providerType) ??
     defaultModelProviderPreset;
-  const providerDialogTitle = editingProvider ? "编辑模型配置" : "添加模型配置";
-  const providerSubmitLabel = editingProvider ? "保存" : "创建全局配置";
+  const providerDialogTitle = editingModelConfiguration
+    ? "编辑模型配置"
+    : "添加模型配置";
+  const providerSubmitLabel = editingModelConfiguration ? "保存" : "创建模型";
   const providerModelOptions = useMemo(() => {
     const savedModels =
-      editingProvider?.provider_type === providerType
-        ? (editingProvider.models ?? [])
+      editingModelConfiguration?.provider_type === providerType
+        ? (editingModelConfiguration.models ?? [])
         : [];
     const presetModels = providerPresetModels(selectedProvider);
     const options = Array.from(new Set([...savedModels, ...presetModels]));
@@ -619,26 +619,24 @@ export function ModelConfigurationPage() {
     return currentModel && !options.includes(currentModel)
       ? [currentModel, ...options]
       : options;
-  }, [editingProvider, model, providerType, selectedProvider]);
+  }, [editingModelConfiguration, model, providerType, selectedProvider]);
   const usesCustomProvider = selectedProvider.id === "custom";
   const capabilitiesById = useMemo(() => {
     return new Map(
       globalCapabilities.map((route) => [route.capability, route]),
     );
   }, [globalCapabilities]);
-  const activeProviders = useMemo(
-    () => globalProviders.filter((provider) => provider.status === "active"),
-    [globalProviders],
+  const activeModelConfigurations = useMemo(
+    () => modelConfigurations.filter((item) => item.status === "active"),
+    [modelConfigurations],
   );
   const configuredSearchProviders = new Set(
     webSearchTool.config_summary?.configured_providers ?? [],
   );
   const reusableSearchProviders = new Set(
-    globalProviders
-      .filter(
-        (provider) => provider.status === "active" && provider.has_api_key,
-      )
-      .map((provider) => provider.provider_type),
+    modelConfigurations
+      .filter((modelConfiguration) => modelConfiguration.status === "active")
+      .map((modelConfiguration) => modelConfiguration.provider_type),
   );
 
   function applyProviderPreset(providerId: string) {
@@ -649,18 +647,13 @@ export function ModelConfigurationPage() {
 
     setProviderType(nextProvider.id);
     setModel(nextModels[0] ?? "");
-    setApiBase(nextProvider.apiBase ?? "");
-    setContextWindow(
-      String(nextProvider.contextWindow ?? DEFAULT_MODEL_CONTEXT_WINDOW),
-    );
   }
 
   function resetProviderForm(providerId = defaultModelProviderPreset.id) {
-    setEditingProvider(null);
+    setEditingModelConfiguration(null);
+    setModelConfigName("");
     applyProviderPreset(providerId);
-    setApiKey("");
-    setIsDefault(false);
-    setProviderStatus("active");
+    setSelectedCapabilities(["chat"]);
   }
 
   function resetSearchForm() {
@@ -677,65 +670,57 @@ export function ModelConfigurationPage() {
     event.preventDefault();
 
     const nextProviderType = providerType;
+    const nextName = modelConfigName.trim();
     const customModels = parseModelList(model);
     const nextModels = usesCustomProvider ? customModels : providerModelOptions;
     const nextModel = model.trim() || nextModels[0] || "";
-    const nextName =
-      `${modelProviderLabel(nextProviderType)} ${nextModel}`.trim();
-    const nextApiBase = apiBase.trim();
-    const nextContextWindow = Number(contextWindow);
+
+    if (!nextName) {
+      toast.danger("配置名称为必填项。");
+
+      return;
+    }
 
     if (!nextProviderType || !nextModel) {
-      toast.danger("供应商和模型为必填项。");
+      toast.danger("模型为必填项。");
 
       return;
     }
 
-    if (selectedProvider.requiresApiBase && !nextApiBase) {
-      toast.danger("自定义供应商必须填写 API 地址。");
-
-      return;
-    }
-
-    if (!Number.isInteger(nextContextWindow) || nextContextWindow <= 0) {
-      toast.danger("上下文窗口必须是正整数。");
+    if (selectedCapabilities.length === 0) {
+      toast.danger("至少选择一个模型能力。");
 
       return;
     }
 
     setIsSubmitting(true);
-    const nextProvider: ModelProvider = {
-      api_base: nextApiBase || selectedProvider.apiBase,
-      context_window: nextContextWindow,
-      has_api_key: Boolean(apiKey.trim()) || editingProvider?.has_api_key,
-      id: editingProvider?.id ?? `provider-${Date.now()}`,
-      is_default: isDefault,
+    const nextModelConfiguration: ModelConfiguration = {
+      capabilities: selectedCapabilities,
+      id: editingModelConfiguration?.id ?? `model-${Date.now()}`,
       model: nextModel,
       models: nextModels,
-      name: editingProvider?.name || nextName,
+      name: nextName,
       provider_type: nextProviderType,
-      status: editingProvider ? providerStatus : "active",
+      status: "active",
       tts_voice_id:
-        nextProviderType === "mimo" ? editingProvider?.tts_voice_id : undefined,
+        nextProviderType === "mimo"
+          ? editingModelConfiguration?.tts_voice_id
+          : undefined,
     };
 
-    setGlobalProviders((providers) => {
-      const nextProviders = editingProvider
-        ? providers.map((provider) =>
-            provider.id === editingProvider.id ? nextProvider : provider,
+    setModelConfigurations((items) => {
+      return editingModelConfiguration
+        ? items.map((item) =>
+            item.id === editingModelConfiguration.id
+              ? nextModelConfiguration
+              : item,
           )
-        : [...providers, nextProvider];
-
-      if (!isDefault) return nextProviders;
-
-      return nextProviders.map((provider) => ({
-        ...provider,
-        is_default: provider.id === nextProvider.id,
-      }));
+        : [...items, nextModelConfiguration];
     });
+    syncCapabilityRoutes(nextModelConfiguration);
 
     toast.success(
-      editingProvider ? "平台全局模型配置已更新。" : "平台全局模型配置已创建。",
+      editingModelConfiguration ? "模型配置已更新。" : "模型配置已创建。",
     );
     resetProviderForm();
     setIsProviderDialogOpen(false);
@@ -744,22 +729,22 @@ export function ModelConfigurationPage() {
 
   function saveCapabilityRoute(
     capability: ModelCapabilityId,
-    providerId: string,
+    modelConfigurationId: string,
     modelOverride: string,
     ttsVoiceId?: string,
   ) {
-    if (!providerId) {
-      toast.danger("请选择供应商。");
+    if (!modelConfigurationId) {
+      toast.danger("请选择模型配置。");
 
       return;
     }
 
-    const selectedRouteProvider = globalProviders.find(
-      (provider) => provider.id === providerId,
+    const selectedModelConfiguration = modelConfigurations.find(
+      (item) => item.id === modelConfigurationId,
     );
 
-    if (!selectedRouteProvider) {
-      toast.danger("供应商不存在。");
+    if (!selectedModelConfiguration) {
+      toast.danger("模型配置不存在。");
 
       return;
     }
@@ -767,8 +752,8 @@ export function ModelConfigurationPage() {
     setSavingCapabilityId(capability);
     const nextRoute = createCapabilityRoute(
       capability,
-      selectedRouteProvider,
-      modelOverride.trim() || selectedRouteProvider.model,
+      selectedModelConfiguration,
+      modelOverride.trim() || selectedModelConfiguration.model,
       capability === "tts" ? ttsVoiceId : undefined,
     );
 
@@ -839,43 +824,39 @@ export function ModelConfigurationPage() {
     setIsProviderDialogOpen(true);
   }
 
-  function openEditProviderDialog(provider: ModelProvider) {
+  function openEditProviderDialog(modelConfiguration: ModelConfiguration) {
     const nextProvider =
-      modelProviderPresets.find((item) => item.id === provider.provider_type) ??
-      defaultModelProviderPreset;
+      modelProviderPresets.find(
+        (item) => item.id === modelConfiguration.provider_type,
+      ) ?? defaultModelProviderPreset;
 
-    setEditingProvider(provider);
-    setProviderType(provider.provider_type || nextProvider.id);
+    setEditingModelConfiguration(modelConfiguration);
+    setModelConfigName(modelConfiguration.name);
+    setProviderType(modelConfiguration.provider_type || nextProvider.id);
     setModel(
-      provider.model ||
-        provider.models?.[0] ||
+      modelConfiguration.model ||
+        modelConfiguration.models?.[0] ||
         providerPresetModels(nextProvider)[0] ||
         "",
     );
-    setApiBase(provider.api_base ?? "");
-    setContextWindow(
-      String(provider.context_window ?? DEFAULT_MODEL_CONTEXT_WINDOW),
-    );
-    setApiKey("");
-    setIsDefault(provider.is_default);
-    setProviderStatus(provider.status || "active");
+    setSelectedCapabilities(modelConfiguration.capabilities);
     setIsProviderDialogOpen(true);
   }
 
   function deleteProvider() {
-    if (!editingProvider) return;
-    if (
-      !window.confirm(`删除“${providerDisplayName(editingProvider)}”模型配置？`)
-    ) {
+    if (!editingModelConfiguration) return;
+    if (!window.confirm(`删除“${editingModelConfiguration.name}”模型配置？`)) {
       return;
     }
 
     setIsDeletingProvider(true);
-    setGlobalProviders((providers) =>
-      providers.filter((provider) => provider.id !== editingProvider.id),
+    setModelConfigurations((items) =>
+      items.filter((item) => item.id !== editingModelConfiguration.id),
     );
     setGlobalCapabilities((routes) =>
-      routes.filter((route) => route.provider_id !== editingProvider.id),
+      routes.filter(
+        (route) => route.provider_id !== editingModelConfiguration.id,
+      ),
     );
     toast.success("模型配置已删除。");
     setIsProviderDialogOpen(false);
@@ -883,15 +864,57 @@ export function ModelConfigurationPage() {
     setIsDeletingProvider(false);
   }
 
+  function toggleCapability(capability: ModelCapabilityId, selected: boolean) {
+    setSelectedCapabilities((current) => {
+      if (selected) {
+        return current.includes(capability)
+          ? current
+          : [...current, capability];
+      }
+
+      return current.filter((item) => item !== capability);
+    });
+  }
+
+  function syncCapabilityRoutes(modelConfiguration: ModelConfiguration) {
+    setGlobalCapabilities((routes) => {
+      const routeMap = new Map(
+        routes
+          .filter(
+            (route) =>
+              route.provider_id !== modelConfiguration.id ||
+              modelConfiguration.capabilities.includes(route.capability),
+          )
+          .map((route) => [route.capability, route]),
+      );
+
+      for (const capability of modelConfiguration.capabilities) {
+        const existingRoute = routeMap.get(capability);
+        const nextRoute = createCapabilityRoute(
+          capability,
+          modelConfiguration,
+          existingRoute?.model || modelConfiguration.model,
+          capability === "tts"
+            ? existingRoute?.tts_voice_id || modelConfiguration.tts_voice_id
+            : undefined,
+        );
+
+        routeMap.set(capability, nextRoute);
+      }
+
+      return Array.from(routeMap.values());
+    });
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
       <Typography color="muted" type="body-sm">
-        管理平台全局模型供应商，并按能力配置默认路由。
+        保存可用模型，并按模型能力配置默认路由。
       </Typography>
 
       <div className="grid gap-3 md:grid-cols-3">
         <button
-          className="border-border bg-surface cursor-[var(--cursor-interactive)] hover:bg-surface-hover flex h-16 items-center gap-3 rounded-lg border border-dashed px-3 text-left"
+          className="border-border bg-surface cursor-[var(--cursor-interactive)] hover:bg-surface-hover flex min-h-20 items-center gap-3 rounded-lg border border-dashed px-3 text-left"
           type="button"
           onClick={() => openCreateProviderDialog()}
         >
@@ -900,22 +923,42 @@ export function ModelConfigurationPage() {
             name="plus"
           />
           <Typography className="truncate" type="body-sm" weight="medium">
-            添加厂商
+            添加模型
           </Typography>
         </button>
-        {globalProviders.map((provider) => (
+        {modelConfigurations.map((modelConfiguration) => (
           <div
-            key={provider.id}
-            className="bg-surface flex h-16 min-w-0 items-center justify-between gap-3 rounded-lg px-3"
+            key={modelConfiguration.id}
+            className="bg-surface flex min-h-20 min-w-0 items-center justify-between gap-3 rounded-lg px-3 py-3"
           >
             <div className="flex min-w-0 items-center gap-3">
               <ModelProviderLogo
-                label={modelProviderLabel(provider.provider_type)}
-                providerType={provider.provider_type}
+                label={modelProviderLabel(modelConfiguration.provider_type)}
+                providerType={modelConfiguration.provider_type}
               />
-              <Typography className="truncate" type="body-sm" weight="medium">
-                {modelProviderLabel(provider.provider_type)}
-              </Typography>
+              <div className="flex min-w-0 flex-col gap-1">
+                <Typography className="truncate" type="body-sm" weight="medium">
+                  {modelConfiguration.name}
+                </Typography>
+                <Typography className="truncate" color="muted" type="body-xs">
+                  {modelProviderLabel(modelConfiguration.provider_type)} ·{" "}
+                  {modelConfiguration.model}
+                </Typography>
+                <div className="flex flex-wrap gap-1">
+                  {modelConfiguration.capabilities
+                    .slice(0, 2)
+                    .map((capability) => (
+                      <Chip key={capability} size="sm" variant="soft">
+                        {modelCapabilityLabel(capability)}
+                      </Chip>
+                    ))}
+                  {modelConfiguration.capabilities.length > 2 ? (
+                    <Chip size="sm" variant="soft">
+                      +{modelConfiguration.capabilities.length - 2}
+                    </Chip>
+                  ) : null}
+                </div>
+              </div>
             </div>
             <Tooltip>
               <Button
@@ -923,7 +966,7 @@ export function ModelConfigurationPage() {
                 aria-label="编辑模型配置"
                 size="sm"
                 variant="tertiary"
-                onPress={() => openEditProviderDialog(provider)}
+                onPress={() => openEditProviderDialog(modelConfiguration)}
               >
                 <AdminIcon className="size-4" name="edit" />
               </Button>
@@ -934,16 +977,20 @@ export function ModelConfigurationPage() {
       </div>
 
       <div className="grid gap-5 md:grid-cols-2">
-        {modelCapabilityDefinitions.map((definition) => (
-          <CapabilitySettingsPanel
-            key={definition.id}
-            definition={definition}
-            isSaving={savingCapabilityId === definition.id}
-            providers={activeProviders}
-            route={capabilitiesById.get(definition.id)}
-            onSave={saveCapabilityRoute}
-          />
-        ))}
+        {modelCapabilityDefinitions.map((definition) => {
+          const route = capabilitiesById.get(definition.id);
+
+          return (
+            <CapabilitySettingsPanel
+              key={`${definition.id}-${route?.provider_id ?? "empty"}-${modelConfigurations.length}`}
+              definition={definition}
+              isSaving={savingCapabilityId === definition.id}
+              modelConfigurations={activeModelConfigurations}
+              route={route}
+              onSave={saveCapabilityRoute}
+            />
+          );
+        })}
       </div>
 
       <Widget>
@@ -1139,11 +1186,22 @@ export function ModelConfigurationPage() {
               <Modal.Header>
                 <Modal.Heading>{providerDialogTitle}</Modal.Heading>
                 <Typography color="muted" type="body-sm">
-                  配置平台全局模型服务。
+                  保存一个可复用模型，并声明它支持的能力。
                 </Typography>
               </Modal.Header>
               <Modal.Body>
                 <div className="grid gap-4">
+                  <TextField
+                    fullWidth
+                    isRequired
+                    name="model_config_name"
+                    value={modelConfigName}
+                    onChange={setModelConfigName}
+                  >
+                    <Label>配置名称</Label>
+                    <Input placeholder="例如：默认主模型" variant="secondary" />
+                    <FieldError />
+                  </TextField>
                   <Select
                     fullWidth
                     isRequired
@@ -1156,7 +1214,7 @@ export function ModelConfigurationPage() {
                       }
                     }}
                   >
-                    <Label>模型供应商</Label>
+                    <Label>主模型来源</Label>
                     <Select.Trigger>
                       <Select.Value />
                       <Select.Indicator />
@@ -1176,138 +1234,86 @@ export function ModelConfigurationPage() {
                     </Select.Popover>
                     <FieldError />
                   </Select>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    {usesCustomProvider ? (
-                      <TextField
-                        fullWidth
-                        isRequired
-                        name="model"
-                        value={model}
-                        onChange={setModel}
-                      >
-                        <Label>模型</Label>
-                        <Input placeholder="输入模型名称" variant="secondary" />
-                        <FieldError />
-                      </TextField>
-                    ) : (
-                      <Select
-                        fullWidth
-                        isRequired
-                        name="model"
-                        selectedKey={model}
-                        variant="secondary"
-                        onSelectionChange={(key) => {
-                          if (key) {
-                            setModel(String(key));
-                          }
-                        }}
-                      >
-                        <Label>模型</Label>
-                        <Select.Trigger>
-                          <Select.Value />
-                          <Select.Indicator />
-                        </Select.Trigger>
-                        <Select.Popover>
-                          <ListBox>
-                            {providerModelOptions.map((modelOption) => (
-                              <ListBox.Item
-                                key={modelOption}
-                                id={modelOption}
-                                textValue={modelOption}
-                              >
-                                {modelOption}
-                                <ListBox.ItemIndicator />
-                              </ListBox.Item>
-                            ))}
-                          </ListBox>
-                        </Select.Popover>
-                        <FieldError />
-                      </Select>
-                    )}
+                  {usesCustomProvider ? (
                     <TextField
                       fullWidth
                       isRequired
-                      name="context_window"
-                      type="number"
-                      value={contextWindow}
-                      onChange={setContextWindow}
+                      name="model"
+                      value={model}
+                      onChange={setModel}
                     >
-                      <Label>上下文窗口</Label>
-                      <Input
-                        min="1"
-                        placeholder={String(DEFAULT_MODEL_CONTEXT_WINDOW)}
-                        step="1"
-                        variant="secondary"
-                      />
+                      <Label>主模型</Label>
+                      <Input placeholder="输入模型名称" variant="secondary" />
                       <FieldError />
                     </TextField>
-                    <TextField
+                  ) : (
+                    <Select
                       fullWidth
-                      isRequired={selectedProvider.requiresApiBase}
-                      name="api_base"
-                      type="url"
-                      value={apiBase}
-                      onChange={setApiBase}
-                    >
-                      <Label>API 地址</Label>
-                      <Input
-                        placeholder={
-                          selectedProvider.apiBasePlaceholder ??
-                          selectedProvider.apiBase ??
-                          "按供应商默认地址调用"
-                        }
-                        variant="secondary"
-                      />
-                      <FieldError />
-                    </TextField>
-                  </div>
-                  <TextField
-                    fullWidth
-                    name="api_key"
-                    type="password"
-                    value={apiKey}
-                    onChange={setApiKey}
-                  >
-                    <Label>API Key</Label>
-                    <Input
-                      placeholder={
-                        editingProvider
-                          ? "留空则保留当前 API Key"
-                          : "仅保存到后端配置"
-                      }
+                      isRequired
+                      name="model"
+                      selectedKey={model}
                       variant="secondary"
-                    />
-                  </TextField>
-                  <div className="flex flex-wrap gap-4">
-                    <Switch isSelected={isDefault} onChange={setIsDefault}>
-                      <Switch.Content>
-                        <Switch.Control>
-                          <Switch.Thumb />
-                        </Switch.Control>
-                        设为默认
-                      </Switch.Content>
-                    </Switch>
-                    {editingProvider ? (
-                      <Switch
-                        isSelected={providerStatus === "active"}
-                        onChange={(selected) =>
-                          setProviderStatus(selected ? "active" : "inactive")
+                      onSelectionChange={(key) => {
+                        if (key) {
+                          setModel(String(key));
                         }
-                      >
-                        <Switch.Content>
-                          <Switch.Control>
-                            <Switch.Thumb />
-                          </Switch.Control>
-                          启用
-                        </Switch.Content>
-                      </Switch>
-                    ) : null}
+                      }}
+                    >
+                      <Label>主模型</Label>
+                      <Select.Trigger>
+                        <Select.Value />
+                        <Select.Indicator />
+                      </Select.Trigger>
+                      <Select.Popover>
+                        <ListBox>
+                          {providerModelOptions.map((modelOption) => (
+                            <ListBox.Item
+                              key={modelOption}
+                              id={modelOption}
+                              textValue={modelOption}
+                            >
+                              {modelOption}
+                              <ListBox.ItemIndicator />
+                            </ListBox.Item>
+                          ))}
+                        </ListBox>
+                      </Select.Popover>
+                      <FieldError />
+                    </Select>
+                  )}
+                  <div className="grid gap-2">
+                    <Label>模型能力</Label>
+                    <div className="grid gap-2 md:grid-cols-2">
+                      {modelCapabilityDefinitions.map((definition) => (
+                        <Checkbox
+                          key={definition.id}
+                          isSelected={selectedCapabilities.includes(
+                            definition.id,
+                          )}
+                          onChange={(selected) =>
+                            toggleCapability(definition.id, selected)
+                          }
+                        >
+                          <Checkbox.Control>
+                            <Checkbox.Indicator />
+                          </Checkbox.Control>
+                          <Checkbox.Content>
+                            <span className="block text-sm font-medium">
+                              {definition.label}
+                            </span>
+                            <span className="text-muted block text-xs">
+                              {definition.description}
+                            </span>
+                          </Checkbox.Content>
+                        </Checkbox>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </Modal.Body>
               <Modal.Footer>
                 <div className="flex w-full items-center justify-between gap-3">
-                  {editingProvider ? (
+                  {editingModelConfiguration ? (
                     <Button
                       isPending={isDeletingProvider}
                       type="button"
@@ -1315,7 +1321,7 @@ export function ModelConfigurationPage() {
                       onPress={deleteProvider}
                     >
                       <AdminIcon className="size-4" name="trash" />
-                      删除供应商
+                      删除模型
                     </Button>
                   ) : (
                     <span />
@@ -1347,23 +1353,23 @@ export function ModelConfigurationPage() {
   );
 }
 
-function createStaticProvider({
-  has_api_key,
+function createStaticModelConfiguration({
+  capabilities,
   id,
-  is_default = false,
   model,
+  name,
   provider_type,
   status = "active",
   tts_voice_id,
 }: {
-  has_api_key?: boolean;
+  capabilities: ModelCapabilityId[];
   id: string;
-  is_default?: boolean;
   model?: string;
+  name: string;
   provider_type: string;
   status?: string;
   tts_voice_id?: string;
-}): ModelProvider {
+}): ModelConfiguration {
   const preset =
     modelProviderPresets.find((provider) => provider.id === provider_type) ??
     defaultModelProviderPreset;
@@ -1371,14 +1377,11 @@ function createStaticProvider({
   const nextModel = model || models[0] || preset.defaultModel;
 
   return {
-    api_base: preset.apiBase,
-    context_window: preset.contextWindow ?? DEFAULT_MODEL_CONTEXT_WINDOW,
-    has_api_key,
+    capabilities,
     id,
-    is_default,
     model: nextModel,
     models,
-    name: `${preset.label} ${nextModel}`.trim(),
+    name,
     provider_type,
     status,
     tts_voice_id,
@@ -1387,18 +1390,18 @@ function createStaticProvider({
 
 function createCapabilityRoute(
   capability: ModelCapabilityId,
-  provider: ModelProvider,
-  model = provider.model,
+  modelConfiguration: ModelConfiguration,
+  model = modelConfiguration.model,
   ttsVoiceId?: string,
 ): ModelCapabilityRoute {
   return {
     capability,
     model,
-    models: provider.models,
-    provider_id: provider.id,
-    provider_name: provider.name,
-    provider_type: provider.provider_type,
-    status: provider.status,
+    models: modelConfiguration.models,
+    provider_id: modelConfiguration.id,
+    provider_name: modelConfiguration.name,
+    provider_type: modelConfiguration.provider_type,
+    status: modelConfiguration.status,
     tts_voice_id: ttsVoiceId,
   };
 }
@@ -1407,6 +1410,14 @@ function modelProviderLabel(providerType: string): string {
   return (
     modelProviderPresets.find((provider) => provider.id === providerType)
       ?.label ?? providerType
+  );
+}
+
+function modelCapabilityLabel(capability: ModelCapabilityId): string {
+  return (
+    modelCapabilityDefinitions.find(
+      (definition) => definition.id === capability,
+    )?.label ?? capability
   );
 }
 
@@ -1429,10 +1440,12 @@ function providerPresetModels(provider: ModelProviderPreset) {
   return parseModelList(provider.defaultModel);
 }
 
-function providerDisplayName(provider: ModelProvider | undefined) {
-  if (!provider) return "-";
+function modelConfigurationDisplayName(
+  modelConfiguration: ModelConfiguration | undefined,
+) {
+  if (!modelConfiguration) return "-";
 
-  return modelProviderLabel(provider.provider_type);
+  return modelConfiguration.name;
 }
 
 function routeModel(route: ModelCapabilityRoute | undefined) {
