@@ -88,6 +88,7 @@ const USAGE_TIME_COLUMNS: DataGridColumn<UsageTimeRow>[] = [
     allowsSorting: true,
     header: "日期",
     id: "bucketStartAt",
+    isRowHeader: true,
     minWidth: 150,
   },
   {
@@ -406,12 +407,12 @@ export function ConversationsPage() {
             </Button>
           </div>
         ),
-        cellClassName: "w-[144px] min-w-[144px] max-w-[144px]",
+        cellClassName: "w-[176px] min-w-[176px] max-w-[176px] pl-4 pr-4",
         header: "操作",
-        headerClassName: "w-[144px] min-w-[144px] max-w-[144px]",
+        headerClassName: "w-[176px] min-w-[176px] max-w-[176px] pl-4 pr-4",
         id: "actions",
         pinned: "end",
-        width: 144,
+        width: 176,
       },
     ],
     [archiveAction],

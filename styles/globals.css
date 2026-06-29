@@ -8,3 +8,8 @@
 	--font-sans: ui-sans-serif, system-ui, sans-serif;
 	--font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
+
+.modal__body--scroll-inside {
+	margin-inline: -0.25rem;
+	padding: 0.25rem;
+}

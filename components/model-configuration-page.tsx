@@ -17,7 +17,7 @@ import {
   Tooltip,
   toast,
 } from "@heroui/react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { AdminIcon } from "@/components/admin-icons";
 import { ModelProviderLogo } from "@/components/model-provider-logo";
@@ -212,7 +212,7 @@ export function ModelConfigurationPage() {
     defaultModelProviderPreset.id,
   );
   const [customProvider, setCustomProvider] = useState("");
-  const [model, setModel] = useState(defaultModelProviderPreset.defaultModel);
+  const [model, setModel] = useState("");
   const [selectedCapabilities, setSelectedCapabilities] = useState<
     ModelCapabilityValue[]
   >(["chat"]);
@@ -235,27 +235,10 @@ export function ModelConfigurationPage() {
     ? "编辑模型配置"
     : "添加模型配置";
   const providerSubmitLabel = editingModelConfiguration ? "保存" : "创建模型";
-  const providerModelOptions = useMemo(() => {
-    if (usesCustomProvider) return [];
-
-    const savedModels =
-      editingModelConfiguration?.provider_type === providerType
-        ? (editingModelConfiguration.models ?? [])
-        : [];
-    const presetModels = providerPresetModels(selectedProvider);
-    const options = Array.from(new Set([...savedModels, ...presetModels]));
-    const currentModel = model.trim();
-
-    return currentModel && !options.includes(currentModel)
-      ? [currentModel, ...options]
-      : options;
-  }, [
-    editingModelConfiguration,
-    model,
-    providerType,
-    selectedProvider,
-    usesCustomProvider,
-  ]);
+  const suggestedModel = providerPresetModels(selectedProvider)[0];
+  const modelPlaceholder = suggestedModel
+    ? `例如：${suggestedModel}`
+    : "例如：gemini-2.5-pro";
 
   const loadModelConfigurations = useCallback(async () => {
     setIsLoadingModels(true);
@@ -283,10 +266,9 @@ export function ModelConfigurationPage() {
     const nextProvider =
       modelProviderPresets.find((provider) => provider.id === providerId) ??
       defaultModelProviderPreset;
-    const nextModels = providerPresetModels(nextProvider);
 
     setProviderType(nextProvider.id);
-    setModel(nextModels[0] ?? "");
+    setModel("");
     setCustomProvider("");
   }
 
@@ -305,10 +287,7 @@ export function ModelConfigurationPage() {
     const nextProvider = usesCustomProvider
       ? customProvider.trim()
       : selectedProvider.id;
-    const nextModels = usesCustomProvider
-      ? parseModelList(model)
-      : providerModelOptions;
-    const nextModel = model.trim() || nextModels[0] || "";
+    const nextModel = model.trim();
     const nextCapabilities = selectedCapabilities
       .map((capability) => capability.trim())
       .filter(Boolean);
@@ -627,56 +606,17 @@ export function ModelConfigurationPage() {
                       <FieldError />
                     </TextField>
                   ) : null}
-                  {usesCustomProvider ? (
-                    <TextField
-                      fullWidth
-                      isRequired
-                      name="model"
-                      value={model}
-                      onChange={setModel}
-                    >
-                      <Label>主模型</Label>
-                      <Input
-                        placeholder="例如：gemini-2.5-pro"
-                        variant="secondary"
-                      />
-                      <FieldError />
-                    </TextField>
-                  ) : (
-                    <Select
-                      fullWidth
-                      isRequired
-                      name="model"
-                      selectedKey={model}
-                      variant="secondary"
-                      onSelectionChange={(key) => {
-                        if (key) {
-                          setModel(String(key));
-                        }
-                      }}
-                    >
-                      <Label>主模型</Label>
-                      <Select.Trigger>
-                        <Select.Value />
-                        <Select.Indicator />
-                      </Select.Trigger>
-                      <Select.Popover>
-                        <ListBox>
-                          {providerModelOptions.map((modelOption) => (
-                            <ListBox.Item
-                              key={modelOption}
-                              id={modelOption}
-                              textValue={modelOption}
-                            >
-                              {modelOption}
-                              <ListBox.ItemIndicator />
-                            </ListBox.Item>
-                          ))}
-                        </ListBox>
-                      </Select.Popover>
-                      <FieldError />
-                    </Select>
-                  )}
+                  <TextField
+                    fullWidth
+                    isRequired
+                    name="model"
+                    value={model}
+                    onChange={setModel}
+                  >
+                    <Label>模型名称</Label>
+                    <Input placeholder={modelPlaceholder} variant="secondary" />
+                    <FieldError />
+                  </TextField>
                   <div className="grid gap-2">
                     <Label>模型能力</Label>
                     <div className="grid gap-2 md:grid-cols-2">

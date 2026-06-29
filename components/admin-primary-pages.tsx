@@ -311,12 +311,12 @@ export function UsersPage() {
             </div>
           );
         },
-        cellClassName: "w-[248px] min-w-[248px] max-w-[248px]",
+        cellClassName: "w-[264px] min-w-[264px] max-w-[264px] pl-4 pr-4",
         header: "操作",
-        headerClassName: "w-[248px] min-w-[248px] max-w-[248px]",
+        headerClassName: "w-[264px] min-w-[264px] max-w-[264px] pl-4 pr-4",
         id: "actions",
         pinned: "end",
-        width: 248,
+        width: 264,
       },
     ],
     [refreshUsers],
@@ -639,9 +639,9 @@ export function AgentsPage() {
             </div>
           );
         },
-        cellClassName: "w-[160px] min-w-[160px] max-w-[160px]",
+        cellClassName: "w-[160px] min-w-[160px] max-w-[160px] pl-4 pr-4",
         header: "操作",
-        headerClassName: "w-[160px] min-w-[160px] max-w-[160px]",
+        headerClassName: "w-[160px] min-w-[160px] max-w-[160px] pl-4 pr-4",
         id: "actions",
         pinned: "end",
         width: 160,
