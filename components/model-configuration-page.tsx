@@ -17,47 +17,55 @@ import {
   Tooltip,
   toast,
 } from "@heroui/react";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AdminIcon } from "@/components/admin-icons";
 import { ModelProviderLogo } from "@/components/model-provider-logo";
+import {
+  createModel,
+  deleteModel,
+  listModels,
+  type Model,
+  type ReqModelCreate,
+  type ReqModelUpdate,
+  updateModel,
+} from "@/lib/api";
 
 type ModelCapabilityId =
   | "chat"
+  | "image_generation"
+  | "video_generation"
+  | "music_generation"
   | "vision"
-  | "image"
-  | "asr"
-  | "tts"
-  | "embedding";
+  | "pdf";
+
+type ModelCapabilityValue = ModelCapabilityId | (string & {});
 
 type ModelProviderPreset = {
+  defaultModel: string;
   id: string;
   label: string;
-  defaultModel: string;
-  apiBase?: string;
 };
 
 type ModelConfiguration = {
-  api_base?: string;
-  api_token?: string;
-  capabilities: ModelCapabilityId[];
+  capabilities: ModelCapabilityValue[];
+  enabled: boolean;
   id: string;
   model: string;
   models?: string[];
   name: string;
   provider_type: string;
-  status: string;
+  record?: Model;
+  recordId?: number;
 };
 
 const modelProviderPresets: ModelProviderPreset[] = [
   {
-    apiBase: "https://api.deepseek.com/v1",
     defaultModel: "deepseek-v4-flash",
     id: "deepseek",
     label: "DeepSeek",
   },
   {
-    apiBase: "https://api.openai.com/v1",
     defaultModel: "gpt-5.5",
     id: "openai",
     label: "OpenAI",
@@ -68,38 +76,32 @@ const modelProviderPresets: ModelProviderPreset[] = [
     label: "通义千问",
   },
   {
-    apiBase: "https://ark.cn-beijing.volces.com/api/v3",
     defaultModel: "doubao-seed-2-0-pro-260215",
     id: "doubao",
     label: "豆包",
   },
   {
-    apiBase: "https://api.moonshot.cn/v1",
     defaultModel: "kimi-k2.7-code",
     id: "moonshot",
     label: "Kimi",
   },
   {
-    apiBase: "https://open.bigmodel.cn/api/paas/v4",
     defaultModel:
       "glm-5.2\nglm-image\ncogview-4-250304\ncogview-4\ncogview-3-flash",
     id: "zhipu",
     label: "智谱 AI",
   },
   {
-    apiBase: "https://api.anthropic.com/v1",
     defaultModel: "claude-fable-5",
-    id: "claudeAPI",
+    id: "anthropic",
     label: "Claude",
   },
   {
-    apiBase: "https://generativelanguage.googleapis.com",
-    defaultModel: "gemini-3.5-flash",
-    id: "gemini",
+    defaultModel: "gemini-2.5-pro\ngemini-3.5-flash",
+    id: "google",
     label: "Gemini",
   },
   {
-    apiBase: "https://qianfan.baidubce.com/v2",
     defaultModel: "ernie-5.1",
     id: "qianfan",
     label: "百度千帆",
@@ -110,10 +112,14 @@ const modelProviderPresets: ModelProviderPreset[] = [
     label: "MiniMax",
   },
   {
-    apiBase: "https://token-plan-cn.xiaomimimo.com/v1",
-    defaultModel: "mimo-v2.5-pro\nmimo-v2.5\nmimo-v2.5-asr\nmimo-v2.5-tts",
+    defaultModel: "mimo-v2.5-pro\nmimo-v2.5",
     id: "mimo",
     label: "小米 MiMo",
+  },
+  {
+    defaultModel: "qwen/qwen-2.5-vl-72b-instruct:free",
+    id: "openrouter",
+    label: "OpenRouter",
   },
   {
     defaultModel: "",
@@ -125,9 +131,9 @@ const modelProviderPresets: ModelProviderPreset[] = [
 const defaultModelProviderPreset = modelProviderPresets[0];
 
 const modelCapabilityDefinitions: Array<{
+  description: string;
   id: ModelCapabilityId;
   label: string;
-  description: string;
 }> = [
   {
     description: "基础对话和 Agent 推理",
@@ -135,63 +141,30 @@ const modelCapabilityDefinitions: Array<{
     label: "主模型",
   },
   {
+    description: "图像生成技能",
+    id: "image_generation",
+    label: "图像生成",
+  },
+  {
+    description: "视频生成技能",
+    id: "video_generation",
+    label: "视频生成",
+  },
+  {
+    description: "音乐生成技能",
+    id: "music_generation",
+    label: "音乐生成",
+  },
+  {
     description: "识别图片内容",
     id: "vision",
     label: "图像理解",
   },
   {
-    description: "图像生成技能",
-    id: "image",
-    label: "图像生成",
+    description: "PDF 文档理解",
+    id: "pdf",
+    label: "PDF 理解",
   },
-  {
-    description: "语音转文字",
-    id: "asr",
-    label: "语音识别",
-  },
-  {
-    description: "文字转语音",
-    id: "tts",
-    label: "语音合成",
-  },
-  {
-    description: "用于记忆与知识的向量化检索",
-    id: "embedding",
-    label: "向量",
-  },
-];
-
-const INITIAL_MODEL_CONFIGURATIONS: ModelConfiguration[] = [
-  createStaticModelConfiguration({
-    api_token: "configured",
-    capabilities: ["chat", "embedding"],
-    id: "model-default",
-    name: "默认主模型",
-    provider_type: "deepseek",
-  }),
-  createStaticModelConfiguration({
-    api_token: "configured",
-    capabilities: ["vision"],
-    id: "model-vision",
-    name: "图像理解",
-    provider_type: "openai",
-  }),
-  createStaticModelConfiguration({
-    api_token: "configured",
-    capabilities: ["image"],
-    id: "model-image",
-    model: "glm-image",
-    name: "图像生成",
-    provider_type: "zhipu",
-  }),
-  createStaticModelConfiguration({
-    api_token: "configured",
-    capabilities: ["asr", "tts"],
-    id: "model-speech",
-    model: "mimo-v2.5-tts",
-    name: "语音模型",
-    provider_type: "mimo",
-  }),
 ];
 
 function Typography({
@@ -238,18 +211,17 @@ export function ModelConfigurationPage() {
   const [providerType, setProviderType] = useState(
     defaultModelProviderPreset.id,
   );
+  const [customProvider, setCustomProvider] = useState("");
   const [model, setModel] = useState(defaultModelProviderPreset.defaultModel);
-  const [apiBase, setApiBase] = useState(
-    defaultModelProviderPreset.apiBase ?? "",
-  );
-  const [apiToken, setApiToken] = useState("");
   const [selectedCapabilities, setSelectedCapabilities] = useState<
-    ModelCapabilityId[]
+    ModelCapabilityValue[]
   >(["chat"]);
   const [isProviderDialogOpen, setIsProviderDialogOpen] = useState(false);
-  const [modelConfigurations, setModelConfigurations] = useState(
-    INITIAL_MODEL_CONFIGURATIONS,
-  );
+  const [modelConfigurations, setModelConfigurations] = useState<
+    ModelConfiguration[]
+  >([]);
+  const [isLoadingModels, setIsLoadingModels] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeletingProvider, setIsDeletingProvider] = useState(false);
   const [editingModelConfiguration, setEditingModelConfiguration] =
@@ -258,11 +230,14 @@ export function ModelConfigurationPage() {
   const selectedProvider =
     modelProviderPresets.find((provider) => provider.id === providerType) ??
     defaultModelProviderPreset;
+  const usesCustomProvider = selectedProvider.id === "custom";
   const providerDialogTitle = editingModelConfiguration
     ? "编辑模型配置"
     : "添加模型配置";
   const providerSubmitLabel = editingModelConfiguration ? "保存" : "创建模型";
   const providerModelOptions = useMemo(() => {
+    if (usesCustomProvider) return [];
+
     const savedModels =
       editingModelConfiguration?.provider_type === providerType
         ? (editingModelConfiguration.models ?? [])
@@ -274,8 +249,35 @@ export function ModelConfigurationPage() {
     return currentModel && !options.includes(currentModel)
       ? [currentModel, ...options]
       : options;
-  }, [editingModelConfiguration, model, providerType, selectedProvider]);
-  const usesCustomProvider = selectedProvider.id === "custom";
+  }, [
+    editingModelConfiguration,
+    model,
+    providerType,
+    selectedProvider,
+    usesCustomProvider,
+  ]);
+
+  const loadModelConfigurations = useCallback(async () => {
+    setIsLoadingModels(true);
+    setLoadError(null);
+
+    try {
+      const models = await listModels();
+
+      setModelConfigurations(models.map(toModelConfiguration));
+    } catch (error) {
+      const message = getActionErrorMessage(error);
+
+      setLoadError(message);
+      toast.danger(`模型配置加载失败：${message}`);
+    } finally {
+      setIsLoadingModels(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadModelConfigurations();
+  }, [loadModelConfigurations]);
 
   function applyProviderPreset(providerId: string) {
     const nextProvider =
@@ -285,28 +287,31 @@ export function ModelConfigurationPage() {
 
     setProviderType(nextProvider.id);
     setModel(nextModels[0] ?? "");
-    setApiBase(nextProvider.apiBase ?? "");
+    setCustomProvider("");
   }
 
   function resetProviderForm(providerId = defaultModelProviderPreset.id) {
     setEditingModelConfiguration(null);
     setModelConfigName("");
+    setCustomProvider("");
     applyProviderPreset(providerId);
-    setApiToken("");
     setSelectedCapabilities(["chat"]);
   }
 
-  function submitProvider(event: FormEvent<HTMLFormElement>) {
+  async function submitProvider(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const nextProviderType = providerType;
     const nextName = modelConfigName.trim();
-    const customModels = parseModelList(model);
-    const nextModels = usesCustomProvider ? customModels : providerModelOptions;
+    const nextProvider = usesCustomProvider
+      ? customProvider.trim()
+      : selectedProvider.id;
+    const nextModels = usesCustomProvider
+      ? parseModelList(model)
+      : providerModelOptions;
     const nextModel = model.trim() || nextModels[0] || "";
-    const nextApiBase = apiBase.trim();
-    const nextApiToken =
-      apiToken.trim() || editingModelConfiguration?.api_token || "";
+    const nextCapabilities = selectedCapabilities
+      .map((capability) => capability.trim())
+      .filter(Boolean);
 
     if (!nextName) {
       toast.danger("配置名称为必填项。");
@@ -314,53 +319,67 @@ export function ModelConfigurationPage() {
       return;
     }
 
-    if (!nextProviderType || !nextModel) {
+    if (!nextProvider) {
+      toast.danger("供应商标识为必填项。");
+
+      return;
+    }
+
+    if (!nextModel) {
       toast.danger("模型为必填项。");
 
       return;
     }
 
-    if (selectedProvider.id === "custom" && !nextApiBase) {
-      toast.danger("自定义模型必须填写 API 地址。");
-
-      return;
-    }
-
-    if (selectedCapabilities.length === 0) {
+    if (nextCapabilities.length === 0) {
       toast.danger("至少选择一个模型能力。");
 
       return;
     }
 
     setIsSubmitting(true);
-    const nextModelConfiguration: ModelConfiguration = {
-      api_base: nextApiBase || selectedProvider.apiBase,
-      api_token: nextApiToken || undefined,
-      capabilities: selectedCapabilities,
-      id: editingModelConfiguration?.id ?? `model-${Date.now()}`,
-      model: nextModel,
-      models: nextModels,
-      name: nextName,
-      provider_type: nextProviderType,
-      status: "active",
-    };
 
-    setModelConfigurations((items) => {
-      return editingModelConfiguration
-        ? items.map((item) =>
-            item.id === editingModelConfiguration.id
-              ? nextModelConfiguration
-              : item,
-          )
-        : [...items, nextModelConfiguration];
-    });
+    try {
+      const request = buildModelRequest({
+        capabilities: nextCapabilities,
+        displayName: nextName,
+        modelid: nextModel,
+        provider: nextProvider,
+        record: editingModelConfiguration?.record,
+      });
+      const savedModel = editingModelConfiguration?.recordId
+        ? await updateModel({
+            ...request,
+            id: editingModelConfiguration.recordId,
+          } satisfies ReqModelUpdate)
+        : await createModel(request);
 
-    toast.success(
-      editingModelConfiguration ? "模型配置已更新。" : "模型配置已创建。",
-    );
-    resetProviderForm();
-    setIsProviderDialogOpen(false);
-    setIsSubmitting(false);
+      if (savedModel) {
+        const nextModelConfiguration = toModelConfiguration(savedModel);
+
+        setModelConfigurations((items) =>
+          editingModelConfiguration
+            ? items.map((item) =>
+                item.id === editingModelConfiguration.id
+                  ? nextModelConfiguration
+                  : item,
+              )
+            : [nextModelConfiguration, ...items],
+        );
+      } else {
+        await loadModelConfigurations();
+      }
+
+      toast.success(
+        editingModelConfiguration ? "模型配置已更新。" : "模型配置已创建。",
+      );
+      resetProviderForm();
+      setIsProviderDialogOpen(false);
+    } catch (error) {
+      toast.danger(`模型配置保存失败：${getActionErrorMessage(error)}`);
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   function openCreateProviderDialog(
@@ -371,40 +390,49 @@ export function ModelConfigurationPage() {
   }
 
   function openEditProviderDialog(modelConfiguration: ModelConfiguration) {
-    const nextProvider =
-      modelProviderPresets.find(
-        (item) => item.id === modelConfiguration.provider_type,
-      ) ?? defaultModelProviderPreset;
+    const nextProvider = modelProviderPresets.find(
+      (item) => item.id === modelConfiguration.provider_type,
+    );
+    const nextProviderId = nextProvider?.id ?? "custom";
+    const nextProviderModels = nextProvider
+      ? providerPresetModels(nextProvider)
+      : [];
 
     setEditingModelConfiguration(modelConfiguration);
     setModelConfigName(modelConfiguration.name);
-    setProviderType(modelConfiguration.provider_type || nextProvider.id);
+    setProviderType(nextProviderId);
+    setCustomProvider(nextProvider ? "" : modelConfiguration.provider_type);
     setModel(
       modelConfiguration.model ||
         modelConfiguration.models?.[0] ||
-        providerPresetModels(nextProvider)[0] ||
+        nextProviderModels[0] ||
         "",
     );
-    setApiBase(modelConfiguration.api_base ?? nextProvider.apiBase ?? "");
-    setApiToken("");
     setSelectedCapabilities(modelConfiguration.capabilities);
     setIsProviderDialogOpen(true);
   }
 
-  function deleteProvider() {
-    if (!editingModelConfiguration) return;
+  async function deleteProvider() {
+    if (!editingModelConfiguration?.recordId) return;
     if (!window.confirm(`删除“${editingModelConfiguration.name}”模型配置？`)) {
       return;
     }
 
     setIsDeletingProvider(true);
-    setModelConfigurations((items) =>
-      items.filter((item) => item.id !== editingModelConfiguration.id),
-    );
-    toast.success("模型配置已删除。");
-    setIsProviderDialogOpen(false);
-    resetProviderForm();
-    setIsDeletingProvider(false);
+
+    try {
+      await deleteModel(editingModelConfiguration.recordId);
+      setModelConfigurations((items) =>
+        items.filter((item) => item.id !== editingModelConfiguration.id),
+      );
+      toast.success("模型配置已删除。");
+      setIsProviderDialogOpen(false);
+      resetProviderForm();
+    } catch (error) {
+      toast.danger(`模型配置删除失败：${getActionErrorMessage(error)}`);
+    } finally {
+      setIsDeletingProvider(false);
+    }
   }
 
   function toggleCapability(capability: ModelCapabilityId, selected: boolean) {
@@ -422,12 +450,13 @@ export function ModelConfigurationPage() {
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
       <Typography color="muted" type="body-sm">
-        保存可用模型，配置 API 地址、Token 和模型能力。
+        保存可用模型，配置供应商、模型 ID 和模型能力。
       </Typography>
 
       <div className="grid gap-3 md:grid-cols-3">
         <button
-          className="border-border bg-surface cursor-[var(--cursor-interactive)] hover:bg-surface-hover flex min-h-28 items-center gap-3 rounded-lg border border-dashed px-3 text-left"
+          className="border-border bg-surface cursor-[var(--cursor-interactive)] hover:bg-surface-hover disabled:text-muted flex min-h-28 items-center gap-3 rounded-lg border border-dashed px-3 text-left disabled:cursor-not-allowed disabled:opacity-70"
+          disabled={isLoadingModels}
           type="button"
           onClick={() => openCreateProviderDialog()}
         >
@@ -455,12 +484,14 @@ export function ModelConfigurationPage() {
                 </Typography>
                 <Typography className="truncate" color="muted" type="body-xs">
                   {modelProviderLabel(modelConfiguration.provider_type)} ·{" "}
-                  {modelConfiguration.model}
-                </Typography>
-                <Typography className="truncate" color="muted" type="body-xs">
-                  {modelConfiguration.api_base || "未配置 API 地址"}
+                  {modelConfiguration.model || "未配置模型 ID"}
                 </Typography>
                 <div className="flex flex-wrap gap-1">
+                  {modelConfiguration.capabilities.length === 0 ? (
+                    <Chip size="sm" variant="soft">
+                      兼容模式
+                    </Chip>
+                  ) : null}
                   {modelConfiguration.capabilities
                     .slice(0, 2)
                     .map((capability) => (
@@ -474,11 +505,11 @@ export function ModelConfigurationPage() {
                     </Chip>
                   ) : null}
                   <Chip
-                    color={modelConfiguration.api_token ? "success" : "default"}
+                    color={modelConfiguration.enabled ? "success" : "default"}
                     size="sm"
                     variant="soft"
                   >
-                    Token {modelConfiguration.api_token ? "已配置" : "未配置"}
+                    {modelConfiguration.enabled ? "已启用" : "已停用"}
                   </Chip>
                 </div>
               </div>
@@ -499,6 +530,30 @@ export function ModelConfigurationPage() {
         ))}
       </div>
 
+      {isLoadingModels ? (
+        <div className="bg-surface text-muted rounded-lg px-4 py-3 text-sm">
+          正在加载模型配置...
+        </div>
+      ) : null}
+      {!isLoadingModels && loadError ? (
+        <div className="bg-danger-soft text-danger flex items-center justify-between gap-3 rounded-lg px-4 py-3 text-sm">
+          <span className="min-w-0 truncate">加载失败：{loadError}</span>
+          <Button
+            size="sm"
+            type="button"
+            variant="danger-soft"
+            onPress={() => void loadModelConfigurations()}
+          >
+            重新加载
+          </Button>
+        </div>
+      ) : null}
+      {!isLoadingModels && !loadError && modelConfigurations.length === 0 ? (
+        <div className="bg-surface text-muted rounded-lg px-4 py-3 text-sm">
+          暂无模型配置，请先添加模型。
+        </div>
+      ) : null}
+
       <Modal.Backdrop
         isOpen={isProviderDialogOpen}
         onOpenChange={(isOpen) => {
@@ -515,7 +570,7 @@ export function ModelConfigurationPage() {
               <Modal.Header>
                 <Modal.Heading>{providerDialogTitle}</Modal.Heading>
                 <Typography color="muted" type="body-sm">
-                  配置模型服务、鉴权 Token 和可用能力。
+                  配置模型服务和可用能力。
                 </Typography>
               </Modal.Header>
               <Modal.Body>
@@ -567,12 +622,28 @@ export function ModelConfigurationPage() {
                     <TextField
                       fullWidth
                       isRequired
+                      name="provider"
+                      value={customProvider}
+                      onChange={setCustomProvider}
+                    >
+                      <Label>供应商标识</Label>
+                      <Input placeholder="例如：google" variant="secondary" />
+                      <FieldError />
+                    </TextField>
+                  ) : null}
+                  {usesCustomProvider ? (
+                    <TextField
+                      fullWidth
+                      isRequired
                       name="model"
                       value={model}
                       onChange={setModel}
                     >
                       <Label>主模型</Label>
-                      <Input placeholder="输入模型名称" variant="secondary" />
+                      <Input
+                        placeholder="例如：gemini-2.5-pro"
+                        variant="secondary"
+                      />
                       <FieldError />
                     </TextField>
                   ) : (
@@ -610,40 +681,6 @@ export function ModelConfigurationPage() {
                       <FieldError />
                     </Select>
                   )}
-                  <TextField
-                    fullWidth
-                    isRequired={selectedProvider.id === "custom"}
-                    name="api_base"
-                    type="url"
-                    value={apiBase}
-                    onChange={setApiBase}
-                  >
-                    <Label>API 地址</Label>
-                    <Input
-                      placeholder={
-                        selectedProvider.apiBase ?? "https://example.test/v1"
-                      }
-                      variant="secondary"
-                    />
-                    <FieldError />
-                  </TextField>
-                  <TextField
-                    fullWidth
-                    name="api_token"
-                    type="password"
-                    value={apiToken}
-                    onChange={setApiToken}
-                  >
-                    <Label>API Token</Label>
-                    <Input
-                      placeholder={
-                        editingModelConfiguration
-                          ? "留空则保留当前 Token"
-                          : "填入模型服务 Token"
-                      }
-                      variant="secondary"
-                    />
-                  </TextField>
                   <div className="grid gap-2">
                     <Label>模型能力</Label>
                     <div className="grid gap-2 md:grid-cols-2">
@@ -678,6 +715,7 @@ export function ModelConfigurationPage() {
                 <div className="flex w-full items-center justify-between gap-3">
                   {editingModelConfiguration ? (
                     <Button
+                      isDisabled={!editingModelConfiguration.recordId}
                       isPending={isDeletingProvider}
                       type="button"
                       variant="danger-soft"
@@ -716,42 +754,90 @@ export function ModelConfigurationPage() {
   );
 }
 
-function createStaticModelConfiguration({
-  api_base,
-  api_token,
+function buildModelRequest({
   capabilities,
-  id,
-  model,
-  name,
-  provider_type,
-  status = "active",
+  displayName,
+  modelid,
+  provider,
+  record,
 }: {
-  api_base?: string;
-  api_token?: string;
-  capabilities: ModelCapabilityId[];
-  id: string;
-  model?: string;
-  name: string;
-  provider_type: string;
-  status?: string;
-}): ModelConfiguration {
+  capabilities: string[];
+  displayName: string;
+  modelid: string;
+  provider: string;
+  record?: Model;
+}): ReqModelCreate {
+  const request: ReqModelCreate = {
+    capabilities,
+    displayName,
+    enabled: record?.enabled ?? true,
+    modelid,
+    provider,
+  };
+
+  if (record?.cacheReadPricePerMillion !== undefined) {
+    request.cacheReadPricePerMillion = record.cacheReadPricePerMillion;
+  }
+  if (record?.cacheWritePricePerMillion !== undefined) {
+    request.cacheWritePricePerMillion = record.cacheWritePricePerMillion;
+  }
+  if (record?.currency !== undefined) {
+    request.currency = record.currency;
+  }
+  if (record?.inputPricePerMillion !== undefined) {
+    request.inputPricePerMillion = record.inputPricePerMillion;
+  }
+  if (record?.outputPricePerMillion !== undefined) {
+    request.outputPricePerMillion = record.outputPricePerMillion;
+  }
+
+  return request;
+}
+
+function toModelConfiguration(model: Model): ModelConfiguration {
+  const provider = normalizeText(model.provider) || "custom";
+  const modelid = normalizeText(model.modelid);
+  const displayName = normalizeText(model.displayName);
   const preset =
-    modelProviderPresets.find((provider) => provider.id === provider_type) ??
+    modelProviderPresets.find((item) => item.id === provider) ??
+    modelProviderPresets.find((item) => item.id === "custom") ??
     defaultModelProviderPreset;
-  const models = providerPresetModels(preset);
-  const nextModel = model || models[0] || preset.defaultModel;
+  const presetModels = providerPresetModels(preset);
+  const models = modelid
+    ? Array.from(new Set([modelid, ...presetModels]))
+    : presetModels;
 
   return {
-    api_base: api_base ?? preset.apiBase,
-    api_token,
-    capabilities,
-    id,
-    model: nextModel,
+    capabilities: normalizeCapabilities(model.capabilities),
+    enabled: model.enabled ?? true,
+    id:
+      model.id !== undefined
+        ? String(model.id)
+        : `${provider}:${modelid || displayName || "model"}`,
+    model: modelid,
     models,
-    name,
-    provider_type,
-    status,
+    name: displayName || modelid || "未命名模型",
+    provider_type: provider,
+    record: model,
+    recordId: model.id,
   };
+}
+
+function normalizeCapabilities(
+  capabilities?: string[],
+): ModelCapabilityValue[] {
+  const values: ModelCapabilityValue[] = [];
+  const seen = new Set<string>();
+
+  for (const capability of capabilities ?? []) {
+    const nextCapability = capability.trim();
+
+    if (!nextCapability || seen.has(nextCapability)) continue;
+    seen.add(nextCapability);
+    values.push(nextCapability as ModelCapabilityValue);
+  }
+
+  return values;
 }
 
 function modelProviderLabel(providerType: string): string {
@@ -761,7 +847,7 @@ function modelProviderLabel(providerType: string): string {
   );
 }
 
-function modelCapabilityLabel(capability: ModelCapabilityId): string {
+function modelCapabilityLabel(capability: ModelCapabilityValue): string {
   return (
     modelCapabilityDefinitions.find(
       (definition) => definition.id === capability,
@@ -786,4 +872,16 @@ function parseModelList(value: string): string[] {
 
 function providerPresetModels(provider: ModelProviderPreset) {
   return parseModelList(provider.defaultModel);
+}
+
+function normalizeText(value?: string) {
+  return value?.trim() ?? "";
+}
+
+function getActionErrorMessage(error: unknown) {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
+  return "请求失败，请稍后重试。";
 }

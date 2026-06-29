@@ -73,6 +73,7 @@ export interface User {
 export interface ReqModelCreate {
   cacheReadPricePerMillion?: string;
   cacheWritePricePerMillion?: string;
+  capabilities?: string[];
   currency?: string;
   displayName?: string;
   enabled?: boolean;
@@ -96,6 +97,7 @@ export interface ReqModelDetail {
 export interface ReqModelUpdate {
   cacheReadPricePerMillion?: string;
   cacheWritePricePerMillion?: string;
+  capabilities?: string[];
   currency?: string;
   displayName?: string;
   enabled?: boolean;
@@ -120,12 +122,14 @@ export interface ResModels {
 export interface Model {
   cacheReadPricePerMillion?: string;
   cacheWritePricePerMillion?: string;
+  capabilities?: string[];
   createdAt?: string;
   currency?: string;
   displayName?: string;
   enabled?: boolean;
   id?: number;
   inputPricePerMillion?: string;
+  isDelete?: number;
   modelid?: string;
   outputPricePerMillion?: string;
   provider?: string;

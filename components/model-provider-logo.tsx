@@ -17,6 +17,7 @@ const sizeClasses = {
 };
 
 const modelProviderLogos: Record<string, string> = {
+  anthropic: "claude",
   claude: "claude",
   claudeapi: "claude",
   custom: "openai",
@@ -24,11 +25,13 @@ const modelProviderLogos: Record<string, string> = {
   deepseek: "deepseek",
   doubao: "doubao",
   gemini: "gemini",
+  google: "gemini",
   kimi: "kimi",
   minimax: "minimax",
   mimo: "xiaomimimo",
   moonshot: "kimi",
   openai: "openai",
+  openrouter: "openai",
   qianfan: "wenxin",
   qwen: "qwen",
   wenxin: "wenxin",
