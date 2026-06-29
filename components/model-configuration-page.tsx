@@ -451,7 +451,7 @@ export function ModelConfigurationPage() {
     <div className="flex w-full flex-col gap-5">
       <div className="grid gap-3 md:grid-cols-3">
         <button
-          className="border-border bg-surface cursor-[var(--cursor-interactive)] hover:bg-surface-hover disabled:text-muted flex min-h-28 items-center gap-3 rounded-md border border-dashed px-3 text-left disabled:cursor-not-allowed disabled:opacity-70"
+          className="border-border bg-surface cursor-[var(--cursor-interactive)] hover:bg-surface-hover disabled:text-muted flex min-h-28 items-center gap-3 rounded-3xl border border-dashed px-3 text-left disabled:cursor-not-allowed disabled:opacity-70"
           disabled={isLoadingModels}
           type="button"
           onClick={() => openCreateProviderDialog()}
@@ -467,7 +467,7 @@ export function ModelConfigurationPage() {
         {modelConfigurations.map((modelConfiguration) => (
           <div
             key={modelConfiguration.id}
-            className="bg-surface flex min-h-28 min-w-0 items-center justify-between gap-3 rounded-md px-3 py-3"
+            className="bg-surface flex min-h-28 min-w-0 items-center justify-between gap-3 rounded-3xl px-3 py-3"
           >
             <div className="flex min-w-0 items-center gap-3">
               <ModelProviderLogo
@@ -527,12 +527,12 @@ export function ModelConfigurationPage() {
       </div>
 
       {isLoadingModels ? (
-        <div className="bg-surface text-muted rounded-md px-4 py-3 text-sm">
+        <div className="bg-surface text-muted rounded-3xl px-4 py-3 text-sm">
           正在加载模型配置...
         </div>
       ) : null}
       {!isLoadingModels && loadError ? (
-        <div className="bg-danger-soft text-danger flex items-center justify-between gap-3 rounded-md px-4 py-3 text-sm">
+        <div className="bg-danger-soft text-danger flex items-center justify-between gap-3 rounded-3xl px-4 py-3 text-sm">
           <span className="min-w-0 truncate">加载失败：{loadError}</span>
           <Button
             size="sm"
@@ -545,7 +545,7 @@ export function ModelConfigurationPage() {
         </div>
       ) : null}
       {!isLoadingModels && !loadError && modelConfigurations.length === 0 ? (
-        <div className="bg-surface text-muted rounded-md px-4 py-3 text-sm">
+        <div className="bg-surface text-muted rounded-3xl px-4 py-3 text-sm">
           暂无模型配置，请先添加模型。
         </div>
       ) : null}

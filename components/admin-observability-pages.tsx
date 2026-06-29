@@ -272,23 +272,25 @@ export function UsagePage() {
       />
 
       <section className="flex min-w-0 flex-col gap-3">
-        <Tabs
-          selectedKey={usageView}
-          onSelectionChange={(key) => setUsageView(toUsageView(key))}
-        >
-          <Tabs.ListContainer>
-            <Tabs.List aria-label="用量视图">
-              <Tabs.Tab className="whitespace-nowrap" id="time">
-                按日用量
-                <Tabs.Indicator />
-              </Tabs.Tab>
-              <Tabs.Tab className="whitespace-nowrap" id="users">
-                按用户用量
-                <Tabs.Indicator />
-              </Tabs.Tab>
-            </Tabs.List>
-          </Tabs.ListContainer>
-        </Tabs>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <Tabs
+            selectedKey={usageView}
+            onSelectionChange={(key) => setUsageView(toUsageView(key))}
+          >
+            <Tabs.ListContainer>
+              <Tabs.List aria-label="用量视图">
+                <Tabs.Tab className="whitespace-nowrap" id="time">
+                  按日用量
+                  <Tabs.Indicator />
+                </Tabs.Tab>
+                <Tabs.Tab className="whitespace-nowrap" id="users">
+                  按用户用量
+                  <Tabs.Indicator />
+                </Tabs.Tab>
+              </Tabs.List>
+            </Tabs.ListContainer>
+          </Tabs>
+        </div>
         {usageView === "time" ? (
           <UsageTable
             columns={USAGE_TIME_COLUMNS}
@@ -404,10 +406,12 @@ export function ConversationsPage() {
             </Button>
           </div>
         ),
+        cellClassName: "w-[144px] min-w-[144px] max-w-[144px]",
         header: "操作",
+        headerClassName: "w-[144px] min-w-[144px] max-w-[144px]",
         id: "actions",
-        minWidth: 180,
         pinned: "end",
+        width: 144,
       },
     ],
     [archiveAction],
