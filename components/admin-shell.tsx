@@ -31,6 +31,13 @@ const PLATFORM_ITEMS: readonly NavItem[] = [
 ] as const;
 
 const OPS_ITEMS: readonly NavItem[] = [
+  { href: "/usage", icon: "activity", key: "usage", label: "用量统计" },
+  {
+    href: "/conversations",
+    icon: "database",
+    key: "conversations",
+    label: "会话记录",
+  },
   { href: "/tools", icon: "tool", key: "tools", label: "工具与权限" },
   { href: "/audit", icon: "audit", key: "audit", label: "审计日志" },
 ] as const;
