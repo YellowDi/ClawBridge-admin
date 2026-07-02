@@ -114,6 +114,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
       scrollMode="content"
       sidebar={sidebar}
       sidebarCollapsible="offcanvas"
+      sidebarVariant="inset"
     >
       <AdminPageActionsContext.Provider value={pageActionsContext}>
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">

@@ -53,12 +53,15 @@ type UsageTimeRow = {
 };
 
 type UsageUserRow = {
+  billableQuantity: number;
+  bucketStartAt: string;
   currency: string;
   id: string;
   modelKey: string;
   totalCostAmount: number;
   totalTokens: number;
   usageCount: number;
+  usageType: string;
   userId: number | string;
   username: string;
 };
@@ -134,6 +137,15 @@ const USAGE_TIME_COLUMNS: DataGridColumn<UsageTimeRow>[] = [
 
 const USAGE_USER_COLUMNS: DataGridColumn<UsageUserRow>[] = [
   {
+    accessorKey: "bucketStartAt",
+    allowsSorting: true,
+    cellClassName: "whitespace-nowrap",
+    header: "日期",
+    headerClassName: "whitespace-nowrap",
+    id: "bucketStartAt",
+    width: 120,
+  },
+  {
     allowsSorting: true,
     cell: (item) => (
       <div className="flex min-w-0 flex-col">
@@ -163,6 +175,15 @@ const USAGE_USER_COLUMNS: DataGridColumn<UsageUserRow>[] = [
     header: "Tokens",
     headerClassName: "whitespace-nowrap",
     id: "totalTokens",
+    width: 110,
+  },
+  {
+    align: "end",
+    cell: (item) => formatUsageQuantity(item),
+    cellClassName: "whitespace-nowrap",
+    header: "计费量",
+    headerClassName: "whitespace-nowrap",
+    id: "billableQuantity",
     width: 110,
   },
   {
@@ -211,6 +232,7 @@ export function UsagePage() {
           startDate: range.startDate,
         }),
         getTokenUsageStatsByUsers({
+          bucket: "day",
           endDate: range.endDate,
           startDate: range.startDate,
         }),
@@ -830,12 +852,21 @@ function toUsageTimeRows(stats?: TokenUsageStatsTime) {
 
 function toUsageUserRows(stats?: TokenUsageStatsUsers) {
   return (stats?.items ?? []).map((item, index) => ({
+    billableQuantity: item.billableQuantity ?? 0,
+    bucketStartAt: formatDate(item.bucketStartAt),
     currency: item.currency ?? "CNY",
-    id: `${item.userId ?? "user"}-${item.modelKey ?? index}`,
+    id: [
+      item.bucketStartAt ?? "range",
+      item.userId ?? "user",
+      item.usageType ?? "token",
+      item.modelKey ?? "model",
+      index,
+    ].join("-"),
     modelKey: item.modelKey ?? "-",
     totalCostAmount: amountNumber(item.totalCostAmount),
     totalTokens: item.totalTokens ?? 0,
     usageCount: item.usageCount ?? 0,
+    usageType: item.usageType ?? "token",
     userId: item.userId ?? "-",
     username: item.username ?? "未知用户",
   }));
@@ -942,6 +973,14 @@ function formatAmount(value: number) {
     maximumFractionDigits: 6,
     minimumFractionDigits: 0,
   });
+}
+
+function formatUsageQuantity(item: UsageUserRow) {
+  if (item.usageType === "image") {
+    return `${formatNumber(item.billableQuantity)} 张`;
+  }
+
+  return `${formatNumber(item.totalTokens)} Tokens`;
 }
 
 function formatNumber(value: number) {
