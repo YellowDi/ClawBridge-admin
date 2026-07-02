@@ -5,6 +5,7 @@ import type { AgentForm } from "@/components/agent-form-types";
 
 import { Input, Label, ListBox, Select, TextField } from "@heroui/react";
 
+import { AgentAvatarField } from "@/components/agent-avatar-field";
 import { AgentLevelSelect } from "@/components/agent-level-select";
 import { AgentModelSelectField } from "@/components/agent-model-select-field";
 import {
@@ -53,6 +54,14 @@ export function AgentFormFields({
           onChange={(event) => onChange({ displayName: event.target.value })}
         />
       </TextField>
+
+      <AgentAvatarField
+        agentId={form.agentId}
+        displayName={form.displayName}
+        isDisabled={isDisabled}
+        value={form.avatarUrl}
+        onChange={(avatarUrl) => onChange({ avatarUrl })}
+      />
 
       <AgentModelSelectField
         isDisabled={isDisabled}

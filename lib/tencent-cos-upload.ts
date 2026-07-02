@@ -8,11 +8,27 @@ export type TencentCosUploadResult = {
 };
 
 const COS_OBJECT_PREFIX = "uploads/";
+const AGENT_AVATAR_OBJECT_PREFIX = "uploads/agent-avatars/";
 const DEFAULT_COS_STS_EXPIRES_SECONDS = 1800;
 const DEFAULT_COS_SLICE_SIZE = 1024 * 1024;
 
 export async function uploadKnowledgeFileToCos(
   file: File,
+  onProgress?: (percent: number) => void,
+): Promise<TencentCosUploadResult> {
+  return uploadFileToCos(file, COS_OBJECT_PREFIX, onProgress);
+}
+
+export async function uploadAgentAvatarToCos(
+  file: File,
+  onProgress?: (percent: number) => void,
+): Promise<TencentCosUploadResult> {
+  return uploadFileToCos(file, AGENT_AVATAR_OBJECT_PREFIX, onProgress);
+}
+
+async function uploadFileToCos(
+  file: File,
+  objectPrefix: string,
   onProgress?: (percent: number) => void,
 ): Promise<TencentCosUploadResult> {
   const sts = await getTencentCosSts();
@@ -40,7 +56,11 @@ export async function uploadKnowledgeFileToCos(
     throw new ApiError("腾讯云 COS 鉴权响应缺少临时凭证。", 0, sts);
   }
 
-  const key = createObjectKey(file, getDomainObjectKeyPrefix(sts.domain));
+  const key = createObjectKey(
+    file,
+    getDomainObjectKeyPrefix(sts.domain),
+    objectPrefix,
+  );
   const { expiredTime, startTime } = parseCosStsTime(credentials?.expiration);
   const cos = new COS({
     getAuthorization(_, callback) {
@@ -76,12 +96,16 @@ export async function uploadKnowledgeFileToCos(
   };
 }
 
-function createObjectKey(file: File, objectKeyPrefix: string) {
+function createObjectKey(
+  file: File,
+  objectKeyPrefix: string,
+  uploadPrefix: string,
+) {
   const extension = getFileExtension(file.name);
   const random = Math.random().toString(36).slice(2, 10);
   const timestamp = new Date().toISOString().replace(/[-:TZ.]/g, "");
 
-  return `${objectKeyPrefix}${COS_OBJECT_PREFIX}${timestamp}-${random}${extension}`;
+  return `${objectKeyPrefix}${uploadPrefix}${timestamp}-${random}${extension}`;
 }
 
 function getFileExtension(fileName: string) {

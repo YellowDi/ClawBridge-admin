@@ -4,7 +4,7 @@ import type { DataGridColumn } from "@heroui-pro/react";
 import type { Key } from "react";
 import type { Agent as ApiAgent, Model as ApiModel } from "@/lib/api";
 
-import { Chip, SearchField, Tabs } from "@heroui/react";
+import { Avatar, Chip, SearchField, Tabs } from "@heroui/react";
 import { DataGrid } from "@heroui-pro/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -23,6 +23,7 @@ type AgentStatus = "停用" | "启用";
 type AdminAgent = {
   agentId: string;
   agentRecordId: number | null;
+  avatarUrl: string;
   capabilityModelSummary: string;
   defaultImageGenerationModelid: string;
   defaultImageModelid: string;
@@ -67,11 +68,24 @@ const AGENT_BASE_COLUMNS: DataGridColumn<AdminAgent>[] = [
   {
     allowsSorting: true,
     cell: (item) => (
-      <div className="flex min-w-0 flex-col">
-        <span className="truncate text-xs font-medium">
-          {item.displayLabel}
-        </span>
-        <span className="text-muted truncate text-xs">{item.agentId}</span>
+      <div className="flex min-w-0 items-center gap-3">
+        <Avatar className="size-8 shrink-0">
+          {item.avatarUrl ? (
+            <Avatar.Image
+              alt={`${item.displayLabel} 头像`}
+              src={item.avatarUrl}
+            />
+          ) : null}
+          <Avatar.Fallback>
+            {getAgentInitials(item.displayLabel)}
+          </Avatar.Fallback>
+        </Avatar>
+        <div className="flex min-w-0 flex-col">
+          <span className="truncate text-xs font-medium">
+            {item.displayLabel}
+          </span>
+          <span className="text-muted truncate text-xs">{item.agentId}</span>
+        </div>
       </div>
     ),
     header: "Agent",
@@ -376,6 +390,7 @@ function toAdminAgent(agent: ApiAgent, index: number): AdminAgent {
   return {
     agentId,
     agentRecordId: agent.id ?? null,
+    avatarUrl: agent.avatarUrl?.trim() ?? "",
     capabilityModelSummary: formatCapabilityModelSummary({
       defaultImageGenerationModelid,
       defaultImageModelid,
@@ -407,6 +422,7 @@ function toAdminAgent(agent: ApiAgent, index: number): AdminAgent {
 function toEditableAgentSummary(agent: AdminAgent, id: number) {
   return {
     agentId: agent.agentId,
+    avatarUrl: agent.avatarUrl,
     defaultImageGenerationModelid: agent.defaultImageGenerationModelid,
     defaultImageModelid: agent.defaultImageModelid,
     defaultMusicGenerationModelid: agent.defaultMusicGenerationModelid,
@@ -437,6 +453,7 @@ function filterAgents(
 
     return [
       agent.agentId,
+      agent.avatarUrl,
       agent.capabilityModelSummary,
       agent.defaultImageGenerationModelid,
       agent.defaultImageModelid,
@@ -535,6 +552,14 @@ function getDefaultModelLabel(agent: ApiAgent) {
   if (defaultModelid) return defaultModelid;
 
   return "-";
+}
+
+function getAgentInitials(value: string) {
+  const normalized = value.trim();
+
+  if (!normalized) return "A";
+
+  return normalized.slice(0, 2).toUpperCase();
 }
 
 function formatAgentLevels(

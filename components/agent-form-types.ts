@@ -1,5 +1,6 @@
 export type AgentForm = {
   agentId: string;
+  avatarUrl: string;
   defaultImageGenerationModelid: string;
   defaultImageModelid: string;
   defaultMusicGenerationModelid: string;
@@ -16,6 +17,7 @@ export type AgentForm = {
 
 export const DEFAULT_AGENT_FORM: AgentForm = {
   agentId: "",
+  avatarUrl: "",
   defaultImageGenerationModelid: "",
   defaultImageModelid: "",
   defaultMusicGenerationModelid: "",

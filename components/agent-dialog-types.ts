@@ -3,6 +3,7 @@ import type { Agent, Model } from "@/lib/api";
 export type EditableAgentSummary = Pick<
   Agent,
   | "agentId"
+  | "avatarUrl"
   | "defaultImageGenerationModelid"
   | "defaultImageModelid"
   | "defaultMusicGenerationModelid"

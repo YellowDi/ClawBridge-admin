@@ -168,6 +168,7 @@ export interface Model {
 
 export interface ReqAgentCreate {
   agentId?: string;
+  avatarUrl?: string;
   defaultImageGenerationModelid?: string;
   defaultImageModelid?: string;
   defaultMusicGenerationModelid?: string;
@@ -197,6 +198,7 @@ export interface ReqAgentDetail {
 
 export interface ReqAgentUpdate {
   agentId?: string;
+  avatarUrl?: string;
   defaultImageGenerationModelid?: string;
   defaultImageModelid?: string;
   defaultMusicGenerationModelid?: string;
@@ -226,6 +228,7 @@ export interface ResAgents {
 
 export interface Agent {
   agentId?: string;
+  avatarUrl?: string;
   createdAt?: string;
   defaultImageGenerationModel?: Model;
   defaultImageGenerationModelid?: string;

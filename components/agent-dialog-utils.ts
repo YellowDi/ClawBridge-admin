@@ -5,6 +5,7 @@ import type { EditableAgentSummary } from "@/components/agent-dialog-types";
 export function toCreateAgentRequest(form: AgentForm): ReqAgentCreate {
   return {
     agentId: form.agentId.trim(),
+    avatarUrl: toOptionalString(form.avatarUrl),
     defaultImageGenerationModelid: toOptionalString(
       form.defaultImageGenerationModelid,
     ),
@@ -39,6 +40,7 @@ export function toUpdateAgentRequest(
 export function toAgentForm(agent: EditableAgentSummary): AgentForm {
   return {
     agentId: agent.agentId?.trim() ?? "",
+    avatarUrl: agent.avatarUrl?.trim() ?? "",
     defaultImageGenerationModelid:
       agent.defaultImageGenerationModelid?.trim() ?? "",
     defaultImageModelid: agent.defaultImageModelid?.trim() ?? "",
