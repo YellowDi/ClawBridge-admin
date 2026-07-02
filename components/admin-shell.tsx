@@ -5,6 +5,7 @@ import type { AdminIconName } from "@/components/admin-icons";
 
 import { Avatar, Button, Tooltip } from "@heroui/react";
 import { AppLayout, Navbar, Sidebar } from "@heroui-pro/react";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useMemo, useTransition } from "react";
 
@@ -171,18 +172,16 @@ function SidebarContents({ pathname }: { pathname: string }) {
   return (
     <>
       <Sidebar.Header>
-        <div className="flex items-center gap-3 px-1 py-1">
-          <Avatar className="size-9">
-            <Avatar.Fallback>CB</Avatar.Fallback>
-          </Avatar>
-          <div className="flex min-w-0 flex-col" data-sidebar="label">
-            <span className="text-foreground truncate text-sm font-medium leading-tight">
-              ClawBridge
-            </span>
-            <span className="text-muted truncate text-xs font-medium leading-tight">
-              Admin Console
-            </span>
-          </div>
+        <div className="flex items-center px-1 py-1" data-sidebar="label">
+          <Image
+            priority
+            unoptimized
+            alt="ClawBridge"
+            className="h-9 w-auto"
+            height={68}
+            src="/sidebar-logo.svg"
+            width={306}
+          />
         </div>
       </Sidebar.Header>
       <Sidebar.Content>

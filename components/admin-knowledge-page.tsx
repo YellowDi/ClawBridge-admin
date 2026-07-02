@@ -72,52 +72,71 @@ const KNOWLEDGE_COLUMNS: DataGridColumn<KnowledgeRow>[] = [
       </div>
     ),
     header: "名称",
+    headerClassName: "whitespace-nowrap",
     id: "name",
     isRowHeader: true,
-    minWidth: 220,
+    minWidth: 200,
+    width: 220,
   },
   {
+    cellClassName: "whitespace-nowrap",
     cell: (item) => (
-      <Chip color={getStatusColor(item.status)} size="sm" variant="soft">
+      <Chip
+        className="whitespace-nowrap"
+        color={getStatusColor(item.status)}
+        size="sm"
+        variant="soft"
+      >
         {getStatusLabel(item.status)}
       </Chip>
     ),
     header: "状态",
+    headerClassName: "whitespace-nowrap",
     id: "status",
-    minWidth: 120,
+    width: 72,
   },
   {
     accessorKey: "sourceType",
+    cellClassName: "whitespace-nowrap",
     header: "来源类型",
+    headerClassName: "whitespace-nowrap",
     id: "sourceType",
-    minWidth: 120,
+    width: 80,
   },
   {
     accessorKey: "chunkCount",
     align: "end",
     allowsSorting: true,
     cell: (item) => item.chunkCount ?? "-",
+    cellClassName: "whitespace-nowrap",
     header: "片段数",
+    headerClassName: "whitespace-nowrap",
     id: "chunkCount",
-    minWidth: 100,
+    width: 72,
   },
   {
     cell: (item) => (
-      <span className="text-muted line-clamp-2 break-all text-xs">
-        {item.sourceAddress}
+      <span
+        className="text-muted block whitespace-nowrap text-xs"
+        title={item.sourceAddress}
+      >
+        {formatCompactSourceAddress(item.sourceAddress)}
       </span>
     ),
     header: "来源地址",
+    headerClassName: "whitespace-nowrap",
     id: "sourceAddress",
-    minWidth: 280,
+    width: 260,
   },
   {
     accessorKey: "updatedAt",
     align: "end",
     allowsSorting: true,
+    cellClassName: "whitespace-nowrap",
     header: "更新时间",
+    headerClassName: "whitespace-nowrap",
     id: "updatedAt",
-    minWidth: 150,
+    width: 140,
   },
 ];
 
@@ -224,12 +243,13 @@ export function KnowledgeBasesPage() {
             </Button>
           );
         },
-        cellClassName: "w-[120px] min-w-[120px] max-w-[120px] pl-4 pr-4",
+        cellClassName: "w-[88px] min-w-[88px] max-w-[88px] pl-4 pr-4",
         header: "操作",
-        headerClassName: "w-[120px] min-w-[120px] max-w-[120px] pl-4 pr-4",
+        headerClassName:
+          "w-[88px] min-w-[88px] max-w-[88px] whitespace-nowrap pl-4 pr-4",
         id: "actions",
         pinned: "end",
-        width: 120,
+        width: 88,
       },
     ],
     [handleRetry, retryingId],
@@ -280,7 +300,7 @@ export function KnowledgeBasesPage() {
           aria-label="知识库列表"
           className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
           columns={columns}
-          contentClassName="min-w-[1120px]"
+          contentClassName="min-w-[932px]"
           data={rows}
           defaultSortDescriptor={{
             column: "updatedAt",
@@ -338,6 +358,12 @@ function formatDateTime(value?: string) {
   if (Number.isNaN(date.getTime())) return value;
 
   return DATE_TIME_FORMATTER.format(date);
+}
+
+function formatCompactSourceAddress(value: string) {
+  if (value.length <= 40) return value;
+
+  return `${value.slice(0, 20)}...${value.slice(-16)}`;
 }
 
 function formatBytes(value?: number) {
