@@ -74,49 +74,66 @@ const USER_BASE_COLUMNS: DataGridColumn<AdminUser>[] = [
       </div>
     ),
     header: "用户",
+    headerClassName: "whitespace-nowrap",
     id: "username",
     isRowHeader: true,
-    minWidth: 240,
+    minWidth: 220,
+    width: 240,
   },
   {
     accessorKey: "accountId",
     allowsSorting: true,
+    cellClassName: "whitespace-nowrap",
     header: "ID",
+    headerClassName: "whitespace-nowrap",
     id: "accountId",
-    minWidth: 100,
+    width: 96,
   },
   {
     accessorKey: "role",
     allowsSorting: true,
+    cellClassName: "whitespace-nowrap",
     header: "角色",
+    headerClassName: "whitespace-nowrap",
     id: "role",
-    minWidth: 120,
+    width: 96,
   },
   {
+    cellClassName: "whitespace-nowrap",
     cell: (item) => (
-      <Chip color={USER_STATUS_COLOR[item.status]} size="sm" variant="soft">
+      <Chip
+        className="whitespace-nowrap"
+        color={USER_STATUS_COLOR[item.status]}
+        size="sm"
+        variant="soft"
+      >
         {item.status}
       </Chip>
     ),
     header: "状态",
+    headerClassName: "whitespace-nowrap",
     id: "status",
-    minWidth: 110,
+    width: 88,
   },
   {
     accessorKey: "createdAt",
     align: "end",
     allowsSorting: true,
+    cellClassName: "whitespace-nowrap",
     header: "创建时间",
+    headerClassName: "whitespace-nowrap",
     id: "createdAt",
-    minWidth: 150,
+    width: 140,
   },
   {
     accessorKey: "updatedAt",
     align: "end",
     allowsSorting: true,
+    cellClassName: "whitespace-nowrap",
     header: "更新时间",
+    headerClassName: "whitespace-nowrap",
     id: "updatedAt",
-    minWidth: 150,
+    width: 140,
   },
 ];
 
@@ -204,7 +221,8 @@ export function UsersPage() {
         },
         cellClassName: "w-[360px] min-w-[360px] max-w-[360px] pl-4 pr-4",
         header: "操作",
-        headerClassName: "w-[360px] min-w-[360px] max-w-[360px] pl-4 pr-4",
+        headerClassName:
+          "w-[360px] min-w-[360px] max-w-[360px] whitespace-nowrap pl-4 pr-4",
         id: "actions",
         pinned: "end",
         width: 360,
@@ -293,7 +311,7 @@ export function UsersPage() {
           aria-label="用户列表"
           className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
           columns={userColumns}
-          contentClassName="min-w-[1160px]"
+          contentClassName="min-w-[1020px]"
           data={filteredUsers}
           defaultSortDescriptor={{
             column: "username",

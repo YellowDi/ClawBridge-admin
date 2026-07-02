@@ -106,37 +106,52 @@ const RECENT_COLUMNS: DataGridColumn<RecentItem>[] = [
       </div>
     ),
     header: "对象",
+    headerClassName: "whitespace-nowrap",
     id: "name",
     isRowHeader: true,
-    minWidth: 220,
+    minWidth: 200,
+    width: 220,
   },
   {
     accessorKey: "type",
     allowsSorting: true,
+    cellClassName: "whitespace-nowrap",
     header: "类型",
+    headerClassName: "whitespace-nowrap",
     id: "type",
-    minWidth: 100,
+    width: 80,
   },
   {
+    cellClassName: "whitespace-nowrap",
     cell: (item) => (
-      <Chip color={item.statusColor} size="sm" variant="soft">
+      <Chip
+        className="whitespace-nowrap"
+        color={item.statusColor}
+        size="sm"
+        variant="soft"
+      >
         {item.status}
       </Chip>
     ),
     header: "状态",
+    headerClassName: "whitespace-nowrap",
     id: "status",
-    minWidth: 110,
+    width: 88,
   },
   {
     accessorKey: "updatedAt",
     align: "end",
     allowsSorting: true,
     cell: (item) => (
-      <span className="text-muted text-xs tabular-nums">{item.updatedAt}</span>
+      <span className="text-muted whitespace-nowrap text-xs tabular-nums">
+        {item.updatedAt}
+      </span>
     ),
+    cellClassName: "whitespace-nowrap",
     header: "更新时间",
+    headerClassName: "whitespace-nowrap",
     id: "updatedAt",
-    minWidth: 150,
+    width: 140,
   },
 ];
 

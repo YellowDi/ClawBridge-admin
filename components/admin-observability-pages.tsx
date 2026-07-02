@@ -86,39 +86,49 @@ const USAGE_TIME_COLUMNS: DataGridColumn<UsageTimeRow>[] = [
   {
     accessorKey: "bucketStartAt",
     allowsSorting: true,
+    cellClassName: "whitespace-nowrap",
     header: "日期",
+    headerClassName: "whitespace-nowrap",
     id: "bucketStartAt",
     isRowHeader: true,
-    minWidth: 150,
+    width: 140,
   },
   {
     align: "end",
     accessorKey: "totalTokens",
     allowsSorting: true,
+    cellClassName: "whitespace-nowrap",
     header: "Tokens",
+    headerClassName: "whitespace-nowrap",
     id: "totalTokens",
-    minWidth: 120,
+    width: 110,
   },
   {
     align: "end",
     cell: (item) => formatAmount(item.totalCostAmount),
+    cellClassName: "whitespace-nowrap",
     header: "费用",
+    headerClassName: "whitespace-nowrap",
     id: "totalCostAmount",
-    minWidth: 120,
+    width: 110,
   },
   {
     align: "end",
     accessorKey: "usageCount",
+    cellClassName: "whitespace-nowrap",
     header: "调用次数",
+    headerClassName: "whitespace-nowrap",
     id: "usageCount",
-    minWidth: 100,
+    width: 96,
   },
   {
     align: "end",
     accessorKey: "modelCount",
+    cellClassName: "whitespace-nowrap",
     header: "模型数",
+    headerClassName: "whitespace-nowrap",
     id: "modelCount",
-    minWidth: 100,
+    width: 88,
   },
 ];
 
@@ -132,13 +142,16 @@ const USAGE_USER_COLUMNS: DataGridColumn<UsageUserRow>[] = [
       </div>
     ),
     header: "用户",
+    headerClassName: "whitespace-nowrap",
     id: "username",
     isRowHeader: true,
-    minWidth: 180,
+    width: 180,
   },
   {
     accessorKey: "modelKey",
+    cellClassName: "whitespace-nowrap",
     header: "模型",
+    headerClassName: "whitespace-nowrap",
     id: "modelKey",
     minWidth: 240,
   },
@@ -146,23 +159,29 @@ const USAGE_USER_COLUMNS: DataGridColumn<UsageUserRow>[] = [
     align: "end",
     accessorKey: "totalTokens",
     allowsSorting: true,
+    cellClassName: "whitespace-nowrap",
     header: "Tokens",
+    headerClassName: "whitespace-nowrap",
     id: "totalTokens",
-    minWidth: 120,
+    width: 110,
   },
   {
     align: "end",
     cell: (item) => `${formatAmount(item.totalCostAmount)} ${item.currency}`,
+    cellClassName: "whitespace-nowrap",
     header: "费用",
+    headerClassName: "whitespace-nowrap",
     id: "totalCostAmount",
-    minWidth: 140,
+    width: 140,
   },
   {
     align: "end",
     accessorKey: "usageCount",
+    cellClassName: "whitespace-nowrap",
     header: "调用次数",
+    headerClassName: "whitespace-nowrap",
     id: "usageCount",
-    minWidth: 100,
+    width: 96,
   },
 ];
 
@@ -409,7 +428,8 @@ export function ConversationsPage() {
         ),
         cellClassName: "w-[176px] min-w-[176px] max-w-[176px] pl-4 pr-4",
         header: "操作",
-        headerClassName: "w-[176px] min-w-[176px] max-w-[176px] pl-4 pr-4",
+        headerClassName:
+          "w-[176px] min-w-[176px] max-w-[176px] whitespace-nowrap pl-4 pr-4",
         id: "actions",
         pinned: "end",
         width: 176,
@@ -529,22 +549,28 @@ const CONVERSATION_COLUMNS: DataGridColumn<BridgeConversation>[] = [
       </div>
     ),
     header: "会话",
+    headerClassName: "whitespace-nowrap",
     id: "title",
     isRowHeader: true,
-    minWidth: 260,
+    minWidth: 240,
+    width: 260,
   },
   {
     accessorKey: "userId",
     allowsSorting: true,
+    cellClassName: "whitespace-nowrap",
     header: "用户",
+    headerClassName: "whitespace-nowrap",
     id: "userId",
-    minWidth: 90,
+    width: 80,
   },
   {
     accessorKey: "agentId",
+    cellClassName: "whitespace-nowrap",
     header: "Agent",
+    headerClassName: "whitespace-nowrap",
     id: "agentId",
-    minWidth: 130,
+    width: 120,
   },
   {
     cell: (item) => (
@@ -553,12 +579,15 @@ const CONVERSATION_COLUMNS: DataGridColumn<BridgeConversation>[] = [
       </span>
     ),
     header: "模型",
+    headerClassName: "whitespace-nowrap",
     id: "lastModelid",
     minWidth: 220,
   },
   {
+    cellClassName: "whitespace-nowrap",
     cell: (item) => (
       <Chip
+        className="whitespace-nowrap"
         color={item.isArchived === 2 ? "default" : "success"}
         size="sm"
         variant="soft"
@@ -567,15 +596,18 @@ const CONVERSATION_COLUMNS: DataGridColumn<BridgeConversation>[] = [
       </Chip>
     ),
     header: "状态",
+    headerClassName: "whitespace-nowrap",
     id: "isArchived",
-    minWidth: 100,
+    width: 88,
   },
   {
     align: "end",
     cell: (item) => formatDateTime(item.lastMessageAt),
+    cellClassName: "whitespace-nowrap",
     header: "最后消息",
+    headerClassName: "whitespace-nowrap",
     id: "lastMessageAt",
-    minWidth: 150,
+    width: 140,
   },
 ];
 

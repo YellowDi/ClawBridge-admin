@@ -75,9 +75,11 @@ const AGENT_BASE_COLUMNS: DataGridColumn<AdminAgent>[] = [
       </div>
     ),
     header: "Agent",
+    headerClassName: "whitespace-nowrap",
     id: "displayLabel",
     isRowHeader: true,
-    minWidth: 220,
+    minWidth: 200,
+    width: 220,
   },
   {
     cell: (item) => (
@@ -94,8 +96,9 @@ const AGENT_BASE_COLUMNS: DataGridColumn<AdminAgent>[] = [
     ),
     allowsSorting: true,
     header: "默认模型",
+    headerClassName: "whitespace-nowrap",
     id: "defaultModelLabel",
-    minWidth: 190,
+    width: 180,
   },
   {
     cell: (item) => (
@@ -104,33 +107,44 @@ const AGENT_BASE_COLUMNS: DataGridColumn<AdminAgent>[] = [
       </span>
     ),
     header: "能力模型",
+    headerClassName: "whitespace-nowrap",
     id: "capabilityModelSummary",
-    minWidth: 260,
+    width: 240,
   },
   {
     cell: (item) => (
       <span className="text-muted text-xs">{formatAgentLevels(item)}</span>
     ),
     header: "默认配置",
+    headerClassName: "whitespace-nowrap",
     id: "levels",
-    minWidth: 220,
+    width: 200,
   },
   {
+    cellClassName: "whitespace-nowrap",
     cell: (item) => (
-      <Chip color={AGENT_STATUS_COLOR[item.status]} size="sm" variant="soft">
+      <Chip
+        className="whitespace-nowrap"
+        color={AGENT_STATUS_COLOR[item.status]}
+        size="sm"
+        variant="soft"
+      >
         {item.status}
       </Chip>
     ),
     header: "状态",
+    headerClassName: "whitespace-nowrap",
     id: "status",
-    minWidth: 110,
+    width: 88,
   },
   {
     accessorKey: "updatedAt",
     align: "end",
+    cellClassName: "whitespace-nowrap",
     header: "更新时间",
+    headerClassName: "whitespace-nowrap",
     id: "updatedAt",
-    minWidth: 120,
+    width: 140,
   },
 ];
 
@@ -236,7 +250,8 @@ export function AgentsPage() {
         },
         cellClassName: "w-[256px] min-w-[256px] max-w-[256px] pl-4 pr-4",
         header: "操作",
-        headerClassName: "w-[256px] min-w-[256px] max-w-[256px] pl-4 pr-4",
+        headerClassName:
+          "w-[256px] min-w-[256px] max-w-[256px] whitespace-nowrap pl-4 pr-4",
         id: "actions",
         pinned: "end",
         width: 256,
@@ -330,7 +345,7 @@ export function AgentsPage() {
           aria-label="Agent 列表"
           className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
           columns={agentColumns}
-          contentClassName="min-w-[1280px]"
+          contentClassName="min-w-[1180px]"
           data={filteredAgents}
           defaultSortDescriptor={{
             column: "displayLabel",
