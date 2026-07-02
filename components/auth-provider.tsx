@@ -6,18 +6,12 @@ import type { AuthSession, ResLogin, User } from "@/lib/api";
 import {
   createContext,
   useCallback,
-  useContext,
-  useEffect,
+  use,
   useMemo,
-  useState,
+  useSyncExternalStore,
 } from "react";
 
-import {
-  ApiError,
-  AUTH_STORAGE_KEY,
-  login as requestLogin,
-  readStoredAuthSession,
-} from "@/lib/api";
+import { ApiError, AUTH_STORAGE_KEY, login as requestLogin } from "@/lib/api";
 
 type AuthContextValue = {
   initialized: boolean;
@@ -27,29 +21,34 @@ type AuthContextValue = {
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+const AUTH_SESSION_CHANGED_EVENT = "clawbridge-admin.auth.changed";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [initialized, setInitialized] = useState(false);
-  const [session, setSession] = useState<AuthSession | null>(null);
-
-  useEffect(() => {
-    const storedSession = readStoredAuthSession();
-
-    setSession(sanitizeSession(storedSession));
-    setInitialized(true);
-  }, []);
+  const sessionSnapshot = useSyncExternalStore(
+    subscribeAuthSession,
+    getAuthSessionSnapshot,
+    getServerAuthSessionSnapshot,
+  );
+  const session = useMemo(
+    () =>
+      sessionSnapshot === null
+        ? null
+        : sanitizeSession(parseAuthSessionSnapshot(sessionSnapshot)),
+    [sessionSnapshot],
+  );
+  const initialized = sessionSnapshot !== null;
 
   const login = useCallback(async (username: string, password: string) => {
     const response = await requestLogin({ password, username });
     const nextSession = createSession(response);
 
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(nextSession));
-    setSession(nextSession);
+    notifyAuthSessionChanged();
   }, []);
 
   const logout = useCallback(() => {
     localStorage.removeItem(AUTH_STORAGE_KEY);
-    setSession(null);
+    notifyAuthSessionChanged();
   }, []);
 
   const value = useMemo(
@@ -61,13 +60,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 }
 
 export function useAuth() {
-  const value = useContext(AuthContext);
+  const value = use(AuthContext);
 
   if (!value) {
     throw new Error("useAuth must be used within AuthProvider.");
   }
 
   return value;
+}
+
+function subscribeAuthSession(onStoreChange: () => void) {
+  window.addEventListener("storage", onStoreChange);
+  window.addEventListener(AUTH_SESSION_CHANGED_EVENT, onStoreChange);
+
+  return () => {
+    window.removeEventListener("storage", onStoreChange);
+    window.removeEventListener(AUTH_SESSION_CHANGED_EVENT, onStoreChange);
+  };
+}
+
+function getAuthSessionSnapshot() {
+  return localStorage.getItem(AUTH_STORAGE_KEY) ?? "";
+}
+
+function getServerAuthSessionSnapshot() {
+  return null;
+}
+
+function notifyAuthSessionChanged() {
+  window.dispatchEvent(new Event(AUTH_SESSION_CHANGED_EVENT));
+}
+
+function parseAuthSessionSnapshot(value: string): AuthSession | null {
+  if (!value) return null;
+
+  try {
+    const session = JSON.parse(value) as Partial<AuthSession>;
+
+    if (!session.token || isAuthSessionExpired(session.expireAt)) return null;
+
+    return {
+      expireAt: session.expireAt,
+      token: session.token,
+      user: session.user,
+    };
+  } catch {
+    return null;
+  }
 }
 
 function createSession(response: ResLogin): AuthSession {
@@ -100,4 +139,12 @@ function sanitizeSession(session: AuthSession | null): AuthSession | null {
     token: session.token,
     user: sanitizeUser(session.user),
   };
+}
+
+function isAuthSessionExpired(expireAt?: string) {
+  if (!expireAt) return false;
+
+  const expiresAt = new Date(expireAt).getTime();
+
+  return Number.isFinite(expiresAt) && expiresAt <= Date.now();
 }
