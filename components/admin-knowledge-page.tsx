@@ -34,7 +34,7 @@ type KnowledgeStatus =
   | string;
 
 type KnowledgeRow = {
-  chunkCount: string;
+  chunkCount: number | null;
   description: string;
   id: string;
   knowledgeBaseId: number | null;
@@ -89,6 +89,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 const KNOWLEDGE_COLUMNS: DataGridColumn<KnowledgeRow>[] = [
   {
+    accessorKey: "name",
     allowsSorting: true,
     cell: (item) => (
       <div className="flex min-w-0 flex-col">
@@ -125,6 +126,7 @@ const KNOWLEDGE_COLUMNS: DataGridColumn<KnowledgeRow>[] = [
     accessorKey: "chunkCount",
     align: "end",
     allowsSorting: true,
+    cell: (item) => item.chunkCount ?? "-",
     header: "片段数",
     id: "chunkCount",
     minWidth: 100,
@@ -151,6 +153,7 @@ const KNOWLEDGE_COLUMNS: DataGridColumn<KnowledgeRow>[] = [
 
 export function KnowledgeBasesPage() {
   const isMountedRef = useRef(false);
+  const loadRequestRef = useRef(0);
   const [loadState, setLoadState] = useState<KnowledgeLoadState>({
     error: null,
     isLoading: true,
@@ -161,6 +164,9 @@ export function KnowledgeBasesPage() {
   const { error, isLoading, rows } = loadState;
 
   const loadKnowledgeBases = useCallback(async () => {
+    const requestId = loadRequestRef.current + 1;
+
+    loadRequestRef.current = requestId;
     setLoadState((state) => ({
       ...state,
       error: null,
@@ -170,7 +176,7 @@ export function KnowledgeBasesPage() {
     try {
       const response = await listKnowledgeBases();
 
-      if (isMountedRef.current) {
+      if (isMountedRef.current && loadRequestRef.current === requestId) {
         setLoadState({
           error: null,
           isLoading: false,
@@ -178,7 +184,7 @@ export function KnowledgeBasesPage() {
         });
       }
     } catch (error) {
-      if (isMountedRef.current) {
+      if (isMountedRef.current && loadRequestRef.current === requestId) {
         setLoadState({
           error: getKnowledgeError(error, "知识库列表加载失败。"),
           isLoading: false,
@@ -235,14 +241,16 @@ export function KnowledgeBasesPage() {
             return <span className="text-muted text-xs">-</span>;
           }
 
+          const knowledgeBaseId = item.knowledgeBaseId;
+
           return (
             <Button
-              isDisabled={retryingId === item.knowledgeBaseId}
+              isDisabled={retryingId != null}
               size="sm"
               variant="tertiary"
-              onPress={() => void handleRetry(item.knowledgeBaseId!)}
+              onPress={() => void handleRetry(knowledgeBaseId)}
             >
-              {retryingId === item.knowledgeBaseId ? "重试中..." : "重试"}
+              {retryingId === knowledgeBaseId ? "重试中..." : "重试"}
             </Button>
           );
         },
@@ -493,8 +501,7 @@ function toKnowledgeRow(
   const status = knowledgeBase.status?.trim().toLowerCase() || "pending";
 
   return {
-    chunkCount:
-      knowledgeBase.chunkCount == null ? "-" : String(knowledgeBase.chunkCount),
+    chunkCount: knowledgeBase.chunkCount ?? null,
     description: knowledgeBase.description?.trim() ?? "",
     id:
       knowledgeBase.id == null
