@@ -76,6 +76,9 @@ export interface ControllerResponse {
 }
 
 export interface HealthStatus {
+  ok?: boolean;
+  service?: string;
+  timestamp?: string;
   [property: string]: unknown;
 }
 
@@ -84,6 +87,8 @@ export interface User {
   enabled?: boolean;
   id?: number;
   isAdmin?: boolean;
+  isDelete?: number;
+  knowledgeBases?: KnowledgeBase[];
   password?: string;
   updatedAt?: string;
   username?: string;
@@ -244,6 +249,7 @@ export interface Agent {
   enabled?: boolean;
   id?: number;
   isDelete?: number;
+  knowledgeBases?: KnowledgeBase[];
   reasoningLevel?: string;
   thinkingLevel?: string;
   updatedAt?: string;
@@ -322,6 +328,23 @@ export interface ReqReplaceUserKnowledgeBases {
 export interface ReqReplaceAgentKnowledgeBases {
   agentId: number;
   knowledgeBaseIds: number[];
+  [property: string]: unknown;
+}
+
+export interface TencentCosCredentials {
+  accessKeyId?: string;
+  accessKeySecret?: string;
+  expiration?: string;
+  securityToken?: string;
+  [property: string]: unknown;
+}
+
+export interface TencentCosSts {
+  bucketName?: string;
+  domain?: string;
+  endPoint?: string;
+  region?: string;
+  sts?: TencentCosCredentials;
   [property: string]: unknown;
 }
 
@@ -1045,6 +1068,12 @@ export async function replaceAgentKnowledgeBases(
       method: "POST",
     },
   );
+}
+
+export async function getTencentCosSts(): Promise<TencentCosSts | undefined> {
+  return requestJson<TencentCosSts | undefined>("/api/cos/sts", {
+    method: "POST",
+  });
 }
 
 export async function getUserBalance(

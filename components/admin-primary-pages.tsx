@@ -40,6 +40,7 @@ type AdminUser = {
   createdAt: string;
   enabled: boolean;
   isAdmin: boolean;
+  knowledgeBaseIds: number[];
   role: string;
   status: UserStatus;
   updatedAt: string;
@@ -148,6 +149,7 @@ type AdminAgent = {
   displayName: string;
   enabled: boolean;
   id: string;
+  knowledgeBaseIds: number[];
   reasoningLevel: string;
   status: AgentStatus;
   thinkingLevel: string;
@@ -306,9 +308,11 @@ export function UsersPage() {
           return (
             <div className="flex items-center justify-end gap-2">
               <KnowledgeAvailabilityDialog
+                selectedKnowledgeBaseIds={item.knowledgeBaseIds}
                 subjectId={user.id}
                 subjectLabel={user.username}
                 subjectType="user"
+                onSaved={refreshUsers}
               />
               <UserAuthorizationDialog user={user} />
               <UserBalanceDialog user={user} />
@@ -434,6 +438,7 @@ function toAdminUser(user: ApiUser, index: number): AdminUser {
         ? user.username?.trim() || `user-${index}`
         : String(user.id),
     isAdmin: user.isAdmin === true,
+    knowledgeBaseIds: getKnowledgeBaseIds(user.knowledgeBases),
     role: user.isAdmin ? "管理员" : "普通用户",
     status: user.enabled === false ? "已停用" : "正常",
     updatedAt: formatDateTime(user.updatedAt),
@@ -637,9 +642,11 @@ export function AgentsPage() {
           return (
             <div className="flex items-center justify-end gap-2">
               <KnowledgeAvailabilityDialog
+                selectedKnowledgeBaseIds={item.knowledgeBaseIds}
                 subjectId={agent.id}
                 subjectLabel={agent.displayName || agent.agentId}
                 subjectType="agent"
+                onSaved={refreshAgents}
               />
               <EditAgentDialog
                 agent={agent}
@@ -796,6 +803,7 @@ function toAdminAgent(agent: ApiAgent, index: number): AdminAgent {
     displayName,
     enabled: agent.enabled !== false,
     id: agent.id == null ? agentId : String(agent.id),
+    knowledgeBaseIds: getKnowledgeBaseIds(agent.knowledgeBases),
     reasoningLevel: agent.reasoningLevel?.trim() ?? "",
     status: agent.enabled === false ? "停用" : "启用",
     thinkingLevel: agent.thinkingLevel?.trim() ?? "",
@@ -904,6 +912,20 @@ function getAgentStats(agents: AdminAgent[]) {
     enabled: agents.filter((agent) => agent.status === "启用").length,
     total: agents.length,
   };
+}
+
+function getKnowledgeBaseIds(
+  knowledgeBases?: Array<{
+    id?: number;
+  }>,
+) {
+  return Array.from(
+    new Set(
+      (knowledgeBases ?? [])
+        .map((knowledgeBase) => knowledgeBase.id)
+        .filter((id): id is number => Number.isFinite(id)),
+    ),
+  );
 }
 
 function getDefaultModelLabel(agent: ApiAgent) {

@@ -22,10 +22,14 @@ type KnowledgeAvailabilityState = {
 };
 
 export function KnowledgeAvailabilityDialog({
+  onSaved,
+  selectedKnowledgeBaseIds = [],
   subjectId,
   subjectLabel,
   subjectType,
 }: {
+  onSaved?: () => void;
+  selectedKnowledgeBaseIds?: number[];
   subjectId: number;
   subjectLabel: string;
   subjectType: SubjectType;
@@ -53,13 +57,14 @@ export function KnowledgeAvailabilityDialog({
 
   async function loadKnowledgeBases() {
     const requestId = loadRequestRef.current + 1;
+    const selectedIds = normalizeIds(selectedKnowledgeBaseIds);
 
     loadRequestRef.current = requestId;
     setState((current) => ({
       ...current,
       error: null,
       isLoading: true,
-      selectedIds: [],
+      selectedIds,
     }));
 
     try {
@@ -72,7 +77,7 @@ export function KnowledgeAvailabilityDialog({
         isLoading: false,
         isSaving: false,
         items,
-        selectedIds: [],
+        selectedIds,
       });
     } catch (error) {
       if (loadRequestRef.current !== requestId) return;
@@ -111,6 +116,7 @@ export function KnowledgeAvailabilityDialog({
 
       setState((current) => ({ ...current, isSaving: false }));
       modal.close();
+      onSaved?.();
     } catch (error) {
       setState((current) => ({
         ...current,
@@ -208,6 +214,10 @@ export function KnowledgeAvailabilityDialog({
       </Modal.Backdrop>
     </Modal>
   );
+}
+
+function normalizeIds(ids: number[]) {
+  return Array.from(new Set(ids.filter((id) => Number.isFinite(id))));
 }
 
 function toggleId(ids: number[], id: number, selected: boolean) {
