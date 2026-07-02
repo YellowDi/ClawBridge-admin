@@ -15,8 +15,7 @@ export const metadata: Metadata = {
   },
   description: siteConfig.description,
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.ico",
+    icon: [{ type: "image/svg+xml", url: "/favicon.svg?v=2" }],
   },
 };
 

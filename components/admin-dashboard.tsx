@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AdminIcon } from "@/components/admin-icons";
+import { AdminPage } from "@/components/admin-page-kit";
 import { listAgents, listModels, listUsers } from "@/lib/api";
 
 type DashboardTone = "accent" | "danger" | "secondary" | "success" | "warning";
@@ -213,34 +214,11 @@ export function AdminDashboard() {
     () => getRecentItems(loadState.users, loadState.models, loadState.agents),
     [loadState.agents, loadState.models, loadState.users],
   );
-  const hasError = Boolean(
-    loadState.usersError || loadState.modelsError || loadState.agentsError,
-  );
 
   return (
-    <div className="flex w-full flex-col gap-6">
-      <section className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <div className="mb-2 flex flex-wrap items-center gap-2">
-            <Chip
-              color={hasError ? "warning" : "success"}
-              size="sm"
-              variant="soft"
-            >
-              {hasError ? "部分接口异常" : "实时数据"}
-            </Chip>
-            <span className="text-muted text-xs">
-              用户、模型、Agent 接口统计
-            </span>
-          </div>
-          <h1 className="text-foreground text-2xl font-semibold tracking-normal sm:text-3xl">
-            ClawBridge 管理后台
-          </h1>
-          <p className="text-muted mt-2 max-w-2xl text-sm">
-            总览页现在展示已接入接口的实时数据；审计和系统健康未接入前不再展示模拟指标。
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+    <AdminPage
+      actions={
+        <>
           <Button
             isDisabled={loadState.isLoading}
             size="sm"
@@ -254,9 +232,11 @@ export function AdminDashboard() {
             <AdminIcon className="size-4" name="model" />
             进入模型配置
           </Button>
-        </div>
-      </section>
-
+        </>
+      }
+      description="总览页现在展示已接入接口的实时数据；审计和系统健康未接入前不再展示模拟指标。"
+      title="概览"
+    >
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {metrics.map((metric) => (
           <DashboardStatCard key={metric.label} metric={metric} />
@@ -404,7 +384,7 @@ export function AdminDashboard() {
           </Card.Footer>
         </Card>
       </section>
-    </div>
+    </AdminPage>
   );
 }
 
