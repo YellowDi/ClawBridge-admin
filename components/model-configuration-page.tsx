@@ -17,7 +17,7 @@ import {
   Tooltip,
   toast,
 } from "@heroui/react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useReducer } from "react";
 
 import { AdminIcon } from "@/components/admin-icons";
 import { ModelProviderLogo } from "@/components/model-provider-logo";
@@ -58,6 +58,55 @@ type ModelConfiguration = {
   record?: Model;
   recordId?: number;
 };
+
+type ModelFormState = {
+  billingUnit: string;
+  cacheReadPricePerMillion: string;
+  cacheWritePricePerMillion: string;
+  currency: string;
+  customProvider: string;
+  inputPricePerMillion: string;
+  model: string;
+  modelConfigName: string;
+  modelEnabled: boolean;
+  outputPricePerMillion: string;
+  providerType: string;
+  selectedCapabilities: ModelCapabilityValue[];
+  unitPriceAmount: string;
+};
+
+type ModelConfigurationPageState = {
+  editingModelConfiguration: ModelConfiguration | null;
+  form: ModelFormState;
+  isDeletingProvider: boolean;
+  isLoadingModels: boolean;
+  isProviderDialogOpen: boolean;
+  isSubmitting: boolean;
+  loadError: string | null;
+  modelConfigurations: ModelConfiguration[];
+};
+
+type ModelConfigurationPageAction =
+  | {
+      type: "capabilityToggled";
+      capability: ModelCapabilityId;
+      selected: boolean;
+    }
+  | { type: "deleteFinished" }
+  | { type: "deleteStarted" }
+  | { type: "dialogOpenChanged"; isOpen: boolean }
+  | { type: "dialogSaveSucceeded" }
+  | { type: "formPatched"; patch: Partial<ModelFormState> }
+  | { type: "modelDeleted"; modelConfigurationId: string }
+  | { type: "modelSaved"; modelConfiguration: ModelConfiguration }
+  | { type: "modelsLoaded"; modelConfigurations: ModelConfiguration[] }
+  | { type: "modelsLoadFailed"; error: string }
+  | { type: "modelsLoading" }
+  | { type: "openCreate"; providerId: string }
+  | { type: "openEdit"; modelConfiguration: ModelConfiguration }
+  | { type: "providerChanged"; providerId: string }
+  | { type: "submitFinished" }
+  | { type: "submitStarted" };
 
 const modelProviderPresets: ModelProviderPreset[] = [
   {
@@ -129,6 +178,33 @@ const modelProviderPresets: ModelProviderPreset[] = [
 ];
 
 const defaultModelProviderPreset = modelProviderPresets[0];
+
+const DEFAULT_MODEL_FORM: ModelFormState = {
+  billingUnit: "token",
+  cacheReadPricePerMillion: "",
+  cacheWritePricePerMillion: "",
+  currency: "CNY",
+  customProvider: "",
+  inputPricePerMillion: "",
+  model: "",
+  modelConfigName: "",
+  modelEnabled: true,
+  outputPricePerMillion: "",
+  providerType: defaultModelProviderPreset.id,
+  selectedCapabilities: ["chat"],
+  unitPriceAmount: "",
+};
+
+const INITIAL_MODEL_CONFIGURATION_PAGE_STATE: ModelConfigurationPageState = {
+  editingModelConfiguration: null,
+  form: DEFAULT_MODEL_FORM,
+  isDeletingProvider: false,
+  isLoadingModels: true,
+  isProviderDialogOpen: false,
+  isSubmitting: false,
+  loadError: null,
+  modelConfigurations: [],
+};
 
 const modelCapabilityDefinitions: Array<{
   description: string;
@@ -207,63 +283,46 @@ function ProviderPresetOption({ provider }: { provider: ModelProviderPreset }) {
 }
 
 export function ModelConfigurationPage() {
-  const [modelConfigName, setModelConfigName] = useState("");
-  const [providerType, setProviderType] = useState(
-    defaultModelProviderPreset.id,
+  const [state, dispatch] = useReducer(
+    modelConfigurationPageReducer,
+    INITIAL_MODEL_CONFIGURATION_PAGE_STATE,
   );
-  const [customProvider, setCustomProvider] = useState("");
-  const [model, setModel] = useState("");
-  const [billingUnit, setBillingUnit] = useState("token");
-  const [unitPriceAmount, setUnitPriceAmount] = useState("");
-  const [inputPricePerMillion, setInputPricePerMillion] = useState("");
-  const [outputPricePerMillion, setOutputPricePerMillion] = useState("");
-  const [cacheReadPricePerMillion, setCacheReadPricePerMillion] = useState("");
-  const [cacheWritePricePerMillion, setCacheWritePricePerMillion] =
-    useState("");
-  const [currency, setCurrency] = useState("CNY");
-  const [modelEnabled, setModelEnabled] = useState(true);
-  const [selectedCapabilities, setSelectedCapabilities] = useState<
-    ModelCapabilityValue[]
-  >(["chat"]);
-  const [isProviderDialogOpen, setIsProviderDialogOpen] = useState(false);
-  const [modelConfigurations, setModelConfigurations] = useState<
-    ModelConfiguration[]
-  >([]);
-  const [isLoadingModels, setIsLoadingModels] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isDeletingProvider, setIsDeletingProvider] = useState(false);
-  const [editingModelConfiguration, setEditingModelConfiguration] =
-    useState<ModelConfiguration | null>(null);
+  const {
+    editingModelConfiguration,
+    form,
+    isDeletingProvider,
+    isLoadingModels,
+    isProviderDialogOpen,
+    isSubmitting,
+    loadError,
+    modelConfigurations,
+  } = state;
 
   const selectedProvider =
-    modelProviderPresets.find((provider) => provider.id === providerType) ??
-    defaultModelProviderPreset;
+    modelProviderPresets.find(
+      (provider) => provider.id === form.providerType,
+    ) ?? defaultModelProviderPreset;
   const usesCustomProvider = selectedProvider.id === "custom";
-  const providerDialogTitle = editingModelConfiguration
-    ? "编辑模型配置"
-    : "添加模型配置";
-  const providerSubmitLabel = editingModelConfiguration ? "保存" : "创建模型";
   const suggestedModel = providerPresetModels(selectedProvider)[0];
   const modelPlaceholder = suggestedModel
     ? `例如：${suggestedModel}`
     : "例如：gemini-2.5-pro";
 
   const loadModelConfigurations = useCallback(async () => {
-    setIsLoadingModels(true);
-    setLoadError(null);
+    dispatch({ type: "modelsLoading" });
 
     try {
       const models = await listModels();
 
-      setModelConfigurations(models.map(toModelConfiguration));
+      dispatch({
+        modelConfigurations: models.map(toModelConfiguration),
+        type: "modelsLoaded",
+      });
     } catch (error) {
       const message = getActionErrorMessage(error);
 
-      setLoadError(message);
+      dispatch({ error: message, type: "modelsLoadFailed" });
       toast.danger(`模型配置加载失败：${message}`);
-    } finally {
-      setIsLoadingModels(false);
     }
   }, []);
 
@@ -271,48 +330,22 @@ export function ModelConfigurationPage() {
     void loadModelConfigurations();
   }, [loadModelConfigurations]);
 
-  function applyProviderPreset(providerId: string) {
-    const nextProvider =
-      modelProviderPresets.find((provider) => provider.id === providerId) ??
-      defaultModelProviderPreset;
-
-    setProviderType(nextProvider.id);
-    setModel("");
-    setCustomProvider("");
-  }
-
-  function resetProviderForm(providerId = defaultModelProviderPreset.id) {
-    setEditingModelConfiguration(null);
-    setModelConfigName("");
-    setCustomProvider("");
-    setBillingUnit("token");
-    setUnitPriceAmount("");
-    setInputPricePerMillion("");
-    setOutputPricePerMillion("");
-    setCacheReadPricePerMillion("");
-    setCacheWritePricePerMillion("");
-    setCurrency("CNY");
-    setModelEnabled(true);
-    applyProviderPreset(providerId);
-    setSelectedCapabilities(["chat"]);
-  }
-
   async function submitProvider(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const nextName = modelConfigName.trim();
+    const nextName = form.modelConfigName.trim();
     const nextProvider = usesCustomProvider
-      ? customProvider.trim()
+      ? form.customProvider.trim()
       : selectedProvider.id;
-    const nextModel = model.trim();
-    const nextBillingUnit = billingUnit.trim() || "token";
-    const nextUnitPrice = unitPriceAmount.trim();
-    const nextInputPrice = inputPricePerMillion.trim();
-    const nextOutputPrice = outputPricePerMillion.trim();
-    const nextCacheReadPrice = cacheReadPricePerMillion.trim();
-    const nextCacheWritePrice = cacheWritePricePerMillion.trim();
-    const nextCurrency = currency.trim();
-    const nextCapabilities = selectedCapabilities.flatMap((capability) => {
+    const nextModel = form.model.trim();
+    const nextBillingUnit = form.billingUnit.trim() || "token";
+    const nextUnitPrice = form.unitPriceAmount.trim();
+    const nextInputPrice = form.inputPricePerMillion.trim();
+    const nextOutputPrice = form.outputPricePerMillion.trim();
+    const nextCacheReadPrice = form.cacheReadPricePerMillion.trim();
+    const nextCacheWritePrice = form.cacheWritePricePerMillion.trim();
+    const nextCurrency = form.currency.trim();
+    const nextCapabilities = form.selectedCapabilities.flatMap((capability) => {
       const trimmedCapability = capability.trim();
 
       return trimmedCapability ? [trimmedCapability] : [];
@@ -348,7 +381,7 @@ export function ModelConfigurationPage() {
       return;
     }
 
-    setIsSubmitting(true);
+    dispatch({ type: "submitStarted" });
 
     try {
       const request = buildModelRequest({
@@ -358,7 +391,7 @@ export function ModelConfigurationPage() {
         cacheWritePricePerMillion: nextCacheWritePrice,
         currency: nextCurrency,
         displayName: nextName,
-        enabled: modelEnabled,
+        enabled: form.modelEnabled,
         inputPricePerMillion: nextInputPrice,
         modelid: nextModel,
         outputPricePerMillion: nextOutputPrice,
@@ -375,15 +408,10 @@ export function ModelConfigurationPage() {
       if (savedModel) {
         const nextModelConfiguration = toModelConfiguration(savedModel);
 
-        setModelConfigurations((items) =>
-          editingModelConfiguration
-            ? items.map((item) =>
-                item.id === editingModelConfiguration.id
-                  ? nextModelConfiguration
-                  : item,
-              )
-            : [nextModelConfiguration, ...items],
-        );
+        dispatch({
+          modelConfiguration: nextModelConfiguration,
+          type: "modelSaved",
+        });
       } else {
         await loadModelConfigurations();
       }
@@ -391,53 +419,21 @@ export function ModelConfigurationPage() {
       toast.success(
         editingModelConfiguration ? "模型配置已更新。" : "模型配置已创建。",
       );
-      resetProviderForm();
-      setIsProviderDialogOpen(false);
+      dispatch({ type: "dialogSaveSucceeded" });
     } catch (error) {
       toast.danger(`模型配置保存失败：${getActionErrorMessage(error)}`);
-    } finally {
-      setIsSubmitting(false);
+      dispatch({ type: "submitFinished" });
     }
   }
 
   function openCreateProviderDialog(
     providerId = defaultModelProviderPreset.id,
   ) {
-    resetProviderForm(providerId);
-    setIsProviderDialogOpen(true);
+    dispatch({ providerId, type: "openCreate" });
   }
 
   function openEditProviderDialog(modelConfiguration: ModelConfiguration) {
-    const nextProvider = modelProviderPresets.find(
-      (item) => item.id === modelConfiguration.provider_type,
-    );
-    const nextProviderId = nextProvider?.id ?? "custom";
-
-    setEditingModelConfiguration(modelConfiguration);
-    setModelConfigName(modelConfiguration.name);
-    setProviderType(nextProviderId);
-    setCustomProvider(nextProvider ? "" : modelConfiguration.provider_type);
-    setModel(modelConfiguration.model || modelConfiguration.models?.[0] || "");
-    setBillingUnit(modelConfiguration.record?.billingUnit?.trim() || "token");
-    setUnitPriceAmount(
-      modelConfiguration.record?.unitPriceAmount?.trim() ?? "",
-    );
-    setInputPricePerMillion(
-      modelConfiguration.record?.inputPricePerMillion?.trim() ?? "",
-    );
-    setOutputPricePerMillion(
-      modelConfiguration.record?.outputPricePerMillion?.trim() ?? "",
-    );
-    setCacheReadPricePerMillion(
-      modelConfiguration.record?.cacheReadPricePerMillion?.trim() ?? "",
-    );
-    setCacheWritePricePerMillion(
-      modelConfiguration.record?.cacheWritePricePerMillion?.trim() ?? "",
-    );
-    setCurrency(modelConfiguration.record?.currency?.trim() || "CNY");
-    setModelEnabled(modelConfiguration.enabled);
-    setSelectedCapabilities(modelConfiguration.capabilities);
-    setIsProviderDialogOpen(true);
+    dispatch({ modelConfiguration, type: "openEdit" });
   }
 
   async function deleteProvider() {
@@ -446,43 +442,82 @@ export function ModelConfigurationPage() {
       return;
     }
 
-    setIsDeletingProvider(true);
+    dispatch({ type: "deleteStarted" });
 
     try {
       await deleteModel(editingModelConfiguration.recordId);
-      setModelConfigurations((items) =>
-        items.filter((item) => item.id !== editingModelConfiguration.id),
-      );
       toast.success("模型配置已删除。");
-      setIsProviderDialogOpen(false);
-      resetProviderForm();
+      dispatch({
+        modelConfigurationId: editingModelConfiguration.id,
+        type: "modelDeleted",
+      });
     } catch (error) {
       toast.danger(`模型配置删除失败：${getActionErrorMessage(error)}`);
-    } finally {
-      setIsDeletingProvider(false);
+      dispatch({ type: "deleteFinished" });
     }
   }
 
   function toggleCapability(capability: ModelCapabilityId, selected: boolean) {
-    setSelectedCapabilities((current) => {
-      if (selected) {
-        return current.includes(capability)
-          ? current
-          : [...current, capability];
-      }
-
-      return current.filter((item) => item !== capability);
-    });
+    dispatch({ capability, selected, type: "capabilityToggled" });
   }
 
   return (
     <div className="flex w-full flex-col gap-5">
+      <ModelConfigurationGrid
+        isLoadingModels={isLoadingModels}
+        loadError={loadError}
+        modelConfigurations={modelConfigurations}
+        onCreate={() => openCreateProviderDialog()}
+        onEdit={openEditProviderDialog}
+        onReload={() => void loadModelConfigurations()}
+      />
+
+      <ModelConfigurationDialog
+        editingModelConfiguration={editingModelConfiguration}
+        form={form}
+        isDeletingProvider={isDeletingProvider}
+        isOpen={isProviderDialogOpen}
+        isSubmitting={isSubmitting}
+        modelPlaceholder={modelPlaceholder}
+        usesCustomProvider={usesCustomProvider}
+        onCapabilityToggle={toggleCapability}
+        onDelete={() => void deleteProvider()}
+        onFormChange={(patch) => dispatch({ patch, type: "formPatched" })}
+        onOpenChange={(isOpen) =>
+          dispatch({ isOpen, type: "dialogOpenChanged" })
+        }
+        onProviderChange={(providerId) =>
+          dispatch({ providerId, type: "providerChanged" })
+        }
+        onSubmit={submitProvider}
+      />
+    </div>
+  );
+}
+
+function ModelConfigurationGrid({
+  isLoadingModels,
+  loadError,
+  modelConfigurations,
+  onCreate,
+  onEdit,
+  onReload,
+}: {
+  isLoadingModels: boolean;
+  loadError: string | null;
+  modelConfigurations: ModelConfiguration[];
+  onCreate: () => void;
+  onEdit: (modelConfiguration: ModelConfiguration) => void;
+  onReload: () => void;
+}) {
+  return (
+    <>
       <div className="grid gap-3 md:grid-cols-3">
         <button
           className="border-border bg-surface cursor-[var(--cursor-interactive)] hover:bg-surface-hover disabled:text-muted flex min-h-28 items-center gap-3 rounded-3xl border border-dashed px-3 text-left disabled:cursor-not-allowed disabled:opacity-70"
           disabled={isLoadingModels}
           type="button"
-          onClick={() => openCreateProviderDialog()}
+          onClick={onCreate}
         >
           <AdminIcon
             className="text-muted-foreground size-4 shrink-0"
@@ -544,7 +579,7 @@ export function ModelConfigurationPage() {
                 aria-label="编辑模型配置"
                 size="sm"
                 variant="tertiary"
-                onPress={() => openEditProviderDialog(modelConfiguration)}
+                onPress={() => onEdit(modelConfiguration)}
               >
                 <AdminIcon className="size-4" name="edit" />
               </Button>
@@ -566,7 +601,7 @@ export function ModelConfigurationPage() {
             size="sm"
             type="button"
             variant="danger-soft"
-            onPress={() => void loadModelConfigurations()}
+            onPress={onReload}
           >
             重新加载
           </Button>
@@ -577,272 +612,579 @@ export function ModelConfigurationPage() {
           暂无模型配置，请先添加模型。
         </div>
       ) : null}
+    </>
+  );
+}
 
-      <Modal.Backdrop
-        isOpen={isProviderDialogOpen}
-        onOpenChange={(isOpen) => {
-          setIsProviderDialogOpen(isOpen);
-          if (!isOpen && !isSubmitting) {
-            resetProviderForm();
+function ModelConfigurationDialog({
+  editingModelConfiguration,
+  form,
+  isDeletingProvider,
+  isOpen,
+  isSubmitting,
+  modelPlaceholder,
+  onCapabilityToggle,
+  onDelete,
+  onFormChange,
+  onOpenChange,
+  onProviderChange,
+  onSubmit,
+  usesCustomProvider,
+}: {
+  editingModelConfiguration: ModelConfiguration | null;
+  form: ModelFormState;
+  isDeletingProvider: boolean;
+  isOpen: boolean;
+  isSubmitting: boolean;
+  modelPlaceholder: string;
+  onCapabilityToggle: (
+    capability: ModelCapabilityId,
+    selected: boolean,
+  ) => void;
+  onDelete: () => void;
+  onFormChange: (patch: Partial<ModelFormState>) => void;
+  onOpenChange: (isOpen: boolean) => void;
+  onProviderChange: (providerId: string) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  usesCustomProvider: boolean;
+}) {
+  const providerDialogTitle = editingModelConfiguration
+    ? "编辑模型配置"
+    : "添加模型配置";
+  const providerSubmitLabel = editingModelConfiguration ? "保存" : "创建模型";
+
+  return (
+    <Modal.Backdrop isOpen={isOpen} onOpenChange={onOpenChange}>
+      <Modal.Container placement="auto" scroll="inside" size="lg">
+        <Modal.Dialog>
+          <Modal.CloseTrigger />
+          <Form onSubmit={onSubmit}>
+            <Modal.Header>
+              <Modal.Heading>{providerDialogTitle}</Modal.Heading>
+              <Typography color="muted" type="body-sm">
+                配置模型服务和可用能力。
+              </Typography>
+            </Modal.Header>
+            <Modal.Body>
+              <ModelConfigurationFields
+                form={form}
+                modelPlaceholder={modelPlaceholder}
+                usesCustomProvider={usesCustomProvider}
+                onCapabilityToggle={onCapabilityToggle}
+                onFormChange={onFormChange}
+                onProviderChange={onProviderChange}
+              />
+            </Modal.Body>
+            <Modal.Footer>
+              <ModelConfigurationDialogFooter
+                editingModelConfiguration={editingModelConfiguration}
+                isDeletingProvider={isDeletingProvider}
+                isSubmitting={isSubmitting}
+                providerSubmitLabel={providerSubmitLabel}
+                onCancel={() => onOpenChange(false)}
+                onDelete={onDelete}
+              />
+            </Modal.Footer>
+          </Form>
+        </Modal.Dialog>
+      </Modal.Container>
+    </Modal.Backdrop>
+  );
+}
+
+function ModelConfigurationFields({
+  form,
+  modelPlaceholder,
+  onCapabilityToggle,
+  onFormChange,
+  onProviderChange,
+  usesCustomProvider,
+}: {
+  form: ModelFormState;
+  modelPlaceholder: string;
+  onCapabilityToggle: (
+    capability: ModelCapabilityId,
+    selected: boolean,
+  ) => void;
+  onFormChange: (patch: Partial<ModelFormState>) => void;
+  onProviderChange: (providerId: string) => void;
+  usesCustomProvider: boolean;
+}) {
+  return (
+    <div className="grid gap-4">
+      <TextField
+        fullWidth
+        isRequired
+        name="model_config_name"
+        value={form.modelConfigName}
+        onChange={(value) => onFormChange({ modelConfigName: value })}
+      >
+        <Label>配置名称</Label>
+        <Input placeholder="例如：默认主模型" variant="secondary" />
+        <FieldError />
+      </TextField>
+      <Select
+        fullWidth
+        isRequired
+        name="provider_type"
+        selectedKey={form.providerType}
+        variant="secondary"
+        onSelectionChange={(key) => {
+          if (key) {
+            onProviderChange(String(key));
           }
         }}
       >
-        <Modal.Container placement="auto" scroll="inside" size="lg">
-          <Modal.Dialog>
-            <Modal.CloseTrigger />
-            <Form onSubmit={submitProvider}>
-              <Modal.Header>
-                <Modal.Heading>{providerDialogTitle}</Modal.Heading>
-                <Typography color="muted" type="body-sm">
-                  配置模型服务和可用能力。
-                </Typography>
-              </Modal.Header>
-              <Modal.Body>
-                <div className="grid gap-4">
-                  <TextField
-                    fullWidth
-                    isRequired
-                    name="model_config_name"
-                    value={modelConfigName}
-                    onChange={setModelConfigName}
-                  >
-                    <Label>配置名称</Label>
-                    <Input placeholder="例如：默认主模型" variant="secondary" />
-                    <FieldError />
-                  </TextField>
-                  <Select
-                    fullWidth
-                    isRequired
-                    name="provider_type"
-                    selectedKey={providerType}
-                    variant="secondary"
-                    onSelectionChange={(key) => {
-                      if (key) {
-                        applyProviderPreset(String(key));
-                      }
-                    }}
-                  >
-                    <Label>主模型来源</Label>
-                    <Select.Trigger>
-                      <Select.Value />
-                      <Select.Indicator />
-                    </Select.Trigger>
-                    <Select.Popover>
-                      <ListBox>
-                        {modelProviderPresets.map((provider) => (
-                          <ListBox.Item
-                            key={provider.id}
-                            id={provider.id}
-                            textValue={provider.label}
-                          >
-                            <ProviderPresetOption provider={provider} />
-                          </ListBox.Item>
-                        ))}
-                      </ListBox>
-                    </Select.Popover>
-                    <FieldError />
-                  </Select>
-                  {usesCustomProvider ? (
-                    <TextField
-                      fullWidth
-                      isRequired
-                      name="provider"
-                      value={customProvider}
-                      onChange={setCustomProvider}
-                    >
-                      <Label>供应商标识</Label>
-                      <Input placeholder="例如：google" variant="secondary" />
-                      <FieldError />
-                    </TextField>
-                  ) : null}
-                  <TextField
-                    fullWidth
-                    isRequired
-                    name="model"
-                    value={model}
-                    onChange={setModel}
-                  >
-                    <Label>模型名称</Label>
-                    <Input placeholder={modelPlaceholder} variant="secondary" />
-                    <FieldError />
-                  </TextField>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <TextField
-                      fullWidth
-                      isRequired
-                      name="currency"
-                      value={currency}
-                      onChange={setCurrency}
-                    >
-                      <Label>币种</Label>
-                      <Input placeholder="例如：CNY" variant="secondary" />
-                      <FieldError />
-                    </TextField>
-                    <Select
-                      fullWidth
-                      className="min-w-0"
-                      name="enabled"
-                      selectedKey={modelEnabled ? "enabled" : "disabled"}
-                      variant="secondary"
-                      onSelectionChange={(key) =>
-                        setModelEnabled(key === "enabled")
-                      }
-                    >
-                      <Label>状态</Label>
-                      <Select.Trigger>
-                        <Select.Value />
-                        <Select.Indicator />
-                      </Select.Trigger>
-                      <Select.Popover>
-                        <ListBox>
-                          <ListBox.Item id="enabled">启用</ListBox.Item>
-                          <ListBox.Item id="disabled">停用</ListBox.Item>
-                        </ListBox>
-                      </Select.Popover>
-                    </Select>
-                    <Select
-                      fullWidth
-                      className="min-w-0"
-                      name="billing_unit"
-                      selectedKey={billingUnit}
-                      variant="secondary"
-                      onSelectionChange={(key) =>
-                        setBillingUnit(String(key || "token"))
-                      }
-                    >
-                      <Label>计费单位</Label>
-                      <Select.Trigger>
-                        <Select.Value />
-                        <Select.Indicator />
-                      </Select.Trigger>
-                      <Select.Popover>
-                        <ListBox>
-                          <ListBox.Item id="token">token</ListBox.Item>
-                          <ListBox.Item id="image">image</ListBox.Item>
-                        </ListBox>
-                      </Select.Popover>
-                    </Select>
-                    <TextField
-                      fullWidth
-                      name="unit_price_amount"
-                      value={unitPriceAmount}
-                      onChange={setUnitPriceAmount}
-                    >
-                      <Label>单价 / 次数单位</Label>
-                      <Input inputMode="decimal" variant="secondary" />
-                      <FieldError />
-                    </TextField>
-                    <TextField
-                      fullWidth
-                      name="input_price_per_million"
-                      value={inputPricePerMillion}
-                      onChange={setInputPricePerMillion}
-                    >
-                      <Label>输入价格 / 百万 token</Label>
-                      <Input inputMode="decimal" variant="secondary" />
-                      <FieldError />
-                    </TextField>
-                    <TextField
-                      fullWidth
-                      name="output_price_per_million"
-                      value={outputPricePerMillion}
-                      onChange={setOutputPricePerMillion}
-                    >
-                      <Label>输出价格 / 百万 token</Label>
-                      <Input inputMode="decimal" variant="secondary" />
-                      <FieldError />
-                    </TextField>
-                    <TextField
-                      fullWidth
-                      name="cache_read_price_per_million"
-                      value={cacheReadPricePerMillion}
-                      onChange={setCacheReadPricePerMillion}
-                    >
-                      <Label>缓存读取价格 / 百万 token</Label>
-                      <Input inputMode="decimal" variant="secondary" />
-                      <FieldError />
-                    </TextField>
-                    <TextField
-                      fullWidth
-                      name="cache_write_price_per_million"
-                      value={cacheWritePricePerMillion}
-                      onChange={setCacheWritePricePerMillion}
-                    >
-                      <Label>缓存写入价格 / 百万 token</Label>
-                      <Input inputMode="decimal" variant="secondary" />
-                      <FieldError />
-                    </TextField>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label>模型能力</Label>
-                    <div className="grid gap-2 md:grid-cols-2">
-                      {modelCapabilityDefinitions.map((definition) => (
-                        <Checkbox
-                          key={definition.id}
-                          isSelected={selectedCapabilities.includes(
-                            definition.id,
-                          )}
-                          onChange={(selected) =>
-                            toggleCapability(definition.id, selected)
-                          }
-                        >
-                          <Checkbox.Control>
-                            <Checkbox.Indicator />
-                          </Checkbox.Control>
-                          <Checkbox.Content>
-                            <span className="block text-sm font-medium">
-                              {definition.label}
-                            </span>
-                            <span className="text-muted block text-xs">
-                              {definition.description}
-                            </span>
-                          </Checkbox.Content>
-                        </Checkbox>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </Modal.Body>
-              <Modal.Footer>
-                <div className="flex w-full items-center justify-between gap-3">
-                  {editingModelConfiguration ? (
-                    <Button
-                      isDisabled={!editingModelConfiguration.recordId}
-                      isPending={isDeletingProvider}
-                      type="button"
-                      variant="danger-soft"
-                      onPress={deleteProvider}
-                    >
-                      <AdminIcon className="size-4" name="trash" />
-                      删除模型
-                    </Button>
-                  ) : (
-                    <span />
-                  )}
-                  <div className="flex items-center gap-2">
-                    <Button
-                      isDisabled={isSubmitting || isDeletingProvider}
-                      type="button"
-                      variant="secondary"
-                      onPress={() => setIsProviderDialogOpen(false)}
-                    >
-                      取消
-                    </Button>
-                    <Button
-                      isDisabled={isDeletingProvider}
-                      isPending={isSubmitting}
-                      type="submit"
-                    >
-                      {providerSubmitLabel}
-                    </Button>
-                  </div>
-                </div>
-              </Modal.Footer>
-            </Form>
-          </Modal.Dialog>
-        </Modal.Container>
-      </Modal.Backdrop>
+        <Label>主模型来源</Label>
+        <Select.Trigger>
+          <Select.Value />
+          <Select.Indicator />
+        </Select.Trigger>
+        <Select.Popover>
+          <ListBox>
+            {modelProviderPresets.map((provider) => (
+              <ListBox.Item
+                key={provider.id}
+                id={provider.id}
+                textValue={provider.label}
+              >
+                <ProviderPresetOption provider={provider} />
+              </ListBox.Item>
+            ))}
+          </ListBox>
+        </Select.Popover>
+        <FieldError />
+      </Select>
+      {usesCustomProvider ? (
+        <TextField
+          fullWidth
+          isRequired
+          name="provider"
+          value={form.customProvider}
+          onChange={(value) => onFormChange({ customProvider: value })}
+        >
+          <Label>供应商标识</Label>
+          <Input placeholder="例如：google" variant="secondary" />
+          <FieldError />
+        </TextField>
+      ) : null}
+      <TextField
+        fullWidth
+        isRequired
+        name="model"
+        value={form.model}
+        onChange={(value) => onFormChange({ model: value })}
+      >
+        <Label>模型名称</Label>
+        <Input placeholder={modelPlaceholder} variant="secondary" />
+        <FieldError />
+      </TextField>
+      <ModelPricingFields form={form} onFormChange={onFormChange} />
+      <ModelCapabilityFields
+        selectedCapabilities={form.selectedCapabilities}
+        onCapabilityToggle={onCapabilityToggle}
+      />
     </div>
+  );
+}
+
+function ModelPricingFields({
+  form,
+  onFormChange,
+}: {
+  form: ModelFormState;
+  onFormChange: (patch: Partial<ModelFormState>) => void;
+}) {
+  return (
+    <div className="grid gap-4 md:grid-cols-2">
+      <TextField
+        fullWidth
+        isRequired
+        name="currency"
+        value={form.currency}
+        onChange={(value) => onFormChange({ currency: value })}
+      >
+        <Label>币种</Label>
+        <Input placeholder="例如：CNY" variant="secondary" />
+        <FieldError />
+      </TextField>
+      <Select
+        fullWidth
+        className="min-w-0"
+        name="enabled"
+        selectedKey={form.modelEnabled ? "enabled" : "disabled"}
+        variant="secondary"
+        onSelectionChange={(key) =>
+          onFormChange({ modelEnabled: key === "enabled" })
+        }
+      >
+        <Label>状态</Label>
+        <Select.Trigger>
+          <Select.Value />
+          <Select.Indicator />
+        </Select.Trigger>
+        <Select.Popover>
+          <ListBox>
+            <ListBox.Item id="enabled">启用</ListBox.Item>
+            <ListBox.Item id="disabled">停用</ListBox.Item>
+          </ListBox>
+        </Select.Popover>
+      </Select>
+      <Select
+        fullWidth
+        className="min-w-0"
+        name="billing_unit"
+        selectedKey={form.billingUnit}
+        variant="secondary"
+        onSelectionChange={(key) =>
+          onFormChange({ billingUnit: String(key || "token") })
+        }
+      >
+        <Label>计费单位</Label>
+        <Select.Trigger>
+          <Select.Value />
+          <Select.Indicator />
+        </Select.Trigger>
+        <Select.Popover>
+          <ListBox>
+            <ListBox.Item id="token">token</ListBox.Item>
+            <ListBox.Item id="image">image</ListBox.Item>
+          </ListBox>
+        </Select.Popover>
+      </Select>
+      <TextField
+        fullWidth
+        name="unit_price_amount"
+        value={form.unitPriceAmount}
+        onChange={(value) => onFormChange({ unitPriceAmount: value })}
+      >
+        <Label>单价 / 次数单位</Label>
+        <Input inputMode="decimal" variant="secondary" />
+        <FieldError />
+      </TextField>
+      <TextField
+        fullWidth
+        name="input_price_per_million"
+        value={form.inputPricePerMillion}
+        onChange={(value) => onFormChange({ inputPricePerMillion: value })}
+      >
+        <Label>输入价格 / 百万 token</Label>
+        <Input inputMode="decimal" variant="secondary" />
+        <FieldError />
+      </TextField>
+      <TextField
+        fullWidth
+        name="output_price_per_million"
+        value={form.outputPricePerMillion}
+        onChange={(value) => onFormChange({ outputPricePerMillion: value })}
+      >
+        <Label>输出价格 / 百万 token</Label>
+        <Input inputMode="decimal" variant="secondary" />
+        <FieldError />
+      </TextField>
+      <TextField
+        fullWidth
+        name="cache_read_price_per_million"
+        value={form.cacheReadPricePerMillion}
+        onChange={(value) => onFormChange({ cacheReadPricePerMillion: value })}
+      >
+        <Label>缓存读取价格 / 百万 token</Label>
+        <Input inputMode="decimal" variant="secondary" />
+        <FieldError />
+      </TextField>
+      <TextField
+        fullWidth
+        name="cache_write_price_per_million"
+        value={form.cacheWritePricePerMillion}
+        onChange={(value) => onFormChange({ cacheWritePricePerMillion: value })}
+      >
+        <Label>缓存写入价格 / 百万 token</Label>
+        <Input inputMode="decimal" variant="secondary" />
+        <FieldError />
+      </TextField>
+    </div>
+  );
+}
+
+function ModelCapabilityFields({
+  onCapabilityToggle,
+  selectedCapabilities,
+}: {
+  onCapabilityToggle: (
+    capability: ModelCapabilityId,
+    selected: boolean,
+  ) => void;
+  selectedCapabilities: ModelCapabilityValue[];
+}) {
+  return (
+    <div className="grid gap-2">
+      <Label>模型能力</Label>
+      <div className="grid gap-2 md:grid-cols-2">
+        {modelCapabilityDefinitions.map((definition) => (
+          <Checkbox
+            key={definition.id}
+            isSelected={selectedCapabilities.includes(definition.id)}
+            onChange={(selected) => onCapabilityToggle(definition.id, selected)}
+          >
+            <Checkbox.Control>
+              <Checkbox.Indicator />
+            </Checkbox.Control>
+            <Checkbox.Content>
+              <span className="block text-sm font-medium">
+                {definition.label}
+              </span>
+              <span className="text-muted block text-xs">
+                {definition.description}
+              </span>
+            </Checkbox.Content>
+          </Checkbox>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ModelConfigurationDialogFooter({
+  editingModelConfiguration,
+  isDeletingProvider,
+  isSubmitting,
+  onCancel,
+  onDelete,
+  providerSubmitLabel,
+}: {
+  editingModelConfiguration: ModelConfiguration | null;
+  isDeletingProvider: boolean;
+  isSubmitting: boolean;
+  onCancel: () => void;
+  onDelete: () => void;
+  providerSubmitLabel: string;
+}) {
+  return (
+    <div className="flex w-full items-center justify-between gap-3">
+      {editingModelConfiguration ? (
+        <Button
+          isDisabled={!editingModelConfiguration.recordId}
+          isPending={isDeletingProvider}
+          type="button"
+          variant="danger-soft"
+          onPress={onDelete}
+        >
+          <AdminIcon className="size-4" name="trash" />
+          删除模型
+        </Button>
+      ) : (
+        <span />
+      )}
+      <div className="flex items-center gap-2">
+        <Button
+          isDisabled={isSubmitting || isDeletingProvider}
+          type="button"
+          variant="secondary"
+          onPress={onCancel}
+        >
+          取消
+        </Button>
+        <Button
+          isDisabled={isDeletingProvider}
+          isPending={isSubmitting}
+          type="submit"
+        >
+          {providerSubmitLabel}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function modelConfigurationPageReducer(
+  state: ModelConfigurationPageState,
+  action: ModelConfigurationPageAction,
+): ModelConfigurationPageState {
+  switch (action.type) {
+    case "capabilityToggled": {
+      const selectedCapabilities = action.selected
+        ? addCapability(state.form.selectedCapabilities, action.capability)
+        : state.form.selectedCapabilities.filter(
+            (item) => item !== action.capability,
+          );
+
+      return {
+        ...state,
+        form: {
+          ...state.form,
+          selectedCapabilities,
+        },
+      };
+    }
+    case "deleteFinished":
+      return {
+        ...state,
+        isDeletingProvider: false,
+      };
+    case "deleteStarted":
+      return {
+        ...state,
+        isDeletingProvider: true,
+      };
+    case "dialogOpenChanged":
+      if (action.isOpen || state.isSubmitting) {
+        return {
+          ...state,
+          isProviderDialogOpen: action.isOpen,
+        };
+      }
+
+      return {
+        ...state,
+        editingModelConfiguration: null,
+        form: getDefaultModelForm(),
+        isProviderDialogOpen: false,
+      };
+    case "dialogSaveSucceeded":
+      return {
+        ...state,
+        editingModelConfiguration: null,
+        form: getDefaultModelForm(),
+        isProviderDialogOpen: false,
+        isSubmitting: false,
+      };
+    case "formPatched":
+      return {
+        ...state,
+        form: {
+          ...state.form,
+          ...action.patch,
+        },
+      };
+    case "modelDeleted":
+      return {
+        ...state,
+        editingModelConfiguration: null,
+        form: getDefaultModelForm(),
+        isDeletingProvider: false,
+        isProviderDialogOpen: false,
+        modelConfigurations: state.modelConfigurations.filter(
+          (item) => item.id !== action.modelConfigurationId,
+        ),
+      };
+    case "modelSaved":
+      return {
+        ...state,
+        modelConfigurations: state.editingModelConfiguration
+          ? state.modelConfigurations.map((item) =>
+              item.id === state.editingModelConfiguration?.id
+                ? action.modelConfiguration
+                : item,
+            )
+          : [action.modelConfiguration, ...state.modelConfigurations],
+      };
+    case "modelsLoaded":
+      return {
+        ...state,
+        isLoadingModels: false,
+        loadError: null,
+        modelConfigurations: action.modelConfigurations,
+      };
+    case "modelsLoadFailed":
+      return {
+        ...state,
+        isLoadingModels: false,
+        loadError: action.error,
+        modelConfigurations: [],
+      };
+    case "modelsLoading":
+      return {
+        ...state,
+        isLoadingModels: true,
+        loadError: null,
+      };
+    case "openCreate":
+      return {
+        ...state,
+        editingModelConfiguration: null,
+        form: getDefaultModelForm(action.providerId),
+        isProviderDialogOpen: true,
+      };
+    case "openEdit":
+      return {
+        ...state,
+        editingModelConfiguration: action.modelConfiguration,
+        form: getModelFormFromConfiguration(action.modelConfiguration),
+        isProviderDialogOpen: true,
+      };
+    case "providerChanged":
+      return {
+        ...state,
+        form: {
+          ...state.form,
+          customProvider: "",
+          model: "",
+          providerType: getModelProviderPreset(action.providerId).id,
+        },
+      };
+    case "submitFinished":
+      return {
+        ...state,
+        isSubmitting: false,
+      };
+    case "submitStarted":
+      return {
+        ...state,
+        isSubmitting: true,
+      };
+  }
+}
+
+function addCapability(
+  capabilities: ModelCapabilityValue[],
+  capability: ModelCapabilityId,
+) {
+  return capabilities.includes(capability)
+    ? capabilities
+    : [...capabilities, capability];
+}
+
+function getDefaultModelForm(
+  providerId = defaultModelProviderPreset.id,
+): ModelFormState {
+  return {
+    ...DEFAULT_MODEL_FORM,
+    providerType: getModelProviderPreset(providerId).id,
+  };
+}
+
+function getModelFormFromConfiguration(
+  modelConfiguration: ModelConfiguration,
+): ModelFormState {
+  const nextProvider = modelProviderPresets.find(
+    (item) => item.id === modelConfiguration.provider_type,
+  );
+
+  return {
+    billingUnit: modelConfiguration.record?.billingUnit?.trim() || "token",
+    cacheReadPricePerMillion:
+      modelConfiguration.record?.cacheReadPricePerMillion?.trim() ?? "",
+    cacheWritePricePerMillion:
+      modelConfiguration.record?.cacheWritePricePerMillion?.trim() ?? "",
+    currency: modelConfiguration.record?.currency?.trim() || "CNY",
+    customProvider: nextProvider ? "" : modelConfiguration.provider_type,
+    inputPricePerMillion:
+      modelConfiguration.record?.inputPricePerMillion?.trim() ?? "",
+    model: modelConfiguration.model || modelConfiguration.models?.[0] || "",
+    modelConfigName: modelConfiguration.name,
+    modelEnabled: modelConfiguration.enabled,
+    outputPricePerMillion:
+      modelConfiguration.record?.outputPricePerMillion?.trim() ?? "",
+    providerType: nextProvider?.id ?? "custom",
+    selectedCapabilities: modelConfiguration.capabilities,
+    unitPriceAmount: modelConfiguration.record?.unitPriceAmount?.trim() ?? "",
+  };
+}
+
+function getModelProviderPreset(providerId: string) {
+  return (
+    modelProviderPresets.find((provider) => provider.id === providerId) ??
+    defaultModelProviderPreset
   );
 }
 
