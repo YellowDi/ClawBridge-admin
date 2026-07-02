@@ -12,6 +12,7 @@ import {
 } from "@/lib/api";
 
 type SubjectType = "agent" | "user";
+const EMPTY_KNOWLEDGE_BASE_IDS: number[] = [];
 
 type KnowledgeAvailabilityState = {
   error: string | null;
@@ -23,7 +24,7 @@ type KnowledgeAvailabilityState = {
 
 export function KnowledgeAvailabilityDialog({
   onSaved,
-  selectedKnowledgeBaseIds = [],
+  selectedKnowledgeBaseIds = EMPTY_KNOWLEDGE_BASE_IDS,
   subjectId,
   subjectLabel,
   subjectType,

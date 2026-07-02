@@ -312,9 +312,11 @@ export function ModelConfigurationPage() {
     const nextCacheReadPrice = cacheReadPricePerMillion.trim();
     const nextCacheWritePrice = cacheWritePricePerMillion.trim();
     const nextCurrency = currency.trim();
-    const nextCapabilities = selectedCapabilities
-      .map((capability) => capability.trim())
-      .filter(Boolean);
+    const nextCapabilities = selectedCapabilities.flatMap((capability) => {
+      const trimmedCapability = capability.trim();
+
+      return trimmedCapability ? [trimmedCapability] : [];
+    });
 
     if (!nextName) {
       toast.danger("配置名称为必填项。");

@@ -84,6 +84,7 @@ type AgentDialogProps = {
 
 const UNSET_LEVEL = "__unset";
 const UNSET_MODEL = "__unset";
+const EMPTY_MODEL_OPTIONS: Model[] = [];
 
 const DEFAULT_AGENT_FORM: AgentForm = {
   agentId: "",
@@ -128,7 +129,7 @@ const VERBOSE_LEVELS = [
 ] as const;
 
 export function CreateAgentDialog({
-  modelOptions = [],
+  modelOptions = EMPTY_MODEL_OPTIONS,
   onCreated,
 }: AgentDialogProps & { onCreated: () => void }) {
   const [state, setState] = useState<CreateAgentState>({
@@ -254,7 +255,7 @@ export function CreateAgentDialog({
 
 export function EditAgentDialog({
   agent,
-  modelOptions = [],
+  modelOptions = EMPTY_MODEL_OPTIONS,
   onUpdated,
 }: {
   agent: EditableAgentSummary;

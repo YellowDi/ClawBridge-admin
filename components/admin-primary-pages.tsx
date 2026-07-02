@@ -897,9 +897,11 @@ function formatCapabilityModelSummary({
 function getAgentStats(agents: AdminAgent[]) {
   const defaultModels = Array.from(
     new Set(
-      agents
-        .map((agent) => agent.defaultModelid)
-        .filter((defaultModelid) => defaultModelid && defaultModelid !== "-"),
+      agents.flatMap((agent) =>
+        agent.defaultModelid && agent.defaultModelid !== "-"
+          ? [agent.defaultModelid]
+          : [],
+      ),
     ),
   );
 
@@ -921,9 +923,11 @@ function getKnowledgeBaseIds(
 ) {
   return Array.from(
     new Set(
-      (knowledgeBases ?? [])
-        .map((knowledgeBase) => knowledgeBase.id)
-        .filter((id): id is number => Number.isFinite(id)),
+      (knowledgeBases ?? []).flatMap((knowledgeBase) => {
+        const id = knowledgeBase.id;
+
+        return typeof id === "number" && Number.isFinite(id) ? [id] : [];
+      }),
     ),
   );
 }
