@@ -24,6 +24,7 @@ import {
 } from "@/lib/api";
 
 type ModelForm = {
+  billingUnit: string;
   cacheReadPricePerMillion: string;
   cacheWritePricePerMillion: string;
   currency: string;
@@ -33,6 +34,7 @@ type ModelForm = {
   modelid: string;
   outputPricePerMillion: string;
   provider: string;
+  unitPriceAmount: string;
 };
 
 type CreateModelState = {
@@ -56,6 +58,7 @@ type DeleteModelState = {
 
 export type EditableModelSummary = Pick<
   Model,
+  | "billingUnit"
   | "cacheReadPricePerMillion"
   | "cacheWritePricePerMillion"
   | "currency"
@@ -66,11 +69,13 @@ export type EditableModelSummary = Pick<
   | "modelid"
   | "outputPricePerMillion"
   | "provider"
+  | "unitPriceAmount"
 > & {
   id: number;
 };
 
 const DEFAULT_MODEL_FORM: ModelForm = {
+  billingUnit: "token",
   cacheReadPricePerMillion: "",
   cacheWritePricePerMillion: "",
   currency: "USD",
@@ -80,6 +85,7 @@ const DEFAULT_MODEL_FORM: ModelForm = {
   modelid: "",
   outputPricePerMillion: "",
   provider: "",
+  unitPriceAmount: "",
 };
 
 export function CreateModelDialog({ onCreated }: { onCreated: () => void }) {
@@ -547,6 +553,36 @@ function ModelFormFields({
           />
         </TextField>
 
+        <Select
+          fullWidth
+          className="min-w-0"
+          isDisabled={isDisabled}
+          selectedKey={form.billingUnit}
+          variant="secondary"
+          onSelectionChange={(key) =>
+            onChange({ billingUnit: String(key || "token") })
+          }
+        >
+          <Label>计费单位</Label>
+          <Select.Trigger>
+            <Select.Value />
+            <Select.Indicator />
+          </Select.Trigger>
+          <Select.Popover>
+            <ListBox>
+              <ListBox.Item id="token">token</ListBox.Item>
+              <ListBox.Item id="image">image</ListBox.Item>
+            </ListBox>
+          </Select.Popover>
+        </Select>
+
+        <PriceField
+          isDisabled={isDisabled}
+          label="单价 / 次数单位"
+          value={form.unitPriceAmount}
+          onChange={(value) => onChange({ unitPriceAmount: value })}
+        />
+
         <PriceField
           isDisabled={isDisabled}
           label="输入价格 / 百万 token"
@@ -639,6 +675,7 @@ function ModelFormError({ children }: { children: string }) {
 
 function toCreateModelRequest(form: ModelForm): ReqModelCreate {
   return {
+    billingUnit: form.billingUnit.trim() || DEFAULT_MODEL_FORM.billingUnit,
     cacheReadPricePerMillion: toOptionalString(form.cacheReadPricePerMillion),
     cacheWritePricePerMillion: toOptionalString(form.cacheWritePricePerMillion),
     currency: toOptionalString(form.currency),
@@ -648,6 +685,7 @@ function toCreateModelRequest(form: ModelForm): ReqModelCreate {
     modelid: form.modelid.trim(),
     outputPricePerMillion: toOptionalString(form.outputPricePerMillion),
     provider: form.provider.trim(),
+    unitPriceAmount: toOptionalString(form.unitPriceAmount),
   };
 }
 
@@ -660,6 +698,7 @@ function toUpdateModelRequest(form: ModelForm, id: number): ReqModelUpdate {
 
 function toModelForm(model: EditableModelSummary): ModelForm {
   return {
+    billingUnit: model.billingUnit?.trim() || DEFAULT_MODEL_FORM.billingUnit,
     cacheReadPricePerMillion: model.cacheReadPricePerMillion?.trim() ?? "",
     cacheWritePricePerMillion: model.cacheWritePricePerMillion?.trim() ?? "",
     currency: model.currency?.trim() || DEFAULT_MODEL_FORM.currency,
@@ -669,6 +708,7 @@ function toModelForm(model: EditableModelSummary): ModelForm {
     modelid: model.modelid?.trim() ?? "",
     outputPricePerMillion: model.outputPricePerMillion?.trim() ?? "",
     provider: model.provider?.trim() ?? "",
+    unitPriceAmount: model.unitPriceAmount?.trim() ?? "",
   };
 }
 

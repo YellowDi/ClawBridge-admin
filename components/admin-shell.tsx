@@ -38,6 +38,12 @@ const OPS_ITEMS: readonly NavItem[] = [
     key: "conversations",
     label: "会话记录",
   },
+  {
+    href: "/knowledge-bases",
+    icon: "knowledge",
+    key: "knowledge-bases",
+    label: "知识库",
+  },
   { href: "/tools", icon: "tool", key: "tools", label: "工具与权限" },
   { href: "/audit", icon: "audit", key: "audit", label: "审计日志" },
 ] as const;

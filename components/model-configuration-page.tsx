@@ -213,6 +213,8 @@ export function ModelConfigurationPage() {
   );
   const [customProvider, setCustomProvider] = useState("");
   const [model, setModel] = useState("");
+  const [billingUnit, setBillingUnit] = useState("token");
+  const [unitPriceAmount, setUnitPriceAmount] = useState("");
   const [inputPricePerMillion, setInputPricePerMillion] = useState("");
   const [outputPricePerMillion, setOutputPricePerMillion] = useState("");
   const [cacheReadPricePerMillion, setCacheReadPricePerMillion] = useState("");
@@ -283,6 +285,8 @@ export function ModelConfigurationPage() {
     setEditingModelConfiguration(null);
     setModelConfigName("");
     setCustomProvider("");
+    setBillingUnit("token");
+    setUnitPriceAmount("");
     setInputPricePerMillion("");
     setOutputPricePerMillion("");
     setCacheReadPricePerMillion("");
@@ -301,6 +305,8 @@ export function ModelConfigurationPage() {
       ? customProvider.trim()
       : selectedProvider.id;
     const nextModel = model.trim();
+    const nextBillingUnit = billingUnit.trim() || "token";
+    const nextUnitPrice = unitPriceAmount.trim();
     const nextInputPrice = inputPricePerMillion.trim();
     const nextOutputPrice = outputPricePerMillion.trim();
     const nextCacheReadPrice = cacheReadPricePerMillion.trim();
@@ -345,6 +351,7 @@ export function ModelConfigurationPage() {
     try {
       const request = buildModelRequest({
         capabilities: nextCapabilities,
+        billingUnit: nextBillingUnit,
         cacheReadPricePerMillion: nextCacheReadPrice,
         cacheWritePricePerMillion: nextCacheWritePrice,
         currency: nextCurrency,
@@ -354,6 +361,7 @@ export function ModelConfigurationPage() {
         modelid: nextModel,
         outputPricePerMillion: nextOutputPrice,
         provider: nextProvider,
+        unitPriceAmount: nextUnitPrice,
       });
       const savedModel = editingModelConfiguration?.recordId
         ? await updateModel({
@@ -408,6 +416,10 @@ export function ModelConfigurationPage() {
     setProviderType(nextProviderId);
     setCustomProvider(nextProvider ? "" : modelConfiguration.provider_type);
     setModel(modelConfiguration.model || modelConfiguration.models?.[0] || "");
+    setBillingUnit(modelConfiguration.record?.billingUnit?.trim() || "token");
+    setUnitPriceAmount(
+      modelConfiguration.record?.unitPriceAmount?.trim() ?? "",
+    );
     setInputPricePerMillion(
       modelConfiguration.record?.inputPricePerMillion?.trim() ?? "",
     );
@@ -686,6 +698,38 @@ export function ModelConfigurationPage() {
                         </ListBox>
                       </Select.Popover>
                     </Select>
+                    <Select
+                      fullWidth
+                      className="min-w-0"
+                      name="billing_unit"
+                      selectedKey={billingUnit}
+                      variant="secondary"
+                      onSelectionChange={(key) =>
+                        setBillingUnit(String(key || "token"))
+                      }
+                    >
+                      <Label>计费单位</Label>
+                      <Select.Trigger>
+                        <Select.Value />
+                        <Select.Indicator />
+                      </Select.Trigger>
+                      <Select.Popover>
+                        <ListBox>
+                          <ListBox.Item id="token">token</ListBox.Item>
+                          <ListBox.Item id="image">image</ListBox.Item>
+                        </ListBox>
+                      </Select.Popover>
+                    </Select>
+                    <TextField
+                      fullWidth
+                      name="unit_price_amount"
+                      value={unitPriceAmount}
+                      onChange={setUnitPriceAmount}
+                    >
+                      <Label>单价 / 次数单位</Label>
+                      <Input inputMode="decimal" variant="secondary" />
+                      <FieldError />
+                    </TextField>
                     <TextField
                       fullWidth
                       name="input_price_per_million"
@@ -802,6 +846,7 @@ export function ModelConfigurationPage() {
 
 function buildModelRequest({
   capabilities,
+  billingUnit,
   cacheReadPricePerMillion,
   cacheWritePricePerMillion,
   currency,
@@ -811,8 +856,10 @@ function buildModelRequest({
   modelid,
   outputPricePerMillion,
   provider,
+  unitPriceAmount,
 }: {
   capabilities: string[];
+  billingUnit: string;
   cacheReadPricePerMillion: string;
   cacheWritePricePerMillion: string;
   currency: string;
@@ -822,9 +869,11 @@ function buildModelRequest({
   modelid: string;
   outputPricePerMillion: string;
   provider: string;
+  unitPriceAmount: string;
 }): ReqModelCreate {
   const request: ReqModelCreate = {
     capabilities,
+    billingUnit,
     displayName,
     currency,
     enabled,
@@ -843,6 +892,9 @@ function buildModelRequest({
   }
   if (outputPricePerMillion) {
     request.outputPricePerMillion = outputPricePerMillion;
+  }
+  if (unitPriceAmount) {
+    request.unitPriceAmount = unitPriceAmount;
   }
 
   return request;
