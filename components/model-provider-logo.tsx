@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 const sizeClasses = {
   sm: {
@@ -59,18 +59,16 @@ export function ModelProviderLogo({
 }) {
   const normalizedProviderType = providerType?.trim() ?? "";
   const logo = modelProviderLogos[normalizedProviderType.toLowerCase()];
-  const [failed, setFailed] = useState(false);
-  const [loaded, setLoaded] = useState(false);
+  const imageSrc = logo ? `/model-logos/${logo}.svg` : "";
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
+  const failed = Boolean(imageSrc && failedSrc === imageSrc);
+  const loaded = Boolean(imageSrc && loadedSrc === imageSrc);
   const fallback = (label || normalizedProviderType || "?")
     .trim()
     .slice(0, 1)
     .toUpperCase();
   const classes = sizeClasses[size];
-
-  useEffect(() => {
-    setFailed(false);
-    setLoaded(false);
-  }, [logo]);
 
   return (
     <span
@@ -92,10 +90,10 @@ export function ModelProviderLogo({
               : ""
           }`}
           height={20}
-          src={`/model-logos/${logo}.svg`}
+          src={imageSrc}
           width={20}
-          onError={() => setFailed(true)}
-          onLoad={() => setLoaded(true)}
+          onError={() => setFailedSrc(imageSrc)}
+          onLoad={() => setLoadedSrc(imageSrc)}
         />
       ) : null}
     </span>
