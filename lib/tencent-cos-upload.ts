@@ -40,7 +40,7 @@ export async function uploadKnowledgeFileToCos(
     throw new ApiError("腾讯云 COS 鉴权响应缺少临时凭证。", 0, sts);
   }
 
-  const key = createObjectKey(file);
+  const key = createObjectKey(file, getDomainObjectKeyPrefix(sts.domain));
   const { expiredTime, startTime } = parseCosStsTime(credentials?.expiration);
   const cos = new COS({
     getAuthorization(_, callback) {
@@ -76,12 +76,12 @@ export async function uploadKnowledgeFileToCos(
   };
 }
 
-function createObjectKey(file: File) {
+function createObjectKey(file: File, objectKeyPrefix: string) {
   const extension = getFileExtension(file.name);
   const random = Math.random().toString(36).slice(2, 10);
   const timestamp = new Date().toISOString().replace(/[-:TZ.]/g, "");
 
-  return `${COS_OBJECT_PREFIX}${timestamp}-${random}${extension}`;
+  return `${objectKeyPrefix}${COS_OBJECT_PREFIX}${timestamp}-${random}${extension}`;
 }
 
 function getFileExtension(fileName: string) {
@@ -139,11 +139,38 @@ function buildObjectUrl(
     const normalizedDomain = /^https?:\/\//i.test(domain)
       ? domain
       : `https://${domain}`;
+    const keyInDomain = removeObjectKeyPrefix(
+      key,
+      getDomainObjectKeyPrefix(normalizedDomain),
+    );
 
-    return `${normalizedDomain.replace(/\/+$/, "")}/${encodeObjectKey(key)}`;
+    return `${normalizedDomain.replace(/\/+$/, "")}/${encodeObjectKey(keyInDomain)}`;
   }
 
   return `https://${config.bucket}.cos.${config.region}.myqcloud.com/${encodeObjectKey(key)}`;
+}
+
+function getDomainObjectKeyPrefix(domain: unknown) {
+  const normalizedDomain = normalizeText(domain);
+
+  if (!normalizedDomain) return "";
+
+  try {
+    const url = new URL(
+      /^https?:\/\//i.test(normalizedDomain)
+        ? normalizedDomain
+        : `https://${normalizedDomain}`,
+    );
+    const pathname = url.pathname.replace(/^\/+|\/+$/g, "");
+
+    return pathname ? `${pathname}/` : "";
+  } catch {
+    return "";
+  }
+}
+
+function removeObjectKeyPrefix(key: string, prefix: string) {
+  return prefix && key.startsWith(prefix) ? key.slice(prefix.length) : key;
 }
 
 function encodeObjectKey(key: string) {
