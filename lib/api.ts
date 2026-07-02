@@ -314,14 +314,14 @@ export interface ReqRetryKnowledgeBase {
 }
 
 export interface ReqReplaceUserKnowledgeBases {
-  knowledgeBaseIds?: number[];
-  userId?: number;
+  knowledgeBaseIds: number[];
+  userId: number;
   [property: string]: unknown;
 }
 
 export interface ReqReplaceAgentKnowledgeBases {
-  agentId?: string;
-  knowledgeBaseIds?: number[];
+  agentId: number;
+  knowledgeBaseIds: number[];
   [property: string]: unknown;
 }
 
@@ -1025,34 +1025,26 @@ export async function retryKnowledgeBase(
 
 export async function replaceUserKnowledgeBases(
   request: ReqReplaceUserKnowledgeBases,
-): Promise<KnowledgeBase[]> {
-  const response = await requestJson<ResKnowledgeBaseList | KnowledgeBase[]>(
+): Promise<void> {
+  await requestJson<ControllerResponse | unknown>(
     "/api/knowledge-bases/users/replace",
     {
       body: JSON.stringify(request),
       method: "POST",
     },
   );
-
-  if (Array.isArray(response)) return response;
-
-  return response.items ?? [];
 }
 
 export async function replaceAgentKnowledgeBases(
   request: ReqReplaceAgentKnowledgeBases,
-): Promise<KnowledgeBase[]> {
-  const response = await requestJson<ResKnowledgeBaseList | KnowledgeBase[]>(
+): Promise<void> {
+  await requestJson<ControllerResponse | unknown>(
     "/api/knowledge-bases/agents/replace",
     {
       body: JSON.stringify(request),
       method: "POST",
     },
   );
-
-  if (Array.isArray(response)) return response;
-
-  return response.items ?? [];
 }
 
 export async function getUserBalance(
