@@ -16,25 +16,25 @@ import {
   Logo,
 } from "@/components/icons";
 
+const SEARCH_INPUT = (
+  <TextField aria-label="Search" type="search">
+    <InputGroup>
+      <InputGroup.Prefix>
+        <SearchIcon className="text-base text-muted pointer-events-none flex-shrink-0" />
+      </InputGroup.Prefix>
+      <InputGroup.Input className="text-sm" placeholder="Search..." />
+      <InputGroup.Suffix>
+        <Kbd className="hidden lg:inline-flex">
+          <Kbd.Abbr keyValue="command" />
+          <Kbd.Content>K</Kbd.Content>
+        </Kbd>
+      </InputGroup.Suffix>
+    </InputGroup>
+  </TextField>
+);
+
 export const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-
-  const searchInput = (
-    <TextField aria-label="Search" type="search">
-      <InputGroup>
-        <InputGroup.Prefix>
-          <SearchIcon className="text-base text-muted pointer-events-none flex-shrink-0" />
-        </InputGroup.Prefix>
-        <InputGroup.Input className="text-sm" placeholder="Search..." />
-        <InputGroup.Suffix>
-          <Kbd className="hidden lg:inline-flex">
-            <Kbd.Abbr keyValue="command" />
-            <Kbd.Content>K</Kbd.Content>
-          </Kbd>
-        </InputGroup.Suffix>
-      </InputGroup>
-    </TextField>
-  );
 
   return (
     <nav className="sticky top-0 z-40 w-full border-b border-separator bg-background/70 backdrop-blur-lg">
@@ -87,7 +87,7 @@ export const Navbar = () => {
             <GithubIcon className="text-muted" />
           </Link>
           <ThemeSwitch />
-          <div className="hidden lg:flex">{searchInput}</div>
+          <div className="hidden lg:flex">{SEARCH_INPUT}</div>
           <div className="hidden md:flex">
             <Button
               className="text-sm font-normal"
@@ -114,6 +114,7 @@ export const Navbar = () => {
             aria-expanded={isMenuOpen}
             aria-label="Toggle menu"
             className="p-2"
+            type="button"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
           >
             <svg
@@ -144,7 +145,7 @@ export const Navbar = () => {
 
       {isMenuOpen && (
         <div className="border-t border-separator sm:hidden">
-          <div className="p-4">{searchInput}</div>
+          <div className="p-4">{SEARCH_INPUT}</div>
           <ul className="flex flex-col gap-2 px-4 pb-4">
             {siteConfig.navMenuItems.map((item, index) => (
               <li key={`${item.label}-${index}`}>
