@@ -23,6 +23,7 @@ import {
   DeleteUserDialog,
   EditUserDialog,
 } from "@/components/create-user-dialog";
+import { KnowledgeAvailabilityDialog } from "@/components/knowledge-availability-dialog";
 import { ModelConfigurationPage } from "@/components/model-configuration-page";
 import {
   UserAuthorizationDialog,
@@ -304,6 +305,11 @@ export function UsersPage() {
 
           return (
             <div className="flex items-center justify-end gap-2">
+              <KnowledgeAvailabilityDialog
+                subjectId={user.id}
+                subjectLabel={user.username}
+                subjectType="user"
+              />
               <UserAuthorizationDialog user={user} />
               <UserBalanceDialog user={user} />
               <EditUserDialog user={user} onUpdated={refreshUsers} />
@@ -311,12 +317,12 @@ export function UsersPage() {
             </div>
           );
         },
-        cellClassName: "w-[264px] min-w-[264px] max-w-[264px] pl-4 pr-4",
+        cellClassName: "w-[360px] min-w-[360px] max-w-[360px] pl-4 pr-4",
         header: "操作",
-        headerClassName: "w-[264px] min-w-[264px] max-w-[264px] pl-4 pr-4",
+        headerClassName: "w-[360px] min-w-[360px] max-w-[360px] pl-4 pr-4",
         id: "actions",
         pinned: "end",
-        width: 264,
+        width: 360,
       },
     ],
     [refreshUsers],
@@ -402,7 +408,7 @@ export function UsersPage() {
           aria-label="用户列表"
           className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
           columns={userColumns}
-          contentClassName="min-w-[980px]"
+          contentClassName="min-w-[1160px]"
           data={filteredUsers}
           defaultSortDescriptor={{
             column: "username",
@@ -630,6 +636,11 @@ export function AgentsPage() {
 
           return (
             <div className="flex items-center justify-end gap-2">
+              <KnowledgeAvailabilityDialog
+                subjectId={agent.id}
+                subjectLabel={agent.displayName || agent.agentId}
+                subjectType="agent"
+              />
               <EditAgentDialog
                 agent={agent}
                 modelOptions={agentModelOptions}
@@ -639,12 +650,12 @@ export function AgentsPage() {
             </div>
           );
         },
-        cellClassName: "w-[160px] min-w-[160px] max-w-[160px] pl-4 pr-4",
+        cellClassName: "w-[256px] min-w-[256px] max-w-[256px] pl-4 pr-4",
         header: "操作",
-        headerClassName: "w-[160px] min-w-[160px] max-w-[160px] pl-4 pr-4",
+        headerClassName: "w-[256px] min-w-[256px] max-w-[256px] pl-4 pr-4",
         id: "actions",
         pinned: "end",
-        width: 160,
+        width: 256,
       },
     ],
     [agentModelOptions, refreshAgents],
@@ -735,7 +746,7 @@ export function AgentsPage() {
           aria-label="Agent 列表"
           className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
           columns={agentColumns}
-          contentClassName="min-w-[1180px]"
+          contentClassName="min-w-[1280px]"
           data={filteredAgents}
           defaultSortDescriptor={{
             column: "displayLabel",
