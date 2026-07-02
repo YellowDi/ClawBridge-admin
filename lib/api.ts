@@ -118,11 +118,6 @@ export interface ReqModelDelete {
   [property: string]: unknown;
 }
 
-export interface ReqModelDetail {
-  id?: number;
-  [property: string]: unknown;
-}
-
 export interface ReqModelUpdate {
   billingUnit?: string;
   cacheReadPricePerMillion?: string;
@@ -824,21 +819,6 @@ export async function createModel(
     "/api/models/create",
     {
       body: JSON.stringify(request),
-      method: "POST",
-    },
-  );
-
-  if (!response) return undefined;
-  if ("data" in response) return (response as ResModel).data;
-
-  return response;
-}
-
-export async function getModelDetail(id: number): Promise<Model | undefined> {
-  const response = await requestJson<ResModel | Model | undefined>(
-    "/api/models/detail",
-    {
-      body: JSON.stringify({ id } satisfies ReqModelDetail),
       method: "POST",
     },
   );
