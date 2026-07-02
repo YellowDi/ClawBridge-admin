@@ -600,7 +600,9 @@ function getSourceTypeLabel(value?: string) {
 
   if (!sourceType) return "-";
   if (sourceType === "url") return "URL";
+  if (sourceType === "remote") return "URL";
   if (sourceType === "file") return "文件";
+  if (sourceType === "local") return "文件";
 
   return value?.trim() || "-";
 }
