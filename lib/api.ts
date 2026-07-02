@@ -739,13 +739,6 @@ export async function login(request: ReqLogin): Promise<ResLogin> {
   });
 }
 
-export async function getHealthStatus(): Promise<HealthStatus | undefined> {
-  return requestJson<HealthStatus | undefined>("/healthz", {
-    auth: false,
-    method: "POST",
-  });
-}
-
 export async function listUsers(request: ReqUserList = {}): Promise<User[]> {
   const response = await requestJson<ResUsers | User[]>("/api/users/list", {
     body: JSON.stringify(request),
@@ -1190,41 +1183,6 @@ export async function getConversationContext(
   );
 }
 
-export async function createContextSnapshot(
-  request: ReqContextSnapshotCreate,
-  ingestToken?: string,
-): Promise<ContextSnapshot | undefined> {
-  const headers = ingestToken
-    ? { Authorization: `Bearer ${ingestToken}` }
-    : undefined;
-
-  return requestJson<ContextSnapshot | undefined>(
-    "/api/openclaw/context-snapshots",
-    {
-      auth: false,
-      body: JSON.stringify(request),
-      headers,
-      method: "POST",
-    },
-  );
-}
-
-export async function createTokenUsage(
-  request: ReqTokenUsageCreate,
-  ingestToken?: string,
-): Promise<TokenUsage | undefined> {
-  const headers = ingestToken
-    ? { Authorization: `Bearer ${ingestToken}` }
-    : undefined;
-
-  return requestJson<TokenUsage | undefined>("/api/openclaw/token-usages", {
-    auth: false,
-    body: JSON.stringify(request),
-    headers,
-    method: "POST",
-  });
-}
-
 export async function getTokenUsageStatsByConversation(
   conversationId: string,
 ): Promise<TokenUsageStatsConversation | undefined> {
@@ -1273,10 +1231,6 @@ export async function applyOpenClawConfig(
       method: "POST",
     },
   );
-}
-
-export async function apiFetch<T>(path: string, init: ApiRequestInit = {}) {
-  return requestJson<T>(path, init);
 }
 
 export function readStoredAuthSession(): AuthSession | null {
