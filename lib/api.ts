@@ -91,6 +91,7 @@ export interface User {
 }
 
 export interface ReqModelCreate {
+  billingUnit?: string;
   cacheReadPricePerMillion?: string;
   cacheWritePricePerMillion?: string;
   capabilities?: string[];
@@ -101,6 +102,7 @@ export interface ReqModelCreate {
   modelid?: string;
   outputPricePerMillion?: string;
   provider?: string;
+  unitPriceAmount?: string;
   [property: string]: unknown;
 }
 
@@ -117,6 +119,7 @@ export interface ReqModelDetail {
 }
 
 export interface ReqModelUpdate {
+  billingUnit?: string;
   cacheReadPricePerMillion?: string;
   cacheWritePricePerMillion?: string;
   capabilities?: string[];
@@ -128,6 +131,7 @@ export interface ReqModelUpdate {
   modelid?: string;
   outputPricePerMillion?: string;
   provider?: string;
+  unitPriceAmount?: string;
   [property: string]: unknown;
 }
 
@@ -143,6 +147,7 @@ export interface ResModels {
 }
 
 export interface Model {
+  billingUnit?: string;
   cacheReadPricePerMillion?: string;
   cacheWritePricePerMillion?: string;
   capabilities?: string[];
@@ -156,6 +161,7 @@ export interface Model {
   modelid?: string;
   outputPricePerMillion?: string;
   provider?: string;
+  unitPriceAmount?: string;
   updatedAt?: string;
   [property: string]: unknown;
 }
@@ -267,6 +273,58 @@ export interface ReqUserAgentsReplace {
   [property: string]: unknown;
 }
 
+export interface KnowledgeBase {
+  activeEmbeddingModelId?: number;
+  chunkCount?: number;
+  createdAt?: string;
+  description?: string;
+  enabled?: boolean;
+  errorMessage?: string;
+  filename?: string;
+  id?: number;
+  isDelete?: number;
+  mimeType?: string;
+  name?: string;
+  parserName?: string;
+  parserVersion?: string;
+  path?: string;
+  sha256?: string;
+  size?: number;
+  status?: string;
+  storageType?: string;
+  updatedAt?: string;
+  [property: string]: unknown;
+}
+
+export interface ResKnowledgeBaseList {
+  items?: KnowledgeBase[];
+  [property: string]: unknown;
+}
+
+export interface ReqCreateKnowledgeBaseUrl {
+  description?: string;
+  name?: string;
+  url?: string;
+  [property: string]: unknown;
+}
+
+export interface ReqRetryKnowledgeBase {
+  knowledgeBaseId?: number;
+  [property: string]: unknown;
+}
+
+export interface ReqReplaceUserKnowledgeBases {
+  knowledgeBaseIds: number[];
+  userId: number;
+  [property: string]: unknown;
+}
+
+export interface ReqReplaceAgentKnowledgeBases {
+  agentId: number;
+  knowledgeBaseIds: number[];
+  [property: string]: unknown;
+}
+
 export interface ReqUserBalanceDetail {
   currency?: string;
   userId?: number;
@@ -315,7 +373,7 @@ export interface UserBalanceTransaction {
   id?: number;
   isDelete?: number;
   metadataJson?: string;
-  relatedId?: string;
+  relatedId?: number | string;
   relatedType?: string;
   type?: string;
   updatedAt?: string;
@@ -442,6 +500,7 @@ export interface TokenUsageNumbers {
 
 export interface ReqTokenUsageCreate {
   agentId?: string;
+  billableQuantity?: number;
   contextTokenBudget?: number;
   conversationId?: string;
   createdAt?: string;
@@ -455,12 +514,14 @@ export interface ReqTokenUsageCreate {
   sessionKey?: string;
   usage?: TokenUsageNumbers;
   usageId?: string;
+  usageType?: string;
   [property: string]: unknown;
 }
 
 export interface TokenUsage {
   agentId?: string;
   balanceTransactionId?: number;
+  billableQuantity?: number;
   billingCurrency?: string;
   billingError?: string;
   billingStatus?: string;
@@ -492,9 +553,12 @@ export interface TokenUsage {
   sessionKey?: string;
   totalCostAmount?: string;
   totalTokens?: number;
+  unitCostAmount?: string;
+  unitPriceAmount?: string;
   updatedAt?: string;
   usageCreatedAt?: string;
   usageId?: string;
+  usageType?: string;
   userId?: number;
   [property: string]: unknown;
 }
@@ -518,6 +582,7 @@ export interface ReqTokenUsageStatsTime {
 export interface ReqTokenUsageStatsUsers extends ReqTokenUsageStatsTime {}
 
 export interface TokenUsageStatsModel {
+  billableQuantity?: number;
   cacheReadCostAmount?: string;
   cacheReadTokens?: number;
   cacheWriteCostAmount?: string;
@@ -532,7 +597,9 @@ export interface TokenUsageStatsModel {
   provider?: string;
   totalCostAmount?: string;
   totalTokens?: number;
+  unitCostAmount?: string;
   usageCount?: number;
+  usageType?: string;
   [property: string]: unknown;
 }
 
@@ -919,6 +986,65 @@ export async function replaceUserAgents(
   if (Array.isArray(response)) return response;
 
   return response.data ?? [];
+}
+
+export async function listKnowledgeBases(): Promise<KnowledgeBase[]> {
+  const response = await requestJson<ResKnowledgeBaseList | KnowledgeBase[]>(
+    "/api/knowledge-bases/list",
+    {
+      body: JSON.stringify({}),
+      method: "POST",
+    },
+  );
+
+  if (Array.isArray(response)) return response;
+
+  return response.items ?? [];
+}
+
+export async function createKnowledgeBaseFromUrl(
+  request: ReqCreateKnowledgeBaseUrl,
+): Promise<KnowledgeBase | undefined> {
+  return requestJson<KnowledgeBase | undefined>(
+    "/api/knowledge-bases/create-url",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+}
+
+export async function retryKnowledgeBase(
+  knowledgeBaseId: number,
+): Promise<KnowledgeBase | undefined> {
+  return requestJson<KnowledgeBase | undefined>("/api/knowledge-bases/retry", {
+    body: JSON.stringify({ knowledgeBaseId } satisfies ReqRetryKnowledgeBase),
+    method: "POST",
+  });
+}
+
+export async function replaceUserKnowledgeBases(
+  request: ReqReplaceUserKnowledgeBases,
+): Promise<void> {
+  await requestJson<ControllerResponse | unknown>(
+    "/api/knowledge-bases/users/replace",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+}
+
+export async function replaceAgentKnowledgeBases(
+  request: ReqReplaceAgentKnowledgeBases,
+): Promise<void> {
+  await requestJson<ControllerResponse | unknown>(
+    "/api/knowledge-bases/agents/replace",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
 }
 
 export async function getUserBalance(

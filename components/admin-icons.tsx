@@ -4,6 +4,7 @@ import {
   ArrowRightFromSquare,
   ArrowsRotateLeft,
   Bell,
+  Bulb,
   ChartColumn,
   ChartPie,
   CirclePlus,
@@ -28,6 +29,7 @@ export type AdminIconName =
   | "dashboard"
   | "database"
   | "edit"
+  | "knowledge"
   | "logout"
   | "model"
   | "plus"
@@ -47,6 +49,7 @@ const ICONS: Record<AdminIconName, ComponentType<SVGProps<SVGSVGElement>>> = {
   dashboard: ChartPie,
   database: Database,
   edit: Pencil,
+  knowledge: Bulb,
   logout: ArrowRightFromSquare,
   model: Server,
   plus: CirclePlus,

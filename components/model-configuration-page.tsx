@@ -213,6 +213,15 @@ export function ModelConfigurationPage() {
   );
   const [customProvider, setCustomProvider] = useState("");
   const [model, setModel] = useState("");
+  const [billingUnit, setBillingUnit] = useState("token");
+  const [unitPriceAmount, setUnitPriceAmount] = useState("");
+  const [inputPricePerMillion, setInputPricePerMillion] = useState("");
+  const [outputPricePerMillion, setOutputPricePerMillion] = useState("");
+  const [cacheReadPricePerMillion, setCacheReadPricePerMillion] = useState("");
+  const [cacheWritePricePerMillion, setCacheWritePricePerMillion] =
+    useState("");
+  const [currency, setCurrency] = useState("CNY");
+  const [modelEnabled, setModelEnabled] = useState(true);
   const [selectedCapabilities, setSelectedCapabilities] = useState<
     ModelCapabilityValue[]
   >(["chat"]);
@@ -276,6 +285,14 @@ export function ModelConfigurationPage() {
     setEditingModelConfiguration(null);
     setModelConfigName("");
     setCustomProvider("");
+    setBillingUnit("token");
+    setUnitPriceAmount("");
+    setInputPricePerMillion("");
+    setOutputPricePerMillion("");
+    setCacheReadPricePerMillion("");
+    setCacheWritePricePerMillion("");
+    setCurrency("CNY");
+    setModelEnabled(true);
     applyProviderPreset(providerId);
     setSelectedCapabilities(["chat"]);
   }
@@ -288,6 +305,13 @@ export function ModelConfigurationPage() {
       ? customProvider.trim()
       : selectedProvider.id;
     const nextModel = model.trim();
+    const nextBillingUnit = billingUnit.trim() || "token";
+    const nextUnitPrice = unitPriceAmount.trim();
+    const nextInputPrice = inputPricePerMillion.trim();
+    const nextOutputPrice = outputPricePerMillion.trim();
+    const nextCacheReadPrice = cacheReadPricePerMillion.trim();
+    const nextCacheWritePrice = cacheWritePricePerMillion.trim();
+    const nextCurrency = currency.trim();
     const nextCapabilities = selectedCapabilities
       .map((capability) => capability.trim())
       .filter(Boolean);
@@ -310,6 +334,12 @@ export function ModelConfigurationPage() {
       return;
     }
 
+    if (!nextCurrency) {
+      toast.danger("币种为必填项。");
+
+      return;
+    }
+
     if (nextCapabilities.length === 0) {
       toast.danger("至少选择一个模型能力。");
 
@@ -321,10 +351,17 @@ export function ModelConfigurationPage() {
     try {
       const request = buildModelRequest({
         capabilities: nextCapabilities,
+        billingUnit: nextBillingUnit,
+        cacheReadPricePerMillion: nextCacheReadPrice,
+        cacheWritePricePerMillion: nextCacheWritePrice,
+        currency: nextCurrency,
         displayName: nextName,
+        enabled: modelEnabled,
+        inputPricePerMillion: nextInputPrice,
         modelid: nextModel,
+        outputPricePerMillion: nextOutputPrice,
         provider: nextProvider,
-        record: editingModelConfiguration?.record,
+        unitPriceAmount: nextUnitPrice,
       });
       const savedModel = editingModelConfiguration?.recordId
         ? await updateModel({
@@ -373,20 +410,30 @@ export function ModelConfigurationPage() {
       (item) => item.id === modelConfiguration.provider_type,
     );
     const nextProviderId = nextProvider?.id ?? "custom";
-    const nextProviderModels = nextProvider
-      ? providerPresetModels(nextProvider)
-      : [];
 
     setEditingModelConfiguration(modelConfiguration);
     setModelConfigName(modelConfiguration.name);
     setProviderType(nextProviderId);
     setCustomProvider(nextProvider ? "" : modelConfiguration.provider_type);
-    setModel(
-      modelConfiguration.model ||
-        modelConfiguration.models?.[0] ||
-        nextProviderModels[0] ||
-        "",
+    setModel(modelConfiguration.model || modelConfiguration.models?.[0] || "");
+    setBillingUnit(modelConfiguration.record?.billingUnit?.trim() || "token");
+    setUnitPriceAmount(
+      modelConfiguration.record?.unitPriceAmount?.trim() ?? "",
     );
+    setInputPricePerMillion(
+      modelConfiguration.record?.inputPricePerMillion?.trim() ?? "",
+    );
+    setOutputPricePerMillion(
+      modelConfiguration.record?.outputPricePerMillion?.trim() ?? "",
+    );
+    setCacheReadPricePerMillion(
+      modelConfiguration.record?.cacheReadPricePerMillion?.trim() ?? "",
+    );
+    setCacheWritePricePerMillion(
+      modelConfiguration.record?.cacheWritePricePerMillion?.trim() ?? "",
+    );
+    setCurrency(modelConfiguration.record?.currency?.trim() || "CNY");
+    setModelEnabled(modelConfiguration.enabled);
     setSelectedCapabilities(modelConfiguration.capabilities);
     setIsProviderDialogOpen(true);
   }
@@ -617,6 +664,113 @@ export function ModelConfigurationPage() {
                     <Input placeholder={modelPlaceholder} variant="secondary" />
                     <FieldError />
                   </TextField>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <TextField
+                      fullWidth
+                      isRequired
+                      name="currency"
+                      value={currency}
+                      onChange={setCurrency}
+                    >
+                      <Label>币种</Label>
+                      <Input placeholder="例如：CNY" variant="secondary" />
+                      <FieldError />
+                    </TextField>
+                    <Select
+                      fullWidth
+                      className="min-w-0"
+                      name="enabled"
+                      selectedKey={modelEnabled ? "enabled" : "disabled"}
+                      variant="secondary"
+                      onSelectionChange={(key) =>
+                        setModelEnabled(key === "enabled")
+                      }
+                    >
+                      <Label>状态</Label>
+                      <Select.Trigger>
+                        <Select.Value />
+                        <Select.Indicator />
+                      </Select.Trigger>
+                      <Select.Popover>
+                        <ListBox>
+                          <ListBox.Item id="enabled">启用</ListBox.Item>
+                          <ListBox.Item id="disabled">停用</ListBox.Item>
+                        </ListBox>
+                      </Select.Popover>
+                    </Select>
+                    <Select
+                      fullWidth
+                      className="min-w-0"
+                      name="billing_unit"
+                      selectedKey={billingUnit}
+                      variant="secondary"
+                      onSelectionChange={(key) =>
+                        setBillingUnit(String(key || "token"))
+                      }
+                    >
+                      <Label>计费单位</Label>
+                      <Select.Trigger>
+                        <Select.Value />
+                        <Select.Indicator />
+                      </Select.Trigger>
+                      <Select.Popover>
+                        <ListBox>
+                          <ListBox.Item id="token">token</ListBox.Item>
+                          <ListBox.Item id="image">image</ListBox.Item>
+                        </ListBox>
+                      </Select.Popover>
+                    </Select>
+                    <TextField
+                      fullWidth
+                      name="unit_price_amount"
+                      value={unitPriceAmount}
+                      onChange={setUnitPriceAmount}
+                    >
+                      <Label>单价 / 次数单位</Label>
+                      <Input inputMode="decimal" variant="secondary" />
+                      <FieldError />
+                    </TextField>
+                    <TextField
+                      fullWidth
+                      name="input_price_per_million"
+                      value={inputPricePerMillion}
+                      onChange={setInputPricePerMillion}
+                    >
+                      <Label>输入价格 / 百万 token</Label>
+                      <Input inputMode="decimal" variant="secondary" />
+                      <FieldError />
+                    </TextField>
+                    <TextField
+                      fullWidth
+                      name="output_price_per_million"
+                      value={outputPricePerMillion}
+                      onChange={setOutputPricePerMillion}
+                    >
+                      <Label>输出价格 / 百万 token</Label>
+                      <Input inputMode="decimal" variant="secondary" />
+                      <FieldError />
+                    </TextField>
+                    <TextField
+                      fullWidth
+                      name="cache_read_price_per_million"
+                      value={cacheReadPricePerMillion}
+                      onChange={setCacheReadPricePerMillion}
+                    >
+                      <Label>缓存读取价格 / 百万 token</Label>
+                      <Input inputMode="decimal" variant="secondary" />
+                      <FieldError />
+                    </TextField>
+                    <TextField
+                      fullWidth
+                      name="cache_write_price_per_million"
+                      value={cacheWritePricePerMillion}
+                      onChange={setCacheWritePricePerMillion}
+                    >
+                      <Label>缓存写入价格 / 百万 token</Label>
+                      <Input inputMode="decimal" variant="secondary" />
+                      <FieldError />
+                    </TextField>
+                  </div>
                   <div className="grid gap-2">
                     <Label>模型能力</Label>
                     <div className="grid gap-2 md:grid-cols-2">
@@ -692,39 +846,55 @@ export function ModelConfigurationPage() {
 
 function buildModelRequest({
   capabilities,
+  billingUnit,
+  cacheReadPricePerMillion,
+  cacheWritePricePerMillion,
+  currency,
   displayName,
+  enabled,
+  inputPricePerMillion,
   modelid,
+  outputPricePerMillion,
   provider,
-  record,
+  unitPriceAmount,
 }: {
   capabilities: string[];
+  billingUnit: string;
+  cacheReadPricePerMillion: string;
+  cacheWritePricePerMillion: string;
+  currency: string;
   displayName: string;
+  enabled: boolean;
+  inputPricePerMillion: string;
   modelid: string;
+  outputPricePerMillion: string;
   provider: string;
-  record?: Model;
+  unitPriceAmount: string;
 }): ReqModelCreate {
   const request: ReqModelCreate = {
     capabilities,
+    billingUnit,
     displayName,
-    enabled: record?.enabled ?? true,
+    currency,
+    enabled,
     modelid,
     provider,
   };
 
-  if (record?.cacheReadPricePerMillion !== undefined) {
-    request.cacheReadPricePerMillion = record.cacheReadPricePerMillion;
+  if (cacheReadPricePerMillion) {
+    request.cacheReadPricePerMillion = cacheReadPricePerMillion;
   }
-  if (record?.cacheWritePricePerMillion !== undefined) {
-    request.cacheWritePricePerMillion = record.cacheWritePricePerMillion;
+  if (cacheWritePricePerMillion) {
+    request.cacheWritePricePerMillion = cacheWritePricePerMillion;
   }
-  if (record?.currency !== undefined) {
-    request.currency = record.currency;
+  if (inputPricePerMillion) {
+    request.inputPricePerMillion = inputPricePerMillion;
   }
-  if (record?.inputPricePerMillion !== undefined) {
-    request.inputPricePerMillion = record.inputPricePerMillion;
+  if (outputPricePerMillion) {
+    request.outputPricePerMillion = outputPricePerMillion;
   }
-  if (record?.outputPricePerMillion !== undefined) {
-    request.outputPricePerMillion = record.outputPricePerMillion;
+  if (unitPriceAmount) {
+    request.unitPriceAmount = unitPriceAmount;
   }
 
   return request;
