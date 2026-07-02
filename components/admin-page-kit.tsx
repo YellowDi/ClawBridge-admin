@@ -1,6 +1,9 @@
 import type { ReactNode } from "react";
 
 import { Card, Chip } from "@heroui/react";
+import { useEffect } from "react";
+
+import { useAdminPageActions } from "@/components/admin-shell";
 
 export type StatusTone =
   | "default"
@@ -12,9 +15,6 @@ export type StatusTone =
 export function AdminPage({
   actions,
   children,
-  description,
-  eyebrow,
-  title,
 }: {
   actions?: ReactNode;
   children: ReactNode;
@@ -22,29 +22,15 @@ export function AdminPage({
   eyebrow?: string;
   title: string;
 }) {
-  return (
-    <div className="flex w-full flex-col gap-6">
-      <section className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          {eyebrow ? (
-            <div className="mb-2">
-              <Chip color="accent" size="sm" variant="soft">
-                {eyebrow}
-              </Chip>
-            </div>
-          ) : null}
-          <h1 className="text-foreground text-2xl font-semibold tracking-normal sm:text-3xl">
-            {title}
-          </h1>
-          <p className="text-muted mt-2 max-w-2xl text-sm">{description}</p>
-        </div>
-        {actions ? (
-          <div className="flex flex-wrap items-center gap-2">{actions}</div>
-        ) : null}
-      </section>
-      {children}
-    </div>
-  );
+  const pageActions = useAdminPageActions();
+
+  useEffect(() => {
+    pageActions?.setActions(actions ?? null);
+
+    return () => pageActions?.setActions(null);
+  }, [actions, pageActions]);
+
+  return <div className="flex w-full flex-col gap-6">{children}</div>;
 }
 
 export function StatGrid({

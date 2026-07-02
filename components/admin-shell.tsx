@@ -7,7 +7,13 @@ import { Avatar, Button, Tooltip } from "@heroui/react";
 import { AppLayout, Navbar, Sidebar } from "@heroui-pro/react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useMemo, useTransition } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from "react";
 
 import { AdminIcon } from "@/components/admin-icons";
 import { useAuth } from "@/components/auth-provider";
@@ -23,6 +29,13 @@ type NavGroup = {
   label: string;
   items: readonly NavItem[];
 };
+
+type AdminPageActionsContextValue = {
+  setActions: (actions: ReactNode) => void;
+};
+
+const AdminPageActionsContext =
+  createContext<AdminPageActionsContextValue | null>(null);
 
 const PLATFORM_ITEMS: readonly NavItem[] = [
   { href: "/", icon: "dashboard", key: "overview", label: "概览" },
@@ -69,13 +82,12 @@ const ALL_NAV_ITEMS: readonly NavItem[] = [
 export function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [isRefreshing, startRefresh] = useTransition();
+  const [pageActions, setPageActions] = useState<ReactNode>(null);
   const navigate = useCallback((href: string) => router.push(href), [router]);
-  const refresh = useCallback(() => {
-    startRefresh(() => {
-      router.refresh();
-    });
-  }, [router]);
+  const pageActionsContext = useMemo(
+    () => ({ setActions: setPageActions }),
+    [],
+  );
 
   const title = useMemo(() => {
     if (pathname === "/") return "概览";
@@ -87,14 +99,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
     return matched?.label ?? "ClawBridge Admin";
   }, [pathname]);
   const navbar = useMemo(
-    () => (
-      <AdminNavbar
-        isRefreshing={isRefreshing}
-        title={title}
-        onRefresh={refresh}
-      />
-    ),
-    [isRefreshing, refresh, title],
+    () => <AdminNavbar actions={pageActions} title={title} />,
+    [pageActions, title],
   );
   const sidebar = useMemo(
     () => <AdminSidebar pathname={pathname} />,
@@ -109,21 +115,21 @@ export function AdminShell({ children }: { children: ReactNode }) {
       sidebar={sidebar}
       sidebarCollapsible="offcanvas"
     >
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
-        {children}
-      </div>
+      <AdminPageActionsContext.Provider value={pageActionsContext}>
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
+          {children}
+        </div>
+      </AdminPageActionsContext.Provider>
     </AppLayout>
   );
 }
 
 function AdminNavbar({
-  isRefreshing,
+  actions,
   title,
-  onRefresh,
 }: {
-  isRefreshing: boolean;
+  actions: ReactNode;
   title: string;
-  onRefresh: () => void;
 }) {
   return (
     <Navbar maxWidth="full">
@@ -134,21 +140,16 @@ function AdminNavbar({
           {title}
         </h1>
         <Navbar.Spacer />
-        <div className="flex items-center gap-2">
-          <IconButton label="搜索" size="sm" variant="tertiary">
-            <AdminIcon className="size-4" name="search" />
-          </IconButton>
-          <IconButton label="通知" size="sm" variant="tertiary">
-            <AdminIcon className="size-4" name="bell" />
-          </IconButton>
-          <Button isPending={isRefreshing} size="sm" onPress={onRefresh}>
-            <AdminIcon className="size-4" name="refresh" />
-            刷新
-          </Button>
-        </div>
+        {actions ? (
+          <div className="flex items-center gap-2">{actions}</div>
+        ) : null}
       </Navbar.Header>
     </Navbar>
   );
+}
+
+export function useAdminPageActions() {
+  return useContext(AdminPageActionsContext);
 }
 
 function AdminSidebar({ pathname }: { pathname: string }) {
