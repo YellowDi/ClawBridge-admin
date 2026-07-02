@@ -4,7 +4,7 @@ import type { DataGridColumn } from "@heroui-pro/react";
 import type { FormEvent } from "react";
 import type { KnowledgeBase } from "@/lib/api";
 
-import { DataGrid } from "@heroui-pro/react";
+import { DataGrid, DropZone } from "@heroui-pro/react";
 import {
   Button,
   Chip,
@@ -23,6 +23,7 @@ import {
   listKnowledgeBases,
   retryKnowledgeBase,
 } from "@/lib/api";
+import { uploadKnowledgeFileToCos } from "@/lib/tencent-cos-upload";
 
 type KnowledgeStatus =
   | "chunking"
@@ -62,6 +63,11 @@ type CreateKnowledgeState = {
   error: string | null;
   form: KnowledgeForm;
   isCreating: boolean;
+  isUploading: boolean;
+  selectedFile: File | null;
+  uploadError: string | null;
+  uploadedFileName: string | null;
+  uploadProgress: number;
 };
 
 const DEFAULT_KNOWLEDGE_FORM: KnowledgeForm = {
@@ -69,6 +75,21 @@ const DEFAULT_KNOWLEDGE_FORM: KnowledgeForm = {
   name: "",
   url: "",
 };
+
+const KNOWLEDGE_UPLOAD_ACCEPT = {
+  ".txt": {},
+  ".md": {},
+  ".markdown": {},
+  ".csv": {},
+  ".xlsx": {},
+  ".xls": {},
+  ".docx": {},
+  ".doc": {},
+  ".pdf": {},
+} as const;
+const KNOWLEDGE_UPLOAD_ACCEPT_TEXT = Object.keys(KNOWLEDGE_UPLOAD_ACCEPT).join(
+  ",",
+);
 
 const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("zh-CN", {
   day: "2-digit",
@@ -329,24 +350,61 @@ function CreateKnowledgeBaseDialog({ onCreated }: { onCreated: () => void }) {
     error: null,
     form: DEFAULT_KNOWLEDGE_FORM,
     isCreating: false,
+    isUploading: false,
+    selectedFile: null,
+    uploadError: null,
+    uploadedFileName: null,
+    uploadProgress: 0,
   });
+  const uploadModal = useOverlayState({});
   const modal = useOverlayState({
     onOpenChange(isOpen) {
       if (!isOpen) return;
 
-      setState({
-        error: null,
-        form: DEFAULT_KNOWLEDGE_FORM,
-        isCreating: false,
-      });
+      resetDialogState();
     },
   });
-  const { error, form, isCreating } = state;
+  const {
+    error,
+    form,
+    isCreating,
+    isUploading,
+    selectedFile,
+    uploadError,
+    uploadedFileName,
+    uploadProgress,
+  } = state;
+  const isBusy = isCreating || isUploading;
 
   function closeDialog() {
-    if (isCreating) return;
+    if (isBusy) return;
 
     modal.close();
+  }
+
+  function resetDialogState() {
+    setState({
+      error: null,
+      form: DEFAULT_KNOWLEDGE_FORM,
+      isCreating: false,
+      isUploading: false,
+      selectedFile: null,
+      uploadError: null,
+      uploadedFileName: null,
+      uploadProgress: 0,
+    });
+  }
+
+  function openUploadDialog() {
+    if (isBusy) return;
+
+    setState((current) => ({
+      ...current,
+      selectedFile: null,
+      uploadError: null,
+      uploadProgress: 0,
+    }));
+    uploadModal.open();
   }
 
   function updateForm(patch: Partial<KnowledgeForm>) {
@@ -359,8 +417,82 @@ function CreateKnowledgeBaseDialog({ onCreated }: { onCreated: () => void }) {
     }));
   }
 
+  function handleFileSelect(files: FileList) {
+    const file = files[0] ?? null;
+
+    if (file && !isAllowedKnowledgeFile(file)) {
+      setState((current) => ({
+        ...current,
+        selectedFile: null,
+        uploadError: `仅支持 ${KNOWLEDGE_UPLOAD_ACCEPT_TEXT} 格式。`,
+        uploadProgress: 0,
+      }));
+
+      return;
+    }
+
+    setState((current) => ({
+      ...current,
+      selectedFile: file,
+      uploadError: null,
+      uploadedFileName: null,
+      uploadProgress: 0,
+    }));
+  }
+
+  function clearSelectedFile() {
+    if (isUploading) return;
+
+    setState((current) => ({
+      ...current,
+      selectedFile: null,
+      uploadError: null,
+      uploadProgress: 0,
+    }));
+  }
+
+  async function handleUpload() {
+    if (!selectedFile || isBusy) return;
+
+    setState((current) => ({
+      ...current,
+      isUploading: true,
+      uploadError: null,
+      uploadProgress: 0,
+    }));
+
+    try {
+      const result = await uploadKnowledgeFileToCos(selectedFile, (percent) => {
+        setState((current) => ({
+          ...current,
+          uploadProgress: percent,
+        }));
+      });
+
+      setState((current) => ({
+        ...current,
+        form: {
+          ...current.form,
+          url: result.url,
+        },
+        isUploading: false,
+        uploadedFileName: selectedFile.name,
+        uploadProgress: 100,
+      }));
+      uploadModal.close();
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        isUploading: false,
+        uploadError: getKnowledgeError(error, "文件上传失败。"),
+      }));
+    }
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (isBusy) return;
 
     const request = {
       description: form.description.trim() || undefined,
@@ -386,11 +518,7 @@ function CreateKnowledgeBaseDialog({ onCreated }: { onCreated: () => void }) {
     try {
       await createKnowledgeBaseFromUrl(request);
       modal.close();
-      setState({
-        error: null,
-        form: DEFAULT_KNOWLEDGE_FORM,
-        isCreating: false,
-      });
+      resetDialogState();
       onCreated();
     } catch (error) {
       setState((current) => ({
@@ -402,93 +530,217 @@ function CreateKnowledgeBaseDialog({ onCreated }: { onCreated: () => void }) {
   }
 
   return (
-    <Modal state={modal}>
-      <Modal.Trigger>
-        <Button size="sm">
-          <AdminIcon className="size-4" name="plus" />
-          新增知识库
-        </Button>
-      </Modal.Trigger>
-      <Modal.Backdrop
-        isDismissable={!isCreating}
-        isKeyboardDismissDisabled={isCreating}
-      >
-        <Modal.Container placement="center" scroll="outside" size="lg">
-          <Modal.Dialog>
-            <form className="min-w-0" onSubmit={handleSubmit}>
+    <>
+      <Modal state={modal}>
+        <Modal.Trigger>
+          <Button size="sm">
+            <AdminIcon className="size-4" name="plus" />
+            新增知识库
+          </Button>
+        </Modal.Trigger>
+        <Modal.Backdrop
+          isDismissable={!isBusy}
+          isKeyboardDismissDisabled={isBusy}
+        >
+          <Modal.Container placement="center" scroll="outside" size="lg">
+            <Modal.Dialog>
+              <form className="min-w-0" onSubmit={handleSubmit}>
+                <Modal.Header>
+                  <Modal.Heading>新增 URL 知识库</Modal.Heading>
+                </Modal.Header>
+                <Modal.Body className="-mx-1 flex min-w-0 flex-col gap-4 px-1 py-1">
+                  <TextField
+                    fullWidth
+                    className="flex min-w-0 flex-col gap-2"
+                    isDisabled={isBusy}
+                    variant="secondary"
+                  >
+                    <Label>名称</Label>
+                    <Input
+                      fullWidth
+                      value={form.name}
+                      onChange={(event) =>
+                        updateForm({ name: event.target.value })
+                      }
+                    />
+                  </TextField>
+                  <TextField
+                    fullWidth
+                    className="flex min-w-0 flex-col gap-2"
+                    isDisabled={isBusy}
+                    variant="secondary"
+                  >
+                    <Label>描述</Label>
+                    <Input
+                      fullWidth
+                      value={form.description}
+                      onChange={(event) =>
+                        updateForm({ description: event.target.value })
+                      }
+                    />
+                  </TextField>
+                  <TextField
+                    fullWidth
+                    className="flex min-w-0 flex-col gap-2"
+                    isDisabled={isBusy}
+                    variant="secondary"
+                  >
+                    <Label>URL</Label>
+                    <Input
+                      fullWidth
+                      type="url"
+                      value={form.url}
+                      onChange={(event) =>
+                        updateForm({ url: event.target.value })
+                      }
+                    />
+                  </TextField>
+                  <div className="flex min-w-0 flex-col gap-2">
+                    <Label>上传文件</Label>
+                    <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center">
+                      <Button
+                        isDisabled={isBusy}
+                        type="button"
+                        variant="secondary"
+                        onPress={openUploadDialog}
+                      >
+                        <AdminIcon className="size-4" name="upload" />
+                        打开上传
+                      </Button>
+                      {uploadedFileName ? (
+                        <span className="text-muted line-clamp-1 text-xs">
+                          已上传 {uploadedFileName}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  {error ? (
+                    <KnowledgeFormError>{error}</KnowledgeFormError>
+                  ) : null}
+                </Modal.Body>
+                <Modal.Footer>
+                  <Button
+                    isDisabled={isBusy}
+                    type="button"
+                    variant="tertiary"
+                    onPress={closeDialog}
+                  >
+                    取消
+                  </Button>
+                  <Button isDisabled={isBusy} type="submit">
+                    {isCreating ? "创建中..." : "创建知识库"}
+                  </Button>
+                </Modal.Footer>
+              </form>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
+      </Modal>
+
+      <Modal state={uploadModal}>
+        <Modal.Backdrop
+          isDismissable={!isUploading}
+          isKeyboardDismissDisabled={isUploading}
+        >
+          <Modal.Container placement="center" scroll="outside" size="md">
+            <Modal.Dialog>
               <Modal.Header>
-                <Modal.Heading>新增 URL 知识库</Modal.Heading>
+                <Modal.Heading>上传资料文件</Modal.Heading>
               </Modal.Header>
               <Modal.Body className="-mx-1 flex min-w-0 flex-col gap-4 px-1 py-1">
-                <TextField
-                  fullWidth
-                  className="flex min-w-0 flex-col gap-2"
-                  isDisabled={isCreating}
-                  variant="secondary"
-                >
-                  <Label>名称</Label>
-                  <Input
-                    fullWidth
-                    value={form.name}
-                    onChange={(event) =>
-                      updateForm({ name: event.target.value })
-                    }
+                <DropZone className="min-w-0">
+                  <DropZone.Area className="flex min-h-44 flex-col items-center justify-center gap-3 rounded-md border border-dashed border-default-300 bg-content1/60 p-5 text-center transition-colors hover:bg-default-50">
+                    <DropZone.Icon>
+                      <AdminIcon className="text-muted size-8" name="upload" />
+                    </DropZone.Icon>
+                    <DropZone.Label>选择或拖放资料文件</DropZone.Label>
+                    <DropZone.Description>
+                      支持 {KNOWLEDGE_UPLOAD_ACCEPT_TEXT}
+                    </DropZone.Description>
+                    <DropZone.Trigger
+                      className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
+                      isDisabled={isUploading}
+                    >
+                      选择文件
+                    </DropZone.Trigger>
+                  </DropZone.Area>
+                  <DropZone.Input
+                    accept={KNOWLEDGE_UPLOAD_ACCEPT_TEXT}
+                    multiple={false}
+                    onSelect={handleFileSelect}
                   />
-                </TextField>
-                <TextField
-                  fullWidth
-                  className="flex min-w-0 flex-col gap-2"
-                  isDisabled={isCreating}
-                  variant="secondary"
-                >
-                  <Label>描述</Label>
-                  <Input
-                    fullWidth
-                    value={form.description}
-                    onChange={(event) =>
-                      updateForm({ description: event.target.value })
-                    }
-                  />
-                </TextField>
-                <TextField
-                  fullWidth
-                  className="flex min-w-0 flex-col gap-2"
-                  isDisabled={isCreating}
-                  variant="secondary"
-                >
-                  <Label>URL</Label>
-                  <Input
-                    fullWidth
-                    type="url"
-                    value={form.url}
-                    onChange={(event) =>
-                      updateForm({ url: event.target.value })
-                    }
-                  />
-                </TextField>
+                  {selectedFile ? (
+                    <DropZone.FileList>
+                      <DropZone.FileItem
+                        status={
+                          isUploading
+                            ? "uploading"
+                            : uploadError
+                              ? "failed"
+                              : undefined
+                        }
+                      >
+                        <DropZone.FileFormatIcon
+                          color="blue"
+                          format={getFileFormatLabel(selectedFile.name)}
+                        />
+                        <DropZone.FileInfo>
+                          <DropZone.FileName>
+                            {selectedFile.name}
+                          </DropZone.FileName>
+                          <DropZone.FileMeta>
+                            {isUploading
+                              ? `上传中 ${uploadProgress}%`
+                              : formatBytes(selectedFile.size)}
+                          </DropZone.FileMeta>
+                          {isUploading ? (
+                            <DropZone.FileProgress
+                              aria-label="上传进度"
+                              value={uploadProgress}
+                            >
+                              <DropZone.FileProgressTrack>
+                                <DropZone.FileProgressFill />
+                              </DropZone.FileProgressTrack>
+                            </DropZone.FileProgress>
+                          ) : null}
+                        </DropZone.FileInfo>
+                        <DropZone.FileRemoveTrigger
+                          aria-label="移除已选文件"
+                          isDisabled={isUploading}
+                          onPress={clearSelectedFile}
+                        />
+                      </DropZone.FileItem>
+                    </DropZone.FileList>
+                  ) : null}
+                </DropZone>
 
-                {error ? (
-                  <KnowledgeFormError>{error}</KnowledgeFormError>
+                {uploadError ? (
+                  <KnowledgeFormError>{uploadError}</KnowledgeFormError>
                 ) : null}
               </Modal.Body>
               <Modal.Footer>
                 <Button
-                  isDisabled={isCreating}
+                  isDisabled={isUploading}
                   type="button"
                   variant="tertiary"
-                  onPress={closeDialog}
+                  onPress={() => uploadModal.close()}
                 >
                   取消
                 </Button>
-                <Button isDisabled={isCreating} type="submit">
-                  {isCreating ? "创建中..." : "创建知识库"}
+                <Button
+                  isDisabled={!selectedFile || isUploading}
+                  type="button"
+                  onPress={() => void handleUpload()}
+                >
+                  {isUploading ? "上传中..." : "上传并填入 URL"}
                 </Button>
               </Modal.Footer>
-            </form>
-          </Modal.Dialog>
-        </Modal.Container>
-      </Modal.Backdrop>
-    </Modal>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
+      </Modal>
+    </>
   );
 }
 
@@ -552,6 +804,23 @@ function formatBytes(value?: number) {
   }
 
   return `${size.toFixed(size >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+}
+
+function isAllowedKnowledgeFile(file: File) {
+  const fileName = file.name.trim().toLowerCase();
+
+  return Object.keys(KNOWLEDGE_UPLOAD_ACCEPT).some((extension) =>
+    fileName.endsWith(extension),
+  );
+}
+
+function getFileFormatLabel(fileName: string) {
+  const normalizedFileName = fileName.trim().toLowerCase();
+  const extension = Object.keys(KNOWLEDGE_UPLOAD_ACCEPT).find((item) =>
+    normalizedFileName.endsWith(item),
+  );
+
+  return extension ? extension.slice(1).toUpperCase() : "FILE";
 }
 
 function getStatusLabel(status: KnowledgeStatus) {

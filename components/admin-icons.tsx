@@ -10,6 +10,7 @@ import {
   CirclePlus,
   Database,
   FaceRobot,
+  FileArrowUp,
   FileText,
   Gear,
   Magnifier,
@@ -39,6 +40,7 @@ export type AdminIconName =
   | "shield"
   | "trash"
   | "tool"
+  | "upload"
   | "users";
 
 const ICONS: Record<AdminIconName, ComponentType<SVGProps<SVGSVGElement>>> = {
@@ -59,6 +61,7 @@ const ICONS: Record<AdminIconName, ComponentType<SVGProps<SVGSVGElement>>> = {
   shield: Shield,
   trash: TrashBin,
   tool: Wrench,
+  upload: FileArrowUp,
   users: Persons,
 };
 

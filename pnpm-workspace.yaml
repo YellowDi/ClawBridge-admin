@@ -4,4 +4,5 @@ allowBuilds:
   unrs-resolver: true
   "@heroui-pro/react": true
   "@zowe/secrets-for-zowe-sdk": true
+  cos-js-sdk-v5: true
 confirmModulesPurge: false
