@@ -700,6 +700,163 @@ export interface ApplyOpenClawConfigResult {
   [property: string]: unknown;
 }
 
+export type MCPTransport = "sse" | "stdio" | "streamable-http" | string;
+
+export type MCPConfigValueType = "env_ref" | "literal" | "secret" | string;
+
+export interface MCPConfigValue {
+  envName?: string;
+  type?: MCPConfigValueType;
+  value?: string;
+  [property: string]: unknown;
+}
+
+export interface MCPOAuthConfig {
+  clientMetadataUrl?: string;
+  redirectUrl?: string;
+  scope?: string;
+  [property: string]: unknown;
+}
+
+export interface MCPToolFilterConfig {
+  exclude?: string[];
+  include?: string[];
+  [property: string]: unknown;
+}
+
+export interface MCPServerConfig {
+  args?: string[];
+  auth?: string;
+  clientCert?: string;
+  clientKey?: string;
+  codex?: Record<string, unknown>;
+  command?: string;
+  connectTimeout?: number;
+  connectionTimeoutMs?: number;
+  cwd?: string;
+  enabled?: boolean;
+  env?: Record<string, MCPConfigValue>;
+  extra?: Record<string, unknown>;
+  headers?: Record<string, MCPConfigValue>;
+  oauth?: MCPOAuthConfig;
+  requestTimeoutMs?: number;
+  sslVerify?: boolean;
+  supportsParallelToolCalls?: boolean;
+  timeout?: number;
+  toolFilter?: MCPToolFilterConfig;
+  transport?: MCPTransport;
+  url?: string;
+  workingDirectory?: string;
+  [property: string]: unknown;
+}
+
+export interface MCPServer {
+  config?: MCPServerConfig;
+  createdAt?: string;
+  description?: string;
+  displayName?: string;
+  enabled?: boolean;
+  id?: number;
+  serverName?: string;
+  transportType?: string;
+  updatedAt?: string;
+  [property: string]: unknown;
+}
+
+export interface ReqMCPServerList extends ReqPagination {}
+
+export interface ReqMCPServerCreate {
+  config?: MCPServerConfig;
+  description?: string;
+  displayName?: string;
+  enabled?: boolean;
+  serverName?: string;
+  [property: string]: unknown;
+}
+
+export interface ReqMCPServerDetail {
+  id?: number;
+  [property: string]: unknown;
+}
+
+export interface ReqMCPServerUpdate extends ReqMCPServerCreate {
+  id?: number;
+}
+
+export interface ResMCPServer extends MCPServer {}
+
+export interface ResMCPServers {
+  items?: MCPServer[];
+  pagination?: Pagination;
+  [property: string]: unknown;
+}
+
+export interface OpenClawRPCInstance {
+  pluginId?: string;
+  [property: string]: unknown;
+}
+
+export interface ResOpenClawRPCInstances {
+  items?: OpenClawRPCInstance[];
+  [property: string]: unknown;
+}
+
+export interface OpenClawAgentConfigSnapshot {
+  agentId?: string;
+  description?: string;
+  displayName?: string;
+  sandboxToolsAlsoAllow?: string[];
+  toolsAlsoAllow?: string[];
+  [property: string]: unknown;
+}
+
+export interface OpenClawMCPServerSnapshot {
+  enabled?: boolean;
+  hasCommand?: boolean;
+  hasUrl?: boolean;
+  serverName?: string;
+  toolFilterExclude?: string[];
+  toolFilterInclude?: string[];
+  transport?: string;
+  [property: string]: unknown;
+}
+
+export interface OpenClawConfigSnapshot {
+  agents?: OpenClawAgentConfigSnapshot[];
+  configHash?: string;
+  mcpServers?: OpenClawMCPServerSnapshot[];
+  [property: string]: unknown;
+}
+
+export interface ReqOpenClawConfigSnapshot {
+  pluginId?: string;
+  [property: string]: unknown;
+}
+
+export type OpenClawMCPApplyMode = "merge" | "replace_agent_mcp" | string;
+
+export interface ReqApplyOpenClawMCPConfig {
+  agentId?: string;
+  dryRun?: boolean;
+  mcpServerIds?: number[];
+  mode?: OpenClawMCPApplyMode;
+  pluginId?: string;
+  validateEnvRefs?: boolean;
+  [property: string]: unknown;
+}
+
+export interface OpenClawMCPApplyResult {
+  changed?: string[];
+  dryRun?: boolean;
+  followUpMode?: string;
+  followUpReason?: string;
+  message?: string;
+  snapshot?: OpenClawConfigSnapshot;
+  success?: boolean;
+  warnings?: string[];
+  [property: string]: unknown;
+}
+
 export type AuthSession = {
   expireAt?: string;
   token: string;
@@ -1209,6 +1366,95 @@ export async function applyOpenClawConfig(
 ): Promise<ApplyOpenClawConfigResult | undefined> {
   return requestJson<ApplyOpenClawConfigResult | undefined>(
     "/api/openclaw/config/apply",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+}
+
+export async function listMCPServers(
+  request: ReqMCPServerList = {},
+): Promise<MCPServer[]> {
+  const response = await requestJson<ResMCPServers | MCPServer[]>(
+    "/api/mcp-servers/list",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+
+  if (Array.isArray(response)) return response;
+
+  return response.items ?? [];
+}
+
+export async function createMCPServer(
+  request: ReqMCPServerCreate,
+): Promise<MCPServer | undefined> {
+  return requestJson<ResMCPServer | undefined>("/api/mcp-servers/create", {
+    body: JSON.stringify(request),
+    method: "POST",
+  });
+}
+
+export async function getMCPServerDetail(
+  id: number,
+): Promise<MCPServer | undefined> {
+  return requestJson<ResMCPServer | undefined>("/api/mcp-servers/detail", {
+    body: JSON.stringify({ id } satisfies ReqMCPServerDetail),
+    method: "POST",
+  });
+}
+
+export async function updateMCPServer(
+  request: ReqMCPServerUpdate,
+): Promise<MCPServer | undefined> {
+  return requestJson<ResMCPServer | undefined>("/api/mcp-servers/update", {
+    body: JSON.stringify(request),
+    method: "POST",
+  });
+}
+
+export async function deleteMCPServer(id: number): Promise<void> {
+  await requestJson<ControllerResponse | unknown>("/api/mcp-servers/delete", {
+    body: JSON.stringify({ id } satisfies ReqMCPServerDetail),
+    method: "POST",
+  });
+}
+
+export async function listOpenClawRPCInstances(): Promise<
+  OpenClawRPCInstance[]
+> {
+  const response = await requestJson<
+    ResOpenClawRPCInstances | OpenClawRPCInstance[]
+  >("/api/openclaw/instances/list", {
+    body: JSON.stringify({}),
+    method: "POST",
+  });
+
+  if (Array.isArray(response)) return response;
+
+  return response.items ?? [];
+}
+
+export async function getOpenClawConfigSnapshot(
+  request: ReqOpenClawConfigSnapshot,
+): Promise<OpenClawConfigSnapshot | undefined> {
+  return requestJson<OpenClawConfigSnapshot | undefined>(
+    "/api/openclaw/config/snapshot",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+}
+
+export async function applyOpenClawMCPConfig(
+  request: ReqApplyOpenClawMCPConfig,
+): Promise<OpenClawMCPApplyResult | undefined> {
+  return requestJson<OpenClawMCPApplyResult | undefined>(
+    "/api/openclaw/mcp/apply",
     {
       body: JSON.stringify(request),
       method: "POST",
