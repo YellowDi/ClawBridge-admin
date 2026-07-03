@@ -1751,39 +1751,53 @@ function OpenClawMCPServersCard({
 }) {
   return (
     <SectionCard title="OpenClaw MCP 快照">
-      <div className="flex max-h-[420px] flex-col gap-2 overflow-auto">
+      <div className="max-h-[420px] overflow-auto">
         {servers.length > 0 ? (
-          servers.map((server) => (
-            <div
-              key={server.serverName}
-              className="rounded-md border border-divider px-3 py-2"
-            >
-              <div className="flex min-w-0 items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-medium">
-                    {server.serverName || "未命名 MCP"}
+          <div className="divide-y divide-divider">
+            {servers.map((server) => (
+              <div
+                key={server.serverName}
+                className="py-3 first:pt-0 last:pb-0"
+              >
+                <div className="flex min-w-0 items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex min-w-0 items-baseline gap-2">
+                      <span className="truncate text-sm font-medium">
+                        {server.serverName || "未命名 MCP"}
+                      </span>
+                      <span className="text-muted shrink-0 truncate text-xs">
+                        {server.transport || "-"}
+                      </span>
+                    </div>
+                    <div className="text-muted mt-0.5 truncate text-xs">
+                      {server.hasCommand
+                        ? "command"
+                        : server.hasUrl
+                          ? "url"
+                          : "-"}
+                    </div>
                   </div>
-                  <div className="text-muted truncate text-xs">
-                    {server.transport || "-"} ·{" "}
-                    {server.hasCommand
-                      ? "command"
-                      : server.hasUrl
-                        ? "url"
-                        : "-"}
-                  </div>
+                  <Chip
+                    color={server.enabled === false ? "default" : "success"}
+                    size="sm"
+                    variant="soft"
+                  >
+                    {server.enabled === false ? "停用" : "启用"}
+                  </Chip>
                 </div>
-                <Chip
-                  color={server.enabled === false ? "default" : "success"}
-                  size="sm"
-                  variant="soft"
-                >
-                  {server.enabled === false ? "停用" : "启用"}
-                </Chip>
+                <div className="mt-2 flex flex-row flex-wrap gap-x-4 gap-y-1">
+                  <SnapshotChipGroup
+                    label="include"
+                    values={server.toolFilterInclude}
+                  />
+                  <SnapshotChipGroup
+                    label="exclude"
+                    values={server.toolFilterExclude}
+                  />
+                </div>
               </div>
-              <SnapshotLine label="include" values={server.toolFilterInclude} />
-              <SnapshotLine label="exclude" values={server.toolFilterExclude} />
-            </div>
-          ))
+            ))}
+          </div>
         ) : (
           <EmptySnapshotText isLoading={isLoading} label="MCP server" />
         )}
