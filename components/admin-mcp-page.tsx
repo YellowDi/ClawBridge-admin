@@ -20,7 +20,6 @@ import type { FormEvent } from "react";
 import { DataGrid } from "@heroui-pro/react";
 import {
   Button,
-  Card,
   Checkbox,
   Chip,
   Disclosure,
@@ -1694,46 +1693,48 @@ function OpenClawAgentsCard({
   return (
     <SectionCard title="OpenClaw Agent 快照">
       {agents.length > 0 ? (
-        <div className="flex flex-col gap-2">
-          {agents.map((agent) => (
-            <Card
-              key={agent.agentId || agent.displayName}
-              className="gap-2 bg-surface-secondary"
-            >
-              <Card.Header className="flex-row items-start justify-between gap-3 pb-0">
-                <div className="min-w-0">
-                  <div className="flex min-w-0 items-baseline gap-2">
-                    <Card.Title className="truncate text-sm">
-                      {agent.displayName || agent.agentId || "未命名 Agent"}
-                    </Card.Title>
-                    <Card.Description className="shrink-0 truncate text-xs">
-                      {agent.agentId || "-"}
-                    </Card.Description>
+        <div className="max-h-[420px] overflow-auto">
+          <div className="divide-y divide-divider">
+            {agents.map((agent) => (
+              <div
+                key={agent.agentId || agent.displayName}
+                className="py-3 first:pt-0 last:pb-0"
+              >
+                <div className="flex min-w-0 items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex min-w-0 items-baseline gap-2">
+                      <span className="truncate text-sm font-medium">
+                        {agent.displayName || agent.agentId || "未命名 Agent"}
+                      </span>
+                      <span className="text-muted shrink-0 truncate text-xs">
+                        {agent.agentId || "-"}
+                      </span>
+                    </div>
+                    {agent.description ? (
+                      <div className="text-muted mt-0.5 truncate text-xs">
+                        {agent.description}
+                      </div>
+                    ) : null}
                   </div>
-                  {agent.description ? (
-                    <Card.Description className="mt-0.5 line-clamp-1 text-xs">
-                      {agent.description}
-                    </Card.Description>
-                  ) : null}
+                  <Chip size="sm" variant="soft">
+                    授权{" "}
+                    {(agent.toolsAlsoAllow?.length ?? 0) +
+                      (agent.sandboxToolsAlsoAllow?.length ?? 0)}
+                  </Chip>
                 </div>
-                <Chip size="sm" variant="soft">
-                  授权{" "}
-                  {(agent.toolsAlsoAllow?.length ?? 0) +
-                    (agent.sandboxToolsAlsoAllow?.length ?? 0)}
-                </Chip>
-              </Card.Header>
-              <Card.Content className="flex-row flex-wrap gap-x-4 gap-y-1 pt-0">
-                <SnapshotChipGroup
-                  label="tools"
-                  values={agent.toolsAlsoAllow}
-                />
-                <SnapshotChipGroup
-                  label="sandbox"
-                  values={agent.sandboxToolsAlsoAllow}
-                />
-              </Card.Content>
-            </Card>
-          ))}
+                <div className="mt-2 flex flex-row flex-wrap gap-x-4 gap-y-1">
+                  <SnapshotChipGroup
+                    label="tools"
+                    values={agent.toolsAlsoAllow}
+                  />
+                  <SnapshotChipGroup
+                    label="sandbox"
+                    values={agent.sandboxToolsAlsoAllow}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       ) : (
         <EmptySnapshotText isLoading={isLoading} label="Agent" />
