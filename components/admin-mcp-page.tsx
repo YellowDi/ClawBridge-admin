@@ -17,7 +17,7 @@ import type {
 } from "@/lib/api";
 import type { FormEvent } from "react";
 
-import { DataGrid } from "@heroui-pro/react";
+import { DataGrid, ItemCard, ItemCardGroup } from "@heroui-pro/react";
 import {
   Button,
   Checkbox,
@@ -150,50 +150,6 @@ const MCP_APPLY_MODE_OPTIONS = [
   { id: "merge", label: "追加 MCP 授权" },
   { id: "replace_agent_mcp", label: "替换该 Agent 的 MCP 授权" },
 ] as const;
-
-const OPENCLAW_AGENT_COLUMNS: DataGridColumn<OpenClawAgentConfigSnapshot>[] = [
-  {
-    cell: (agent) => agent.displayName || "-",
-    header: "展示名称",
-    headerClassName: "whitespace-nowrap",
-    id: "displayName",
-    isRowHeader: true,
-    minWidth: 120,
-    width: 160,
-  },
-  {
-    cell: (agent) => agent.agentId || "-",
-    header: "Agent ID",
-    headerClassName: "whitespace-nowrap",
-    id: "agentId",
-    minWidth: 160,
-    width: 200,
-  },
-  {
-    cell: (agent) => agent.description || "-",
-    header: "说明",
-    headerClassName: "whitespace-nowrap",
-    id: "description",
-    minWidth: 160,
-    width: 220,
-  },
-  {
-    cell: (agent) => formatSnapshotValues(agent.toolsAlsoAllow),
-    header: "tools.alsoAllow",
-    headerClassName: "whitespace-nowrap",
-    id: "toolsAlsoAllow",
-    minWidth: 180,
-    width: 240,
-  },
-  {
-    cell: (agent) => formatSnapshotValues(agent.sandboxToolsAlsoAllow),
-    header: "sandbox.tools.alsoAllow",
-    headerClassName: "whitespace-nowrap",
-    id: "sandboxToolsAlsoAllow",
-    minWidth: 200,
-    width: 260,
-  },
-];
 
 export function AdminMCPPage() {
   const isMountedRef = useRef(false);
@@ -1731,15 +1687,40 @@ function OpenClawAgentsCard({
 }) {
   return (
     <SectionCard title="OpenClaw Agent 快照">
-      <DataGrid
-        aria-label="OpenClaw Agent 快照"
-        className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
-        columns={OPENCLAW_AGENT_COLUMNS}
-        contentClassName="min-w-[980px]"
-        data={agents}
-        getRowId={(agent) => agent.agentId || agent.displayName || "-"}
-        renderEmptyState={() => (isLoading ? "加载中..." : "暂无 Agent 快照。")}
-      />
+      {agents.length > 0 ? (
+        <ItemCardGroup>
+          {agents.map((agent) => (
+            <ItemCard key={agent.agentId || agent.displayName}>
+              <ItemCard.Content>
+                <ItemCard.Title>
+                  {agent.displayName || agent.agentId || "未命名 Agent"}
+                </ItemCard.Title>
+                <ItemCard.Description>
+                  Agent ID：{agent.agentId || "-"}
+                </ItemCard.Description>
+                <ItemCard.Description>
+                  说明：{agent.description || "-"}
+                </ItemCard.Description>
+                <ItemCard.Description>
+                  tools.alsoAllow：{formatSnapshotValues(agent.toolsAlsoAllow)}
+                </ItemCard.Description>
+                <ItemCard.Description>
+                  sandbox.tools.alsoAllow：
+                  {formatSnapshotValues(agent.sandboxToolsAlsoAllow)}
+                </ItemCard.Description>
+              </ItemCard.Content>
+              <ItemCard.Action>
+                <Chip size="sm" variant="soft">
+                  {(agent.toolsAlsoAllow?.length ?? 0) +
+                    (agent.sandboxToolsAlsoAllow?.length ?? 0)}
+                </Chip>
+              </ItemCard.Action>
+            </ItemCard>
+          ))}
+        </ItemCardGroup>
+      ) : (
+        <EmptySnapshotText isLoading={isLoading} label="Agent" />
+      )}
     </SectionCard>
   );
 }
