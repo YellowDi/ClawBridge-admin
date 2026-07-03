@@ -825,8 +825,12 @@ function ModelPricingFields({
         </Select.Trigger>
         <Select.Popover>
           <ListBox>
-            <ListBox.Item id="enabled">启用</ListBox.Item>
-            <ListBox.Item id="disabled">停用</ListBox.Item>
+            <ListBox.Item id="enabled" textValue="启用">
+              启用
+            </ListBox.Item>
+            <ListBox.Item id="disabled" textValue="停用">
+              停用
+            </ListBox.Item>
           </ListBox>
         </Select.Popover>
       </Select>
@@ -847,8 +851,12 @@ function ModelPricingFields({
         </Select.Trigger>
         <Select.Popover>
           <ListBox>
-            <ListBox.Item id="token">token</ListBox.Item>
-            <ListBox.Item id="image">image</ListBox.Item>
+            <ListBox.Item id="token" textValue="token">
+              token
+            </ListBox.Item>
+            <ListBox.Item id="image" textValue="image">
+              image
+            </ListBox.Item>
           </ListBox>
         </Select.Popover>
       </Select>

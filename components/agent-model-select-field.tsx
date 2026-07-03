@@ -57,9 +57,15 @@ export function AgentModelSelectField({
       </Select.Trigger>
       <Select.Popover>
         <ListBox>
-          <ListBox.Item id={UNSET_MODEL}>不设置</ListBox.Item>
+          <ListBox.Item id={UNSET_MODEL} textValue="不设置">
+            不设置
+          </ListBox.Item>
           {options.map((option) => (
-            <ListBox.Item key={option.value} id={option.value}>
+            <ListBox.Item
+              key={option.value}
+              id={option.value}
+              textValue={option.label}
+            >
               {option.label}
             </ListBox.Item>
           ))}

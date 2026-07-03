@@ -430,8 +430,12 @@ export function UserBalancePanel({
             </Select.Trigger>
             <Select.Popover>
               <ListBox>
-                <ListBox.Item id="credit">增加余额</ListBox.Item>
-                <ListBox.Item id="debit">减少余额</ListBox.Item>
+                <ListBox.Item id="credit" textValue="增加余额">
+                  增加余额
+                </ListBox.Item>
+                <ListBox.Item id="debit" textValue="减少余额">
+                  减少余额
+                </ListBox.Item>
               </ListBox>
             </Select.Popover>
           </Select>
@@ -453,11 +457,21 @@ export function UserBalancePanel({
             </Select.Trigger>
             <Select.Popover>
               <ListBox>
-                <ListBox.Item id="adjustment">手动调整</ListBox.Item>
-                <ListBox.Item id="recharge">充值</ListBox.Item>
-                <ListBox.Item id="refund">退款</ListBox.Item>
-                <ListBox.Item id="grant">赠送额度</ListBox.Item>
-                <ListBox.Item id="expire">额度过期</ListBox.Item>
+                <ListBox.Item id="adjustment" textValue="手动调整">
+                  手动调整
+                </ListBox.Item>
+                <ListBox.Item id="recharge" textValue="充值">
+                  充值
+                </ListBox.Item>
+                <ListBox.Item id="refund" textValue="退款">
+                  退款
+                </ListBox.Item>
+                <ListBox.Item id="grant" textValue="赠送额度">
+                  赠送额度
+                </ListBox.Item>
+                <ListBox.Item id="expire" textValue="额度过期">
+                  额度过期
+                </ListBox.Item>
               </ListBox>
             </Select.Popover>
           </Select>

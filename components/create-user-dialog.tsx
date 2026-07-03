@@ -562,8 +562,12 @@ function UserFormFields({
         </Select.Trigger>
         <Select.Popover>
           <ListBox>
-            <ListBox.Item id="enabled">激活</ListBox.Item>
-            <ListBox.Item id="disabled">停用</ListBox.Item>
+            <ListBox.Item id="enabled" textValue="激活">
+              激活
+            </ListBox.Item>
+            <ListBox.Item id="disabled" textValue="停用">
+              停用
+            </ListBox.Item>
           </ListBox>
         </Select.Popover>
       </Select>
@@ -583,8 +587,12 @@ function UserFormFields({
         </Select.Trigger>
         <Select.Popover>
           <ListBox>
-            <ListBox.Item id="admin">管理员</ListBox.Item>
-            <ListBox.Item id="member">普通用户</ListBox.Item>
+            <ListBox.Item id="admin" textValue="管理员">
+              管理员
+            </ListBox.Item>
+            <ListBox.Item id="member" textValue="普通用户">
+              普通用户
+            </ListBox.Item>
           </ListBox>
         </Select.Popover>
       </Select>

@@ -696,7 +696,11 @@ export function AdminMCPPage() {
                     <Select.Popover>
                       <ListBox>
                         {MCP_APPLY_MODE_OPTIONS.map((option) => (
-                          <ListBox.Item key={option.id} id={option.id}>
+                          <ListBox.Item
+                            key={option.id}
+                            id={option.id}
+                            textValue={option.label}
+                          >
                             {option.label}
                           </ListBox.Item>
                         ))}
@@ -1329,9 +1333,15 @@ function OptionalBooleanSelect({
       </Select.Trigger>
       <Select.Popover>
         <ListBox>
-          <ListBox.Item id="unset">默认</ListBox.Item>
-          <ListBox.Item id="true">是</ListBox.Item>
-          <ListBox.Item id="false">否</ListBox.Item>
+          <ListBox.Item id="unset" textValue="默认">
+            默认
+          </ListBox.Item>
+          <ListBox.Item id="true" textValue="是">
+            是
+          </ListBox.Item>
+          <ListBox.Item id="false" textValue="否">
+            否
+          </ListBox.Item>
         </ListBox>
       </Select.Popover>
     </Select>
@@ -1364,7 +1374,11 @@ function TransportSelect({
       <Select.Popover>
         <ListBox>
           {MCP_TRANSPORT_OPTIONS.map((option) => (
-            <ListBox.Item key={option.id} id={option.id}>
+            <ListBox.Item
+              key={option.id}
+              id={option.id}
+              textValue={option.label}
+            >
               {option.label}
             </ListBox.Item>
           ))}
@@ -1438,7 +1452,11 @@ function ValueRowsEditor({
                 <Select.Popover>
                   <ListBox>
                     {MCP_VALUE_TYPE_OPTIONS.map((option) => (
-                      <ListBox.Item key={option.id} id={option.id}>
+                      <ListBox.Item
+                        key={option.id}
+                        id={option.id}
+                        textValue={option.label}
+                      >
                         {option.label}
                       </ListBox.Item>
                     ))}
@@ -1622,7 +1640,11 @@ function RPCInstanceSelect({
             const pluginId = instance.pluginId?.trim() ?? "";
 
             return (
-              <ListBox.Item key={pluginId} id={pluginId}>
+              <ListBox.Item
+                key={pluginId}
+                id={pluginId}
+                textValue={pluginId || "未命名实例"}
+              >
                 {pluginId || "未命名实例"}
               </ListBox.Item>
             );
@@ -1672,7 +1694,11 @@ function AgentSelect({
             const agentId = agent.agentId?.trim() ?? "";
 
             return (
-              <ListBox.Item key={agentId} id={agentId}>
+              <ListBox.Item
+                key={agentId}
+                id={agentId}
+                textValue={agent.displayName || agentId || "未命名 Agent"}
+              >
                 {agent.displayName || agentId || "未命名 Agent"}
               </ListBox.Item>
             );

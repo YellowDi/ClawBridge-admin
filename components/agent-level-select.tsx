@@ -36,7 +36,7 @@ export function AgentLevelSelect({
       <Select.Popover>
         <ListBox>
           {levels.map((level) => (
-            <ListBox.Item key={level.id} id={level.id}>
+            <ListBox.Item key={level.id} id={level.id} textValue={level.label}>
               {level.label}
             </ListBox.Item>
           ))}

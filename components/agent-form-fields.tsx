@@ -86,8 +86,12 @@ export function AgentFormFields({
         </Select.Trigger>
         <Select.Popover>
           <ListBox>
-            <ListBox.Item id="enabled">启用</ListBox.Item>
-            <ListBox.Item id="disabled">停用</ListBox.Item>
+            <ListBox.Item id="enabled" textValue="启用">
+              启用
+            </ListBox.Item>
+            <ListBox.Item id="disabled" textValue="停用">
+              停用
+            </ListBox.Item>
           </ListBox>
         </Select.Popover>
       </Select>
