@@ -897,10 +897,10 @@ function MCPServerDialog({
                   {error ? <InlineError>{error}</InlineError> : null}
                 </Modal.Body>
                 <Modal.Footer className="shrink-0 justify-between">
-                  <Disclosure.Heading>
-                    <Disclosure.Trigger>
+                  <Disclosure.Heading className="shrink-0">
+                    <Disclosure.Trigger className="inline-flex items-center gap-1 whitespace-nowrap">
                       高级配置
-                      <Disclosure.Indicator />
+                      <Disclosure.Indicator className="shrink-0" />
                     </Disclosure.Trigger>
                   </Disclosure.Heading>
                   <div className="flex items-center gap-2">
