@@ -22,6 +22,7 @@ import {
   Button,
   Checkbox,
   Chip,
+  Disclosure,
   Input,
   Label,
   ListBox,
@@ -671,41 +672,46 @@ export function AdminMCPPage() {
               </Checkbox>
             </div>
 
-            <details className="rounded-md border border-divider p-3">
-              <summary className="cursor-pointer text-sm font-medium">
-                高级下发选项
-              </summary>
-              <div className="mt-3">
-                <Select
-                  fullWidth
-                  className="min-w-0"
-                  isDisabled={applyState.isApplying}
-                  selectedKey={applyState.mode}
-                  variant="secondary"
-                  onSelectionChange={(key) =>
-                    setApplyState((current) => ({
-                      ...current,
-                      mode: String(key ?? "merge"),
-                    }))
-                  }
-                >
-                  <Label>应用模式</Label>
-                  <Select.Trigger>
-                    <Select.Value />
-                    <Select.Indicator />
-                  </Select.Trigger>
-                  <Select.Popover>
-                    <ListBox>
-                      {MCP_APPLY_MODE_OPTIONS.map((option) => (
-                        <ListBox.Item key={option.id} id={option.id}>
-                          {option.label}
-                        </ListBox.Item>
-                      ))}
-                    </ListBox>
-                  </Select.Popover>
-                </Select>
-              </div>
-            </details>
+            <Disclosure className="rounded-md border border-divider p-3">
+              <Disclosure.Heading>
+                <Disclosure.Trigger className="flex w-full items-center justify-between text-left text-sm font-medium">
+                  <span>高级下发选项</span>
+                  <Disclosure.Indicator className="size-4 shrink-0" />
+                </Disclosure.Trigger>
+              </Disclosure.Heading>
+              <Disclosure.Content>
+                <Disclosure.Body className="pt-3">
+                  <Select
+                    fullWidth
+                    className="min-w-0"
+                    isDisabled={applyState.isApplying}
+                    selectedKey={applyState.mode}
+                    variant="secondary"
+                    onSelectionChange={(key) =>
+                      setApplyState((current) => ({
+                        ...current,
+                        mode: String(key ?? "merge"),
+                      }))
+                    }
+                  >
+                    <Label>应用模式</Label>
+                    <Select.Trigger>
+                      <Select.Value />
+                      <Select.Indicator />
+                    </Select.Trigger>
+                    <Select.Popover>
+                      <ListBox>
+                        {MCP_APPLY_MODE_OPTIONS.map((option) => (
+                          <ListBox.Item key={option.id} id={option.id}>
+                            {option.label}
+                          </ListBox.Item>
+                        ))}
+                      </ListBox>
+                    </Select.Popover>
+                  </Select>
+                </Disclosure.Body>
+              </Disclosure.Content>
+            </Disclosure>
 
             {instancesState.error ? (
               <InlineError>{instancesState.error}</InlineError>
@@ -1034,242 +1040,257 @@ function MCPServerFormFields({
         </div>
       )}
 
-      <details className="rounded-md border border-divider p-3">
-        <summary className="cursor-pointer text-sm font-medium">
-          高级配置
-        </summary>
-        <div className="mt-3 flex min-w-0 flex-col gap-4">
-          {isStdio ? (
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <TextField fullWidth variant="secondary">
-                <Label>命令工作目录（CWD）</Label>
-                <Input
-                  autoComplete="off"
-                  disabled={isDisabled}
-                  placeholder="/srv/mcp"
-                  value={form.cwd}
-                  onChange={(event) => onChange({ cwd: event.target.value })}
-                />
-              </TextField>
-              <TextField fullWidth variant="secondary">
-                <Label>命令工作目录（兼容）</Label>
-                <Input
-                  autoComplete="off"
-                  disabled={isDisabled}
-                  placeholder="/srv/mcp"
-                  value={form.workingDirectory}
-                  onChange={(event) =>
-                    onChange({ workingDirectory: event.target.value })
-                  }
-                />
-              </TextField>
-              <div className="md:col-span-2">
+      <Disclosure className="rounded-md border border-divider p-3">
+        <Disclosure.Heading>
+          <Disclosure.Trigger className="flex w-full items-center justify-between text-left text-sm font-medium">
+            <span>高级配置</span>
+            <Disclosure.Indicator className="size-4 shrink-0" />
+          </Disclosure.Trigger>
+        </Disclosure.Heading>
+        <Disclosure.Content>
+          <Disclosure.Body className="pt-3">
+            <div className="flex min-w-0 flex-col gap-4">
+              {isStdio ? (
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  <TextField fullWidth variant="secondary">
+                    <Label>命令工作目录（CWD）</Label>
+                    <Input
+                      autoComplete="off"
+                      disabled={isDisabled}
+                      placeholder="/srv/mcp"
+                      value={form.cwd}
+                      onChange={(event) =>
+                        onChange({ cwd: event.target.value })
+                      }
+                    />
+                  </TextField>
+                  <TextField fullWidth variant="secondary">
+                    <Label>命令工作目录（兼容）</Label>
+                    <Input
+                      autoComplete="off"
+                      disabled={isDisabled}
+                      placeholder="/srv/mcp"
+                      value={form.workingDirectory}
+                      onChange={(event) =>
+                        onChange({ workingDirectory: event.target.value })
+                      }
+                    />
+                  </TextField>
+                  <div className="md:col-span-2">
+                    <ValueRowsEditor
+                      isDisabled={isDisabled}
+                      label="请求头（高级）"
+                      rows={form.headerRows}
+                      onChange={(headerRows) => onChange({ headerRows })}
+                    />
+                  </div>
+                </div>
+              ) : (
                 <ValueRowsEditor
                   isDisabled={isDisabled}
-                  label="请求头（高级）"
-                  rows={form.headerRows}
-                  onChange={(headerRows) => onChange({ headerRows })}
+                  label="环境变量（高级）"
+                  rows={form.envRows}
+                  onChange={(envRows) => onChange({ envRows })}
+                />
+              )}
+
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <TextField fullWidth variant="secondary">
+                  <Label>连接超时（毫秒）</Label>
+                  <Input
+                    autoComplete="off"
+                    disabled={isDisabled}
+                    inputMode="numeric"
+                    placeholder="10000"
+                    value={form.connectionTimeoutMs}
+                    onChange={(event) =>
+                      onChange({ connectionTimeoutMs: event.target.value })
+                    }
+                  />
+                </TextField>
+                <TextField fullWidth variant="secondary">
+                  <Label>请求超时（毫秒）</Label>
+                  <Input
+                    autoComplete="off"
+                    disabled={isDisabled}
+                    inputMode="numeric"
+                    placeholder="30000"
+                    value={form.requestTimeoutMs}
+                    onChange={(event) =>
+                      onChange({ requestTimeoutMs: event.target.value })
+                    }
+                  />
+                </TextField>
+                <TextField fullWidth variant="secondary">
+                  <Label>连接超时（秒，兼容）</Label>
+                  <Input
+                    autoComplete="off"
+                    disabled={isDisabled}
+                    inputMode="numeric"
+                    placeholder="10"
+                    value={form.connectTimeout}
+                    onChange={(event) =>
+                      onChange({ connectTimeout: event.target.value })
+                    }
+                  />
+                </TextField>
+                <TextField fullWidth variant="secondary">
+                  <Label>请求超时（秒，兼容）</Label>
+                  <Input
+                    autoComplete="off"
+                    disabled={isDisabled}
+                    inputMode="numeric"
+                    placeholder="30"
+                    value={form.timeout}
+                    onChange={(event) =>
+                      onChange({ timeout: event.target.value })
+                    }
+                  />
+                </TextField>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <TextField fullWidth variant="secondary">
+                  <Label>鉴权方式</Label>
+                  <Input
+                    autoComplete="off"
+                    disabled={isDisabled}
+                    placeholder="oauth"
+                    value={form.auth}
+                    onChange={(event) => onChange({ auth: event.target.value })}
+                  />
+                </TextField>
+                <OptionalBooleanSelect
+                  isDisabled={isDisabled}
+                  label="校验证书"
+                  value={form.sslVerify}
+                  onChange={(sslVerify) => onChange({ sslVerify })}
+                />
+                <OptionalBooleanSelect
+                  isDisabled={isDisabled}
+                  label="并行工具调用"
+                  value={form.supportsParallelToolCalls}
+                  onChange={(supportsParallelToolCalls) =>
+                    onChange({ supportsParallelToolCalls })
+                  }
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <TextField fullWidth variant="secondary">
+                  <Label>客户端证书路径</Label>
+                  <Input
+                    autoComplete="off"
+                    disabled={isDisabled}
+                    placeholder="/etc/ssl/client.crt"
+                    value={form.clientCert}
+                    onChange={(event) =>
+                      onChange({ clientCert: event.target.value })
+                    }
+                  />
+                </TextField>
+                <TextField fullWidth variant="secondary">
+                  <Label>客户端私钥路径</Label>
+                  <Input
+                    autoComplete="off"
+                    disabled={isDisabled}
+                    placeholder="/etc/ssl/client.key"
+                    value={form.clientKey}
+                    onChange={(event) =>
+                      onChange({ clientKey: event.target.value })
+                    }
+                  />
+                </TextField>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <TextField fullWidth variant="secondary">
+                  <Label>OAuth 授权范围</Label>
+                  <Input
+                    autoComplete="off"
+                    disabled={isDisabled}
+                    placeholder="repo read:user"
+                    value={form.oauthScope}
+                    onChange={(event) =>
+                      onChange({ oauthScope: event.target.value })
+                    }
+                  />
+                </TextField>
+                <TextField fullWidth variant="secondary">
+                  <Label>OAuth 回调地址</Label>
+                  <Input
+                    autoComplete="off"
+                    disabled={isDisabled}
+                    placeholder="http://127.0.0.1:1455/oauth/callback"
+                    value={form.oauthRedirectUrl}
+                    onChange={(event) =>
+                      onChange({ oauthRedirectUrl: event.target.value })
+                    }
+                  />
+                </TextField>
+                <TextField
+                  fullWidth
+                  className="md:col-span-2"
+                  variant="secondary"
+                >
+                  <Label>OAuth 客户端元数据地址</Label>
+                  <Input
+                    autoComplete="off"
+                    disabled={isDisabled}
+                    placeholder="https://example.com/.well-known/oauth-client"
+                    value={form.oauthClientMetadataUrl}
+                    onChange={(event) =>
+                      onChange({ oauthClientMetadataUrl: event.target.value })
+                    }
+                  />
+                </TextField>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <LabeledTextarea
+                  isDisabled={isDisabled}
+                  label="允许工具（逗号或换行分隔）"
+                  placeholder="search, fetch"
+                  rows={2}
+                  value={form.toolFilterIncludeText}
+                  onChange={(toolFilterIncludeText) =>
+                    onChange({ toolFilterIncludeText })
+                  }
+                />
+                <LabeledTextarea
+                  isDisabled={isDisabled}
+                  label="排除工具（逗号或换行分隔）"
+                  placeholder="delete_*"
+                  rows={2}
+                  value={form.toolFilterExcludeText}
+                  onChange={(toolFilterExcludeText) =>
+                    onChange({ toolFilterExcludeText })
+                  }
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <LabeledTextarea
+                  isDisabled={isDisabled}
+                  label="Codex 扩展配置 JSON"
+                  placeholder={'{"approvalPolicy":"never"}'}
+                  rows={4}
+                  value={form.codexJson}
+                  onChange={(codexJson) => onChange({ codexJson })}
+                />
+                <LabeledTextarea
+                  isDisabled={isDisabled}
+                  label="其他扩展字段 JSON"
+                  placeholder={'{"customField":"value"}'}
+                  rows={4}
+                  value={form.extraJson}
+                  onChange={(extraJson) => onChange({ extraJson })}
                 />
               </div>
             </div>
-          ) : (
-            <ValueRowsEditor
-              isDisabled={isDisabled}
-              label="环境变量（高级）"
-              rows={form.envRows}
-              onChange={(envRows) => onChange({ envRows })}
-            />
-          )}
-
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <TextField fullWidth variant="secondary">
-              <Label>连接超时（毫秒）</Label>
-              <Input
-                autoComplete="off"
-                disabled={isDisabled}
-                inputMode="numeric"
-                placeholder="10000"
-                value={form.connectionTimeoutMs}
-                onChange={(event) =>
-                  onChange({ connectionTimeoutMs: event.target.value })
-                }
-              />
-            </TextField>
-            <TextField fullWidth variant="secondary">
-              <Label>请求超时（毫秒）</Label>
-              <Input
-                autoComplete="off"
-                disabled={isDisabled}
-                inputMode="numeric"
-                placeholder="30000"
-                value={form.requestTimeoutMs}
-                onChange={(event) =>
-                  onChange({ requestTimeoutMs: event.target.value })
-                }
-              />
-            </TextField>
-            <TextField fullWidth variant="secondary">
-              <Label>连接超时（秒，兼容）</Label>
-              <Input
-                autoComplete="off"
-                disabled={isDisabled}
-                inputMode="numeric"
-                placeholder="10"
-                value={form.connectTimeout}
-                onChange={(event) =>
-                  onChange({ connectTimeout: event.target.value })
-                }
-              />
-            </TextField>
-            <TextField fullWidth variant="secondary">
-              <Label>请求超时（秒，兼容）</Label>
-              <Input
-                autoComplete="off"
-                disabled={isDisabled}
-                inputMode="numeric"
-                placeholder="30"
-                value={form.timeout}
-                onChange={(event) => onChange({ timeout: event.target.value })}
-              />
-            </TextField>
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-            <TextField fullWidth variant="secondary">
-              <Label>鉴权方式</Label>
-              <Input
-                autoComplete="off"
-                disabled={isDisabled}
-                placeholder="oauth"
-                value={form.auth}
-                onChange={(event) => onChange({ auth: event.target.value })}
-              />
-            </TextField>
-            <OptionalBooleanSelect
-              isDisabled={isDisabled}
-              label="校验证书"
-              value={form.sslVerify}
-              onChange={(sslVerify) => onChange({ sslVerify })}
-            />
-            <OptionalBooleanSelect
-              isDisabled={isDisabled}
-              label="并行工具调用"
-              value={form.supportsParallelToolCalls}
-              onChange={(supportsParallelToolCalls) =>
-                onChange({ supportsParallelToolCalls })
-              }
-            />
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <TextField fullWidth variant="secondary">
-              <Label>客户端证书路径</Label>
-              <Input
-                autoComplete="off"
-                disabled={isDisabled}
-                placeholder="/etc/ssl/client.crt"
-                value={form.clientCert}
-                onChange={(event) =>
-                  onChange({ clientCert: event.target.value })
-                }
-              />
-            </TextField>
-            <TextField fullWidth variant="secondary">
-              <Label>客户端私钥路径</Label>
-              <Input
-                autoComplete="off"
-                disabled={isDisabled}
-                placeholder="/etc/ssl/client.key"
-                value={form.clientKey}
-                onChange={(event) =>
-                  onChange({ clientKey: event.target.value })
-                }
-              />
-            </TextField>
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <TextField fullWidth variant="secondary">
-              <Label>OAuth 授权范围</Label>
-              <Input
-                autoComplete="off"
-                disabled={isDisabled}
-                placeholder="repo read:user"
-                value={form.oauthScope}
-                onChange={(event) =>
-                  onChange({ oauthScope: event.target.value })
-                }
-              />
-            </TextField>
-            <TextField fullWidth variant="secondary">
-              <Label>OAuth 回调地址</Label>
-              <Input
-                autoComplete="off"
-                disabled={isDisabled}
-                placeholder="http://127.0.0.1:1455/oauth/callback"
-                value={form.oauthRedirectUrl}
-                onChange={(event) =>
-                  onChange({ oauthRedirectUrl: event.target.value })
-                }
-              />
-            </TextField>
-            <TextField fullWidth className="md:col-span-2" variant="secondary">
-              <Label>OAuth 客户端元数据地址</Label>
-              <Input
-                autoComplete="off"
-                disabled={isDisabled}
-                placeholder="https://example.com/.well-known/oauth-client"
-                value={form.oauthClientMetadataUrl}
-                onChange={(event) =>
-                  onChange({ oauthClientMetadataUrl: event.target.value })
-                }
-              />
-            </TextField>
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <LabeledTextarea
-              isDisabled={isDisabled}
-              label="允许工具（逗号或换行分隔）"
-              placeholder="search, fetch"
-              rows={2}
-              value={form.toolFilterIncludeText}
-              onChange={(toolFilterIncludeText) =>
-                onChange({ toolFilterIncludeText })
-              }
-            />
-            <LabeledTextarea
-              isDisabled={isDisabled}
-              label="排除工具（逗号或换行分隔）"
-              placeholder="delete_*"
-              rows={2}
-              value={form.toolFilterExcludeText}
-              onChange={(toolFilterExcludeText) =>
-                onChange({ toolFilterExcludeText })
-              }
-            />
-          </div>
-
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <LabeledTextarea
-              isDisabled={isDisabled}
-              label="Codex 扩展配置 JSON"
-              placeholder={'{"approvalPolicy":"never"}'}
-              rows={4}
-              value={form.codexJson}
-              onChange={(codexJson) => onChange({ codexJson })}
-            />
-            <LabeledTextarea
-              isDisabled={isDisabled}
-              label="其他扩展字段 JSON"
-              placeholder={'{"customField":"value"}'}
-              rows={4}
-              value={form.extraJson}
-              onChange={(extraJson) => onChange({ extraJson })}
-            />
-          </div>
-        </div>
-      </details>
+          </Disclosure.Body>
+        </Disclosure.Content>
+      </Disclosure>
     </div>
   );
 }
