@@ -1701,11 +1701,11 @@ function OpenClawAgentsCard({
               className="bg-surface-secondary"
             >
               <Card.Header className="flex-row items-start justify-between gap-3">
-                <div className="min-w-0">
+                <div className="flex min-w-0 items-baseline gap-2">
                   <Card.Title className="truncate text-sm">
                     {agent.displayName || agent.agentId || "未命名 Agent"}
                   </Card.Title>
-                  <Card.Description className="truncate text-xs">
+                  <Card.Description className="shrink-0 truncate text-xs">
                     {agent.agentId || "-"}
                   </Card.Description>
                 </div>
