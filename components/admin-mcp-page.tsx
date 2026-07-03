@@ -17,9 +17,10 @@ import type {
 } from "@/lib/api";
 import type { FormEvent } from "react";
 
-import { DataGrid, ItemCard, ItemCardGroup } from "@heroui-pro/react";
+import { DataGrid } from "@heroui-pro/react";
 import {
   Button,
+  Card,
   Checkbox,
   Chip,
   Disclosure,
@@ -1690,18 +1691,34 @@ function OpenClawAgentsCard({
   return (
     <SectionCard title="OpenClaw Agent 快照">
       {agents.length > 0 ? (
-        <ItemCardGroup>
+        <div className="flex flex-col gap-2">
           {agents.map((agent) => (
-            <ItemCard key={agent.agentId || agent.displayName}>
-              <ItemCard.Content>
-                <ItemCard.Title>
-                  {agent.displayName || agent.agentId || "未命名 Agent"}
-                </ItemCard.Title>
-                <ItemCard.Description>
-                  {agent.agentId || "-"}
-                </ItemCard.Description>
-                <dl className="mt-2 grid grid-cols-[96px_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
-                  <SnapshotField label="说明" value={agent.description} />
+            <Card
+              key={agent.agentId || agent.displayName}
+              className="bg-surface-secondary"
+            >
+              <Card.Header className="flex-row items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <Card.Title className="truncate text-sm">
+                    {agent.displayName || agent.agentId || "未命名 Agent"}
+                  </Card.Title>
+                  <Card.Description className="truncate text-xs">
+                    {agent.agentId || "-"}
+                  </Card.Description>
+                </div>
+                <Chip size="sm" variant="soft">
+                  授权{" "}
+                  {(agent.toolsAlsoAllow?.length ?? 0) +
+                    (agent.sandboxToolsAlsoAllow?.length ?? 0)}
+                </Chip>
+              </Card.Header>
+              <Card.Content>
+                <dl className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">
+                  <SnapshotField
+                    className="sm:col-span-2"
+                    label="说明"
+                    value={agent.description}
+                  />
                   <SnapshotField
                     label="tools"
                     value={formatSnapshotValues(agent.toolsAlsoAllow)}
@@ -1711,17 +1728,10 @@ function OpenClawAgentsCard({
                     value={formatSnapshotValues(agent.sandboxToolsAlsoAllow)}
                   />
                 </dl>
-              </ItemCard.Content>
-              <ItemCard.Action>
-                <Chip size="sm" variant="soft">
-                  授权{" "}
-                  {(agent.toolsAlsoAllow?.length ?? 0) +
-                    (agent.sandboxToolsAlsoAllow?.length ?? 0)}
-                </Chip>
-              </ItemCard.Action>
-            </ItemCard>
+              </Card.Content>
+            </Card>
           ))}
-        </ItemCardGroup>
+        </div>
       ) : (
         <EmptySnapshotText isLoading={isLoading} label="Agent" />
       )}
@@ -1826,12 +1836,20 @@ function formatSnapshotValues(values?: string[]) {
   return values && values.length > 0 ? values.join(", ") : "-";
 }
 
-function SnapshotField({ label, value }: { label: string; value?: string }) {
+function SnapshotField({
+  className,
+  label,
+  value,
+}: {
+  className?: string;
+  label: string;
+  value?: string;
+}) {
   return (
-    <>
+    <div className={className}>
       <dt className="text-muted">{label}</dt>
-      <dd className="min-w-0 break-all text-foreground">{value || "-"}</dd>
-    </>
+      <dd className="mt-1 min-w-0 break-all text-foreground">{value || "-"}</dd>
+    </div>
   );
 }
 
