@@ -17,6 +17,7 @@ import {
 
 import { AdminIcon } from "@/components/admin-icons";
 import { useAuth } from "@/components/auth-provider";
+import { siteConfig } from "@/config/site";
 
 type NavItem = {
   key: string;
@@ -96,7 +97,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
       (item) => item.href !== "/" && pathname.startsWith(item.href),
     );
 
-    return matched?.label ?? "ClawBridge Admin";
+    return matched?.label ?? siteConfig.name;
   }, [pathname]);
   const navbar = useMemo(
     () => <AdminNavbar actions={pageActions} title={title} />,
@@ -169,7 +170,7 @@ function AdminSidebar({ pathname }: { pathname: string }) {
 
 function SidebarContents({ pathname }: { pathname: string }) {
   const { logout, session } = useAuth();
-  const username = session?.user?.username ?? "ClawBridge Admin";
+  const username = session?.user?.username ?? siteConfig.name;
 
   return (
     <>

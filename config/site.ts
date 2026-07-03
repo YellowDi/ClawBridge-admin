@@ -1,7 +1,7 @@
 export type SiteConfig = typeof siteConfig;
 
 export const siteConfig = {
-  name: "ClawBridge Admin",
+  name: "ClawCore",
   description: "ClawBridge 管理后台，用于用户、模型、Agent 与系统配置管理。",
   navItems: [
     {

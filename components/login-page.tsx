@@ -7,6 +7,7 @@ import { useState } from "react";
 
 import { AdminIcon } from "@/components/admin-icons";
 import { useAuth } from "@/components/auth-provider";
+import { siteConfig } from "@/config/site";
 
 export function LoginPage() {
   const { login } = useAuth();
@@ -48,7 +49,7 @@ export function LoginPage() {
             <AdminIcon className="size-5" name="shield" />
           </div>
           <h1 className="mt-4 text-xl font-semibold tracking-normal text-foreground">
-            ClawBridge Admin
+            {siteConfig.name}
           </h1>
           <p className="mt-2 text-sm text-muted">登录管理控制台</p>
         </div>
