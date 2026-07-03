@@ -1698,16 +1698,23 @@ function OpenClawAgentsCard({
           {agents.map((agent) => (
             <Card
               key={agent.agentId || agent.displayName}
-              className="bg-surface-secondary"
+              className="gap-2 bg-surface-secondary"
             >
-              <Card.Header className="flex-row items-start justify-between gap-3">
-                <div className="flex min-w-0 items-baseline gap-2">
-                  <Card.Title className="truncate text-sm">
-                    {agent.displayName || agent.agentId || "未命名 Agent"}
-                  </Card.Title>
-                  <Card.Description className="shrink-0 truncate text-xs">
-                    {agent.agentId || "-"}
-                  </Card.Description>
+              <Card.Header className="flex-row items-start justify-between gap-3 pb-0">
+                <div className="min-w-0">
+                  <div className="flex min-w-0 items-baseline gap-2">
+                    <Card.Title className="truncate text-sm">
+                      {agent.displayName || agent.agentId || "未命名 Agent"}
+                    </Card.Title>
+                    <Card.Description className="shrink-0 truncate text-xs">
+                      {agent.agentId || "-"}
+                    </Card.Description>
+                  </div>
+                  {agent.description ? (
+                    <Card.Description className="mt-0.5 line-clamp-1 text-xs">
+                      {agent.description}
+                    </Card.Description>
+                  ) : null}
                 </div>
                 <Chip size="sm" variant="soft">
                   授权{" "}
@@ -1715,22 +1722,15 @@ function OpenClawAgentsCard({
                     (agent.sandboxToolsAlsoAllow?.length ?? 0)}
                 </Chip>
               </Card.Header>
-              <Card.Content>
-                <dl className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">
-                  <SnapshotField
-                    className="sm:col-span-2"
-                    label="说明"
-                    value={agent.description}
-                  />
-                  <SnapshotField
-                    label="tools"
-                    value={formatSnapshotValues(agent.toolsAlsoAllow)}
-                  />
-                  <SnapshotField
-                    label="sandbox"
-                    value={formatSnapshotValues(agent.sandboxToolsAlsoAllow)}
-                  />
-                </dl>
+              <Card.Content className="flex-row flex-wrap gap-x-4 gap-y-1 pt-0">
+                <SnapshotChipGroup
+                  label="tools"
+                  values={agent.toolsAlsoAllow}
+                />
+                <SnapshotChipGroup
+                  label="sandbox"
+                  values={agent.sandboxToolsAlsoAllow}
+                />
               </Card.Content>
             </Card>
           ))}
@@ -1839,19 +1839,25 @@ function formatSnapshotValues(values?: string[]) {
   return values && values.length > 0 ? values.join(", ") : "-";
 }
 
-function SnapshotField({
-  className,
+function SnapshotChipGroup({
   label,
-  value,
+  values,
 }: {
-  className?: string;
   label: string;
-  value?: string;
+  values?: string[];
 }) {
+  const items = values && values.length > 0 ? values : ["无"];
+
   return (
-    <div className={className}>
-      <dt className="text-muted">{label}</dt>
-      <dd className="mt-1 min-w-0 break-all text-foreground">{value || "-"}</dd>
+    <div className="flex min-w-0 items-start gap-2 text-xs">
+      <span className="text-muted w-14 shrink-0">{label}</span>
+      <div className="flex min-w-0 flex-wrap gap-1">
+        {items.map((item, index) => (
+          <Chip key={`${item}-${index}`} size="sm" variant="soft">
+            {item}
+          </Chip>
+        ))}
+      </div>
     </div>
   );
 }
