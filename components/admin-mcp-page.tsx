@@ -1108,7 +1108,7 @@ function MCPServerFormFields({
         </TextField>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <TextField fullWidth variant="secondary">
           <Label>OAuth Scope</Label>
           <Input
@@ -1131,7 +1131,7 @@ function MCPServerFormFields({
             }
           />
         </TextField>
-        <TextField fullWidth variant="secondary">
+        <TextField fullWidth className="md:col-span-2" variant="secondary">
           <Label>OAuth Client Metadata URL</Label>
           <Input
             autoComplete="off"
