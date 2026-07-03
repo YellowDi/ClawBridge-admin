@@ -919,7 +919,7 @@ function MCPServerFormFields({
     <div className="flex min-w-0 flex-col gap-4">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <TextField fullWidth variant="secondary">
-          <Label>Server Name</Label>
+          <Label>服务键名</Label>
           <Input
             autoComplete="off"
             disabled={isDisabled}
@@ -943,7 +943,7 @@ function MCPServerFormFields({
       <LabeledTextarea
         isDisabled={isDisabled}
         label="说明"
-        placeholder="GitHub repository tools"
+        placeholder="GitHub 仓库工具"
         rows={2}
         value={form.description}
         onChange={(description) => onChange({ description })}
@@ -976,7 +976,7 @@ function MCPServerFormFields({
           </Select.Popover>
         </Select>
         <TextField fullWidth variant="secondary">
-          <Label>连接超时 ms</Label>
+          <Label>连接超时（毫秒）</Label>
           <Input
             autoComplete="off"
             disabled={isDisabled}
@@ -989,7 +989,7 @@ function MCPServerFormFields({
           />
         </TextField>
         <TextField fullWidth variant="secondary">
-          <Label>请求超时 ms</Label>
+          <Label>请求超时（毫秒）</Label>
           <Input
             autoComplete="off"
             disabled={isDisabled}
@@ -1005,7 +1005,7 @@ function MCPServerFormFields({
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <TextField fullWidth variant="secondary">
-          <Label>连接超时 sec</Label>
+          <Label>连接超时（秒，兼容）</Label>
           <Input
             autoComplete="off"
             disabled={isDisabled}
@@ -1018,7 +1018,7 @@ function MCPServerFormFields({
           />
         </TextField>
         <TextField fullWidth variant="secondary">
-          <Label>请求超时 sec</Label>
+          <Label>请求超时（秒，兼容）</Label>
           <Input
             autoComplete="off"
             disabled={isDisabled}
@@ -1033,7 +1033,7 @@ function MCPServerFormFields({
       {isStdio ? (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <TextField fullWidth variant="secondary">
-            <Label>Command</Label>
+            <Label>启动命令</Label>
             <Input
               autoComplete="off"
               disabled={isDisabled}
@@ -1043,7 +1043,7 @@ function MCPServerFormFields({
             />
           </TextField>
           <TextField fullWidth variant="secondary">
-            <Label>CWD</Label>
+            <Label>命令工作目录（CWD）</Label>
             <Input
               autoComplete="off"
               disabled={isDisabled}
@@ -1053,7 +1053,7 @@ function MCPServerFormFields({
             />
           </TextField>
           <TextField fullWidth variant="secondary">
-            <Label>Working Directory</Label>
+            <Label>命令工作目录（兼容）</Label>
             <Input
               autoComplete="off"
               disabled={isDisabled}
@@ -1067,7 +1067,7 @@ function MCPServerFormFields({
           <div className="md:col-span-2">
             <LabeledTextarea
               isDisabled={isDisabled}
-              label="Args（每行一个）"
+              label="启动参数（每行一个）"
               placeholder={"-y\n@modelcontextprotocol/server-github"}
               rows={3}
               value={form.argsText}
@@ -1077,7 +1077,7 @@ function MCPServerFormFields({
         </div>
       ) : (
         <TextField fullWidth variant="secondary">
-          <Label>URL</Label>
+          <Label>远程服务地址</Label>
           <Input
             autoComplete="off"
             disabled={isDisabled}
@@ -1090,7 +1090,7 @@ function MCPServerFormFields({
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <TextField fullWidth variant="secondary">
-          <Label>Auth</Label>
+          <Label>鉴权方式</Label>
           <Input
             autoComplete="off"
             disabled={isDisabled}
@@ -1101,7 +1101,7 @@ function MCPServerFormFields({
         </TextField>
         <OptionalBooleanSelect
           isDisabled={isDisabled}
-          label="SSL Verify"
+          label="校验证书"
           value={form.sslVerify}
           onChange={(sslVerify) => onChange({ sslVerify })}
         />
@@ -1117,7 +1117,7 @@ function MCPServerFormFields({
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <TextField fullWidth variant="secondary">
-          <Label>Client Cert</Label>
+          <Label>客户端证书路径</Label>
           <Input
             autoComplete="off"
             disabled={isDisabled}
@@ -1127,7 +1127,7 @@ function MCPServerFormFields({
           />
         </TextField>
         <TextField fullWidth variant="secondary">
-          <Label>Client Key</Label>
+          <Label>客户端私钥路径</Label>
           <Input
             autoComplete="off"
             disabled={isDisabled}
@@ -1140,7 +1140,7 @@ function MCPServerFormFields({
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <TextField fullWidth variant="secondary">
-          <Label>OAuth Scope</Label>
+          <Label>OAuth 授权范围</Label>
           <Input
             autoComplete="off"
             disabled={isDisabled}
@@ -1150,7 +1150,7 @@ function MCPServerFormFields({
           />
         </TextField>
         <TextField fullWidth variant="secondary">
-          <Label>OAuth Redirect URL</Label>
+          <Label>OAuth 回调地址</Label>
           <Input
             autoComplete="off"
             disabled={isDisabled}
@@ -1162,7 +1162,7 @@ function MCPServerFormFields({
           />
         </TextField>
         <TextField fullWidth className="md:col-span-2" variant="secondary">
-          <Label>OAuth Client Metadata URL</Label>
+          <Label>OAuth 客户端元数据地址</Label>
           <Input
             autoComplete="off"
             disabled={isDisabled}
@@ -1214,7 +1214,7 @@ function MCPServerFormFields({
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
         <LabeledTextarea
           isDisabled={isDisabled}
-          label="Codex JSON"
+          label="Codex 扩展配置 JSON"
           placeholder={'{"approvalPolicy":"never"}'}
           rows={4}
           value={form.codexJson}
@@ -1222,7 +1222,7 @@ function MCPServerFormFields({
         />
         <LabeledTextarea
           isDisabled={isDisabled}
-          label="Extra JSON"
+          label="其他扩展字段 JSON"
           placeholder={'{"customField":"value"}'}
           rows={4}
           value={form.extraJson}
@@ -1241,7 +1241,7 @@ function MCPServerFormFields({
         <Checkbox.Content>
           <span className="block text-sm font-medium">启用配置</span>
           <span className="text-muted block text-xs">
-            下发到 OpenClaw 后默认启用该 MCP server。
+            下发到 OpenClaw 后默认启用该 MCP 服务。
           </span>
         </Checkbox.Content>
       </Checkbox>
@@ -1327,7 +1327,7 @@ function ValueRowsEditor({
                 autoComplete="off"
                 className="min-w-0"
                 disabled={isDisabled}
-                placeholder="Key"
+                placeholder="键名"
                 value={row.key}
                 variant="secondary"
                 onChange={(event) =>
@@ -1362,7 +1362,7 @@ function ValueRowsEditor({
                 autoComplete="off"
                 className="min-w-0"
                 disabled={isDisabled}
-                placeholder={row.type === "env_ref" ? "ENV_NAME" : "Value"}
+                placeholder={row.type === "env_ref" ? "环境变量名" : "值"}
                 value={row.type === "env_ref" ? row.envName : row.value}
                 variant="secondary"
                 onChange={(event) =>
@@ -1832,7 +1832,7 @@ function buildMCPServerRequest(form: MCPServerFormState): ReqMCPServerCreate {
   const displayName = form.displayName.trim();
   const transport = form.transport.trim();
 
-  if (!serverName) throw new Error("Server Name 为必填项。");
+  if (!serverName) throw new Error("服务键名为必填项。");
   if (!displayName) throw new Error("展示名称为必填项。");
   if (!transport) throw new Error("连接方式为必填项。");
 
@@ -1844,7 +1844,7 @@ function buildMCPServerRequest(form: MCPServerFormState): ReqMCPServerCreate {
   if (transport === "stdio") {
     const command = form.command.trim();
 
-    if (!command) throw new Error("stdio MCP 配置需要填写 Command。");
+    if (!command) throw new Error("stdio MCP 配置需要填写启动命令。");
 
     config.command = command;
     config.args = splitTextList(form.argsText);
@@ -1867,7 +1867,7 @@ function buildMCPServerRequest(form: MCPServerFormState): ReqMCPServerCreate {
   const toolFilterExclude = splitTextList(form.toolFilterExcludeText);
   const connectTimeout = parseOptionalNumber(
     form.connectTimeout,
-    "连接超时 sec",
+    "连接超时（秒，兼容）",
   );
   const connectionTimeoutMs = parseOptionalNumber(
     form.connectionTimeoutMs,
@@ -1877,9 +1877,9 @@ function buildMCPServerRequest(form: MCPServerFormState): ReqMCPServerCreate {
     form.requestTimeoutMs,
     "请求超时",
   );
-  const timeout = parseOptionalNumber(form.timeout, "请求超时 sec");
-  const codex = parseOptionalObject(form.codexJson, "Codex JSON");
-  const extra = parseOptionalObject(form.extraJson, "Extra JSON");
+  const timeout = parseOptionalNumber(form.timeout, "请求超时（秒，兼容）");
+  const codex = parseOptionalObject(form.codexJson, "Codex 扩展配置 JSON");
+  const extra = parseOptionalObject(form.extraJson, "其他扩展字段 JSON");
   const supportsParallelToolCalls = optionalBooleanFromForm(
     form.supportsParallelToolCalls,
   );
