@@ -20,7 +20,6 @@ import type { FormEvent } from "react";
 import { DataGrid } from "@heroui-pro/react";
 import {
   Button,
-  Card,
   Checkbox,
   Chip,
   Disclosure,
@@ -151,6 +150,50 @@ const MCP_APPLY_MODE_OPTIONS = [
   { id: "merge", label: "追加 MCP 授权" },
   { id: "replace_agent_mcp", label: "替换该 Agent 的 MCP 授权" },
 ] as const;
+
+const OPENCLAW_AGENT_COLUMNS: DataGridColumn<OpenClawAgentConfigSnapshot>[] = [
+  {
+    cell: (agent) => agent.displayName || "-",
+    header: "展示名称",
+    headerClassName: "whitespace-nowrap",
+    id: "displayName",
+    isRowHeader: true,
+    minWidth: 120,
+    width: 160,
+  },
+  {
+    cell: (agent) => agent.agentId || "-",
+    header: "Agent ID",
+    headerClassName: "whitespace-nowrap",
+    id: "agentId",
+    minWidth: 160,
+    width: 200,
+  },
+  {
+    cell: (agent) => agent.description || "-",
+    header: "说明",
+    headerClassName: "whitespace-nowrap",
+    id: "description",
+    minWidth: 160,
+    width: 220,
+  },
+  {
+    cell: (agent) => formatSnapshotValues(agent.toolsAlsoAllow),
+    header: "tools.alsoAllow",
+    headerClassName: "whitespace-nowrap",
+    id: "toolsAlsoAllow",
+    minWidth: 180,
+    width: 240,
+  },
+  {
+    cell: (agent) => formatSnapshotValues(agent.sandboxToolsAlsoAllow),
+    header: "sandbox.tools.alsoAllow",
+    headerClassName: "whitespace-nowrap",
+    id: "sandboxToolsAlsoAllow",
+    minWidth: 200,
+    width: 260,
+  },
+];
 
 export function AdminMCPPage() {
   const isMountedRef = useRef(false);
@@ -1688,44 +1731,15 @@ function OpenClawAgentsCard({
 }) {
   return (
     <SectionCard title="OpenClaw Agent 快照">
-      <div className="flex max-h-[420px] flex-col gap-2 overflow-auto">
-        {agents.length > 0 ? (
-          agents.map((agent) => (
-            <Card
-              key={agent.agentId}
-              className="gap-2 rounded-md border border-divider px-3 py-2"
-              variant="transparent"
-            >
-              <Card.Header className="flex-row items-center justify-between gap-3 p-0">
-                <div className="min-w-0">
-                  <Card.Title className="truncate text-sm">
-                    {agent.displayName || agent.agentId || "未命名 Agent"}
-                  </Card.Title>
-                  <Card.Description className="truncate text-xs">
-                    {agent.agentId || "-"}
-                  </Card.Description>
-                </div>
-                <Chip size="sm" variant="soft">
-                  {(agent.toolsAlsoAllow?.length ?? 0) +
-                    (agent.sandboxToolsAlsoAllow?.length ?? 0)}
-                </Chip>
-              </Card.Header>
-              <Card.Content className="p-0">
-                <SnapshotLine
-                  label="tools.alsoAllow"
-                  values={agent.toolsAlsoAllow}
-                />
-                <SnapshotLine
-                  label="sandbox.tools.alsoAllow"
-                  values={agent.sandboxToolsAlsoAllow}
-                />
-              </Card.Content>
-            </Card>
-          ))
-        ) : (
-          <EmptySnapshotText isLoading={isLoading} label="Agent" />
-        )}
-      </div>
+      <DataGrid
+        aria-label="OpenClaw Agent 快照"
+        className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
+        columns={OPENCLAW_AGENT_COLUMNS}
+        contentClassName="min-w-[980px]"
+        data={agents}
+        getRowId={(agent) => agent.agentId || agent.displayName || "-"}
+        renderEmptyState={() => (isLoading ? "加载中..." : "暂无 Agent 快照。")}
+      />
     </SectionCard>
   );
 }
@@ -1818,11 +1832,13 @@ function SnapshotLine({ label, values }: { label: string; values?: string[] }) {
   return (
     <div className="mt-2 flex min-w-0 flex-col gap-1">
       <span className="text-muted text-xs">{label}</span>
-      <span className="break-all text-xs">
-        {values && values.length > 0 ? values.join(", ") : "-"}
-      </span>
+      <span className="break-all text-xs">{formatSnapshotValues(values)}</span>
     </div>
   );
+}
+
+function formatSnapshotValues(values?: string[]) {
+  return values && values.length > 0 ? values.join(", ") : "-";
 }
 
 function EmptySnapshotText({
