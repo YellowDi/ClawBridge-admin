@@ -3,7 +3,7 @@
 import type { KnowledgeBase } from "@/lib/api";
 
 import { Button, Checkbox, Modal, useOverlayState } from "@heroui/react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   listKnowledgeBases,
@@ -35,6 +35,52 @@ export function KnowledgeAvailabilityDialog({
   subjectLabel: string;
   subjectType: SubjectType;
 }) {
+  const modal = useOverlayState();
+
+  return (
+    <Modal state={modal}>
+      <Modal.Trigger>
+        <Button size="sm" variant="tertiary">
+          可用知识库
+        </Button>
+      </Modal.Trigger>
+      <Modal.Backdrop>
+        <Modal.Container placement="center" scroll="inside" size="md">
+          <Modal.Dialog>
+            <Modal.Header>
+              <Modal.Heading>可用知识库</Modal.Heading>
+              <p className="text-muted text-sm">{subjectLabel}</p>
+            </Modal.Header>
+            <KnowledgeAvailabilityPanel
+              isActive={modal.isOpen}
+              selectedKnowledgeBaseIds={selectedKnowledgeBaseIds}
+              subjectId={subjectId}
+              subjectType={subjectType}
+              onClose={() => modal.close()}
+              onSaved={onSaved}
+            />
+          </Modal.Dialog>
+        </Modal.Container>
+      </Modal.Backdrop>
+    </Modal>
+  );
+}
+
+export function KnowledgeAvailabilityPanel({
+  isActive,
+  onClose,
+  onSaved,
+  selectedKnowledgeBaseIds = EMPTY_KNOWLEDGE_BASE_IDS,
+  subjectId,
+  subjectType,
+}: {
+  isActive: boolean;
+  onClose: () => void;
+  onSaved?: () => void;
+  selectedKnowledgeBaseIds?: number[];
+  subjectId: number;
+  subjectType: SubjectType;
+}) {
   const loadRequestRef = useRef(0);
   const [state, setState] = useState<KnowledgeAvailabilityState>({
     error: null,
@@ -43,18 +89,21 @@ export function KnowledgeAvailabilityDialog({
     items: [],
     selectedIds: [],
   });
-  const modal = useOverlayState({
-    onOpenChange(isOpen) {
-      if (!isOpen) {
-        loadRequestRef.current += 1;
-
-        return;
-      }
-
-      void loadKnowledgeBases();
-    },
-  });
   const isBusy = state.isLoading || state.isSaving;
+
+  useEffect(() => {
+    if (!isActive) {
+      loadRequestRef.current += 1;
+
+      return;
+    }
+
+    void loadKnowledgeBases();
+
+    return () => {
+      loadRequestRef.current += 1;
+    };
+  }, [isActive, selectedKnowledgeBaseIds, subjectId, subjectType]);
 
   async function loadKnowledgeBases() {
     const requestId = loadRequestRef.current + 1;
@@ -116,7 +165,7 @@ export function KnowledgeAvailabilityDialog({
       }
 
       setState((current) => ({ ...current, isSaving: false }));
-      modal.close();
+      onClose();
       onSaved?.();
     } catch (error) {
       setState((current) => ({
@@ -128,92 +177,70 @@ export function KnowledgeAvailabilityDialog({
   }
 
   return (
-    <Modal state={modal}>
-      <Modal.Trigger>
-        <Button size="sm" variant="tertiary">
-          可用知识库
+    <>
+      <Modal.Body className="flex min-w-0 flex-col gap-4">
+        <p className="text-muted text-sm">
+          请选择本次生效的完整可用知识库列表。
+        </p>
+        {state.isLoading ? (
+          <div className="text-muted text-sm">正在加载知识库...</div>
+        ) : null}
+        {state.error ? (
+          <div className="rounded-md bg-danger/10 px-3 py-2 text-sm text-danger">
+            {state.error}
+          </div>
+        ) : null}
+        <div className="max-h-72 overflow-auto pr-1">
+          {state.items.length === 0 && !state.isLoading ? (
+            <span className="text-muted text-sm">暂无知识库。</span>
+          ) : null}
+          <div className="grid gap-2">
+            {state.items.map((item) => {
+              const itemId = item.id;
+
+              if (itemId == null) return null;
+
+              return (
+                <Checkbox
+                  key={itemId}
+                  isSelected={state.selectedIds.includes(itemId)}
+                  onChange={(selected) =>
+                    setState((current) => ({
+                      ...current,
+                      selectedIds: toggleId(
+                        current.selectedIds,
+                        itemId,
+                        selected,
+                      ),
+                    }))
+                  }
+                >
+                  <Checkbox.Control>
+                    <Checkbox.Indicator />
+                  </Checkbox.Control>
+                  <Checkbox.Content>
+                    <span className="block truncate text-sm font-medium">
+                      {getKnowledgeLabel(item)}
+                    </span>
+                    <span className="text-muted block truncate text-xs">
+                      {getKnowledgeDescription(item)}
+                    </span>
+                  </Checkbox.Content>
+                </Checkbox>
+              );
+            })}
+          </div>
+        </div>
+      </Modal.Body>
+      <Modal.Footer>
+        <Button isDisabled={isBusy} variant="tertiary" onPress={onClose}>
+          关闭
         </Button>
-      </Modal.Trigger>
-      <Modal.Backdrop
-        isDismissable={!isBusy}
-        isKeyboardDismissDisabled={isBusy}
-      >
-        <Modal.Container placement="center" scroll="inside" size="md">
-          <Modal.Dialog>
-            <Modal.Header>
-              <Modal.Heading>可用知识库</Modal.Heading>
-              <p className="text-muted text-sm">{subjectLabel}</p>
-            </Modal.Header>
-            <Modal.Body className="flex min-w-0 flex-col gap-4">
-              <p className="text-muted text-sm">
-                请选择本次生效的完整可用知识库列表。
-              </p>
-              {state.isLoading ? (
-                <div className="text-muted text-sm">正在加载知识库...</div>
-              ) : null}
-              {state.error ? (
-                <div className="rounded-md bg-danger/10 px-3 py-2 text-sm text-danger">
-                  {state.error}
-                </div>
-              ) : null}
-              <div className="max-h-72 overflow-auto pr-1">
-                {state.items.length === 0 && !state.isLoading ? (
-                  <span className="text-muted text-sm">暂无知识库。</span>
-                ) : null}
-                <div className="grid gap-2">
-                  {state.items.map((item) => {
-                    const itemId = item.id;
-
-                    if (itemId == null) return null;
-
-                    return (
-                      <Checkbox
-                        key={itemId}
-                        isSelected={state.selectedIds.includes(itemId)}
-                        onChange={(selected) =>
-                          setState((current) => ({
-                            ...current,
-                            selectedIds: toggleId(
-                              current.selectedIds,
-                              itemId,
-                              selected,
-                            ),
-                          }))
-                        }
-                      >
-                        <Checkbox.Control>
-                          <Checkbox.Indicator />
-                        </Checkbox.Control>
-                        <Checkbox.Content>
-                          <span className="block truncate text-sm font-medium">
-                            {getKnowledgeLabel(item)}
-                          </span>
-                          <span className="text-muted block truncate text-xs">
-                            {getKnowledgeDescription(item)}
-                          </span>
-                        </Checkbox.Content>
-                      </Checkbox>
-                    );
-                  })}
-                </div>
-              </div>
-            </Modal.Body>
-            <Modal.Footer>
-              <Button
-                isDisabled={isBusy}
-                variant="tertiary"
-                onPress={() => modal.close()}
-              >
-                关闭
-              </Button>
-              <Button isDisabled={isBusy} onPress={saveAvailability}>
-                {state.isSaving ? "保存中..." : "保存可用知识库"}
-              </Button>
-            </Modal.Footer>
-          </Modal.Dialog>
-        </Modal.Container>
-      </Modal.Backdrop>
-    </Modal>
+        <Button isDisabled={isBusy} onPress={saveAvailability}>
+          {state.isSaving ? "保存中..." : "保存可用知识库"}
+        </Button>
+      </Modal.Footer>
+    </>
   );
 }
 

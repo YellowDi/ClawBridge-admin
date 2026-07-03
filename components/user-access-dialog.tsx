@@ -19,7 +19,7 @@ import {
   TextField,
   useOverlayState,
 } from "@heroui/react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   adjustUserBalance,
@@ -70,6 +70,43 @@ export function UserAuthorizationDialog({
 }: {
   user: EditableUserSummary;
 }) {
+  const modal = useOverlayState();
+
+  return (
+    <Modal state={modal}>
+      <Modal.Trigger>
+        <Button size="sm" variant="tertiary">
+          授权
+        </Button>
+      </Modal.Trigger>
+      <Modal.Backdrop>
+        <Modal.Container placement="center" scroll="inside" size="lg">
+          <Modal.Dialog>
+            <Modal.Header>
+              <Modal.Heading>用户授权</Modal.Heading>
+              <p className="text-muted text-sm">{user.username}</p>
+            </Modal.Header>
+            <UserAuthorizationPanel
+              isActive={modal.isOpen}
+              user={user}
+              onClose={() => modal.close()}
+            />
+          </Modal.Dialog>
+        </Modal.Container>
+      </Modal.Backdrop>
+    </Modal>
+  );
+}
+
+export function UserAuthorizationPanel({
+  isActive,
+  onClose,
+  user,
+}: {
+  isActive: boolean;
+  onClose: () => void;
+  user: EditableUserSummary;
+}) {
   const loadRequestRef = useRef(0);
   const [state, setState] = useState<AuthorizationState>({
     agents: [],
@@ -80,18 +117,21 @@ export function UserAuthorizationDialog({
     selectedAgentIds: [],
     selectedModelIds: [],
   });
-  const modal = useOverlayState({
-    onOpenChange(isOpen) {
-      if (!isOpen) {
-        loadRequestRef.current += 1;
-
-        return;
-      }
-
-      void loadAuthorization();
-    },
-  });
   const isBusy = state.isLoading || state.isSaving;
+
+  useEffect(() => {
+    if (!isActive) {
+      loadRequestRef.current += 1;
+
+      return;
+    }
+
+    void loadAuthorization();
+
+    return () => {
+      loadRequestRef.current += 1;
+    };
+  }, [isActive, user.id]);
 
   async function loadAuthorization() {
     const requestId = loadRequestRef.current + 1;
@@ -161,72 +201,79 @@ export function UserAuthorizationDialog({
   }
 
   return (
+    <>
+      <Modal.Body className="flex min-w-0 flex-col gap-4">
+        {state.isLoading ? (
+          <div className="text-muted text-sm">正在加载授权...</div>
+        ) : null}
+        {state.error ? <AccessError>{state.error}</AccessError> : null}
+        <AccessList
+          emptyText="暂无模型配置。"
+          items={state.models}
+          selectedIds={state.selectedModelIds}
+          title="模型授权"
+          onToggle={(id, selected) =>
+            setState((current) => ({
+              ...current,
+              selectedModelIds: toggleId(
+                current.selectedModelIds,
+                id,
+                selected,
+              ),
+            }))
+          }
+        />
+        <AccessList
+          emptyText="暂无 Agent 配置。"
+          items={state.agents}
+          selectedIds={state.selectedAgentIds}
+          title="Agent 授权"
+          onToggle={(id, selected) =>
+            setState((current) => ({
+              ...current,
+              selectedAgentIds: toggleId(
+                current.selectedAgentIds,
+                id,
+                selected,
+              ),
+            }))
+          }
+        />
+      </Modal.Body>
+      <Modal.Footer>
+        <Button isDisabled={isBusy} variant="tertiary" onPress={onClose}>
+          关闭
+        </Button>
+        <Button isDisabled={isBusy} onPress={saveAuthorization}>
+          {state.isSaving ? "保存中..." : "保存授权"}
+        </Button>
+      </Modal.Footer>
+    </>
+  );
+}
+
+export function UserBalanceDialog({ user }: { user: EditableUserSummary }) {
+  const modal = useOverlayState();
+
+  return (
     <Modal state={modal}>
       <Modal.Trigger>
         <Button size="sm" variant="tertiary">
-          授权
+          余额
         </Button>
       </Modal.Trigger>
-      <Modal.Backdrop
-        isDismissable={!isBusy}
-        isKeyboardDismissDisabled={isBusy}
-      >
-        <Modal.Container placement="center" scroll="inside" size="lg">
+      <Modal.Backdrop>
+        <Modal.Container placement="center" scroll="inside" size="md">
           <Modal.Dialog>
             <Modal.Header>
-              <Modal.Heading>用户授权</Modal.Heading>
+              <Modal.Heading>用户余额</Modal.Heading>
               <p className="text-muted text-sm">{user.username}</p>
             </Modal.Header>
-            <Modal.Body className="flex min-w-0 flex-col gap-4">
-              {state.isLoading ? (
-                <div className="text-muted text-sm">正在加载授权...</div>
-              ) : null}
-              {state.error ? <AccessError>{state.error}</AccessError> : null}
-              <AccessList
-                emptyText="暂无模型配置。"
-                items={state.models}
-                selectedIds={state.selectedModelIds}
-                title="模型授权"
-                onToggle={(id, selected) =>
-                  setState((current) => ({
-                    ...current,
-                    selectedModelIds: toggleId(
-                      current.selectedModelIds,
-                      id,
-                      selected,
-                    ),
-                  }))
-                }
-              />
-              <AccessList
-                emptyText="暂无 Agent 配置。"
-                items={state.agents}
-                selectedIds={state.selectedAgentIds}
-                title="Agent 授权"
-                onToggle={(id, selected) =>
-                  setState((current) => ({
-                    ...current,
-                    selectedAgentIds: toggleId(
-                      current.selectedAgentIds,
-                      id,
-                      selected,
-                    ),
-                  }))
-                }
-              />
-            </Modal.Body>
-            <Modal.Footer>
-              <Button
-                isDisabled={isBusy}
-                variant="tertiary"
-                onPress={() => modal.close()}
-              >
-                关闭
-              </Button>
-              <Button isDisabled={isBusy} onPress={saveAuthorization}>
-                {state.isSaving ? "保存中..." : "保存授权"}
-              </Button>
-            </Modal.Footer>
+            <UserBalancePanel
+              isActive={modal.isOpen}
+              user={user}
+              onClose={() => modal.close()}
+            />
           </Modal.Dialog>
         </Modal.Container>
       </Modal.Backdrop>
@@ -234,7 +281,17 @@ export function UserAuthorizationDialog({
   );
 }
 
-export function UserBalanceDialog({ user }: { user: EditableUserSummary }) {
+export function UserBalancePanel({
+  isActive,
+  onClose,
+  showTransactions = true,
+  user,
+}: {
+  isActive: boolean;
+  onClose: () => void;
+  showTransactions?: boolean;
+  user: EditableUserSummary;
+}) {
   const loadRequestRef = useRef(0);
   const [state, setState] = useState<BalanceState>({
     balance: undefined,
@@ -244,18 +301,21 @@ export function UserBalanceDialog({ user }: { user: EditableUserSummary }) {
     transactions: [],
   });
   const [form, setForm] = useState<BalanceForm>(DEFAULT_BALANCE_FORM);
-  const modal = useOverlayState({
-    onOpenChange(isOpen) {
-      if (!isOpen) {
-        loadRequestRef.current += 1;
-
-        return;
-      }
-
-      void loadBalance();
-    },
-  });
   const isBusy = state.isLoading || state.isSaving;
+
+  useEffect(() => {
+    if (!isActive) {
+      loadRequestRef.current += 1;
+
+      return;
+    }
+
+    void loadBalance();
+
+    return () => {
+      loadRequestRef.current += 1;
+    };
+  }, [isActive, showTransactions, user.id]);
 
   async function loadBalance() {
     const requestId = loadRequestRef.current + 1;
@@ -266,11 +326,13 @@ export function UserBalanceDialog({ user }: { user: EditableUserSummary }) {
     try {
       const [balance, transactions] = await Promise.all([
         getUserBalance({ currency: "CNY", userId: user.id }),
-        listUserBalanceTransactions({
-          currency: "CNY",
-          pageSize: 10,
-          userId: user.id,
-        }),
+        showTransactions
+          ? listUserBalanceTransactions({
+              currency: "CNY",
+              pageSize: 10,
+              userId: user.id,
+            })
+          : Promise.resolve([]),
       ]);
 
       if (loadRequestRef.current !== requestId) return;
@@ -326,168 +388,145 @@ export function UserBalanceDialog({ user }: { user: EditableUserSummary }) {
   }
 
   return (
-    <Modal state={modal}>
-      <Modal.Trigger>
-        <Button size="sm" variant="tertiary">
-          余额
-        </Button>
-      </Modal.Trigger>
-      <Modal.Backdrop
-        isDismissable={!isBusy}
-        isKeyboardDismissDisabled={isBusy}
-      >
-        <Modal.Container placement="center" scroll="inside" size="md">
-          <Modal.Dialog>
-            <Modal.Header>
-              <Modal.Heading>用户余额</Modal.Heading>
-              <p className="text-muted text-sm">{user.username}</p>
-            </Modal.Header>
-            <Modal.Body className="flex min-w-0 flex-col gap-4">
-              {state.isLoading ? (
-                <div className="text-muted text-sm">正在加载余额...</div>
-              ) : null}
-              {state.error ? <AccessError>{state.error}</AccessError> : null}
+    <>
+      <Modal.Body className="flex min-w-0 flex-col gap-4">
+        {state.isLoading ? (
+          <div className="text-muted text-sm">正在加载余额...</div>
+        ) : null}
+        {state.error ? <AccessError>{state.error}</AccessError> : null}
 
-              <div className="grid grid-cols-2 gap-3">
-                <BalanceMetric
-                  label="可用余额"
-                  value={state.balance?.availableAmount}
-                />
-                <BalanceMetric
-                  label="冻结余额"
-                  value={state.balance?.frozenAmount}
-                />
-                <BalanceMetric
-                  label="累计充值"
-                  value={state.balance?.totalRechargedAmount}
-                />
-                <BalanceMetric
-                  label="累计消费"
-                  value={state.balance?.totalConsumedAmount}
-                />
-              </div>
+        <div className="grid grid-cols-2 gap-3">
+          <BalanceMetric
+            label="可用余额"
+            value={state.balance?.availableAmount}
+          />
+          <BalanceMetric label="冻结余额" value={state.balance?.frozenAmount} />
+          <BalanceMetric
+            label="累计充值"
+            value={state.balance?.totalRechargedAmount}
+          />
+          <BalanceMetric
+            label="累计消费"
+            value={state.balance?.totalConsumedAmount}
+          />
+        </div>
 
-              <div className="grid gap-3">
-                <Select
-                  fullWidth
-                  selectedKey={form.direction}
-                  variant="secondary"
-                  onSelectionChange={(key) =>
-                    setForm((current) => ({
-                      ...current,
-                      direction: String(key ?? "credit"),
-                    }))
-                  }
-                >
-                  <Label>方向</Label>
-                  <Select.Trigger>
-                    <Select.Value />
-                    <Select.Indicator />
-                  </Select.Trigger>
-                  <Select.Popover>
-                    <ListBox>
-                      <ListBox.Item id="credit">增加余额</ListBox.Item>
-                      <ListBox.Item id="debit">减少余额</ListBox.Item>
-                    </ListBox>
-                  </Select.Popover>
-                </Select>
-                <Select
-                  fullWidth
-                  selectedKey={form.type}
-                  variant="secondary"
-                  onSelectionChange={(key) =>
-                    setForm((current) => ({
-                      ...current,
-                      type: String(key ?? "adjustment"),
-                    }))
-                  }
-                >
-                  <Label>类型</Label>
-                  <Select.Trigger>
-                    <Select.Value />
-                    <Select.Indicator />
-                  </Select.Trigger>
-                  <Select.Popover>
-                    <ListBox>
-                      <ListBox.Item id="adjustment">手动调整</ListBox.Item>
-                      <ListBox.Item id="recharge">充值</ListBox.Item>
-                      <ListBox.Item id="refund">退款</ListBox.Item>
-                      <ListBox.Item id="grant">赠送额度</ListBox.Item>
-                      <ListBox.Item id="expire">额度过期</ListBox.Item>
-                    </ListBox>
-                  </Select.Popover>
-                </Select>
-                <TextField fullWidth variant="secondary">
-                  <Label>金额</Label>
-                  <Input
-                    inputMode="decimal"
-                    placeholder="100.0000000000"
-                    value={form.amount}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        amount: event.target.value,
-                      }))
-                    }
-                  />
-                </TextField>
-                <TextField fullWidth variant="secondary">
-                  <Label>说明</Label>
-                  <Input
-                    placeholder="manual adjustment"
-                    value={form.description}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        description: event.target.value,
-                      }))
-                    }
-                  />
-                </TextField>
-              </div>
+        <div className="grid gap-3">
+          <Select
+            fullWidth
+            selectedKey={form.direction}
+            variant="secondary"
+            onSelectionChange={(key) =>
+              setForm((current) => ({
+                ...current,
+                direction: String(key ?? "credit"),
+              }))
+            }
+          >
+            <Label>方向</Label>
+            <Select.Trigger>
+              <Select.Value />
+              <Select.Indicator />
+            </Select.Trigger>
+            <Select.Popover>
+              <ListBox>
+                <ListBox.Item id="credit">增加余额</ListBox.Item>
+                <ListBox.Item id="debit">减少余额</ListBox.Item>
+              </ListBox>
+            </Select.Popover>
+          </Select>
+          <Select
+            fullWidth
+            selectedKey={form.type}
+            variant="secondary"
+            onSelectionChange={(key) =>
+              setForm((current) => ({
+                ...current,
+                type: String(key ?? "adjustment"),
+              }))
+            }
+          >
+            <Label>类型</Label>
+            <Select.Trigger>
+              <Select.Value />
+              <Select.Indicator />
+            </Select.Trigger>
+            <Select.Popover>
+              <ListBox>
+                <ListBox.Item id="adjustment">手动调整</ListBox.Item>
+                <ListBox.Item id="recharge">充值</ListBox.Item>
+                <ListBox.Item id="refund">退款</ListBox.Item>
+                <ListBox.Item id="grant">赠送额度</ListBox.Item>
+                <ListBox.Item id="expire">额度过期</ListBox.Item>
+              </ListBox>
+            </Select.Popover>
+          </Select>
+          <TextField fullWidth variant="secondary">
+            <Label>金额</Label>
+            <Input
+              inputMode="decimal"
+              placeholder="100.0000000000"
+              value={form.amount}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  amount: event.target.value,
+                }))
+              }
+            />
+          </TextField>
+          <TextField fullWidth variant="secondary">
+            <Label>说明</Label>
+            <Input
+              placeholder="manual adjustment"
+              value={form.description}
+              onChange={(event) =>
+                setForm((current) => ({
+                  ...current,
+                  description: event.target.value,
+                }))
+              }
+            />
+          </TextField>
+        </div>
 
-              <section className="flex min-w-0 flex-col gap-2">
-                <h3 className="text-sm font-semibold">最近流水</h3>
-                {state.transactions.length === 0 ? (
-                  <span className="text-muted text-sm">暂无余额流水。</span>
-                ) : null}
-                {state.transactions.map((transaction) => (
-                  <div
-                    key={transaction.id ?? transaction.createdAt}
-                    className="grid grid-cols-[1fr_auto] gap-3 rounded-md bg-surface px-3 py-2 text-xs"
-                  >
-                    <div className="min-w-0">
-                      <div className="truncate font-medium">
-                        {transaction.description || transaction.type || "-"}
-                      </div>
-                      <div className="text-muted truncate">
-                        {transaction.direction || "-"} ·{" "}
-                        {formatDateTime(transaction.createdAt)}
-                      </div>
-                    </div>
-                    <div className="text-right font-medium">
-                      {transaction.amount ?? "-"}
-                    </div>
-                  </div>
-                ))}
-              </section>
-            </Modal.Body>
-            <Modal.Footer>
-              <Button
-                isDisabled={isBusy}
-                variant="tertiary"
-                onPress={() => modal.close()}
+        {showTransactions ? (
+          <section className="flex min-w-0 flex-col gap-2">
+            <h3 className="text-sm font-semibold">最近流水</h3>
+            {state.transactions.length === 0 ? (
+              <span className="text-muted text-sm">暂无余额流水。</span>
+            ) : null}
+            {state.transactions.map((transaction) => (
+              <div
+                key={transaction.id ?? transaction.createdAt}
+                className="grid grid-cols-[1fr_auto] gap-3 rounded-md bg-surface px-3 py-2 text-xs"
               >
-                关闭
-              </Button>
-              <Button isDisabled={isBusy} onPress={saveBalance}>
-                {state.isSaving ? "调整中..." : "调整余额"}
-              </Button>
-            </Modal.Footer>
-          </Modal.Dialog>
-        </Modal.Container>
-      </Modal.Backdrop>
-    </Modal>
+                <div className="min-w-0">
+                  <div className="truncate font-medium">
+                    {transaction.description || transaction.type || "-"}
+                  </div>
+                  <div className="text-muted truncate">
+                    {transaction.direction || "-"} ·{" "}
+                    {formatDateTime(transaction.createdAt)}
+                  </div>
+                </div>
+                <div className="text-right font-medium">
+                  {transaction.amount ?? "-"}
+                </div>
+              </div>
+            ))}
+          </section>
+        ) : null}
+      </Modal.Body>
+      <Modal.Footer>
+        <Button isDisabled={isBusy} variant="tertiary" onPress={onClose}>
+          关闭
+        </Button>
+        <Button isDisabled={isBusy} onPress={saveBalance}>
+          {state.isSaving ? "调整中..." : "调整余额"}
+        </Button>
+      </Modal.Footer>
+    </>
   );
 }
 

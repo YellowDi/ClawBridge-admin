@@ -3,22 +3,27 @@
 import type { DataGridColumn } from "@heroui-pro/react";
 import type { Key } from "react";
 import type { User as ApiUser } from "@/lib/api";
+import type { EditableUserSummary } from "@/components/create-user-dialog";
 
-import { Avatar, Chip, SearchField, Tabs } from "@heroui/react";
+import {
+  Avatar,
+  Chip,
+  Dropdown,
+  SearchField,
+  Tabs,
+  Tooltip,
+  useOverlayState,
+} from "@heroui/react";
 import { DataGrid } from "@heroui-pro/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AdminPage, StatGrid } from "@/components/admin-page-kit";
+import { AdminIcon } from "@/components/admin-icons";
 import {
   CreateUserDialog,
   DeleteUserDialog,
-  EditUserDialog,
 } from "@/components/create-user-dialog";
-import { KnowledgeAvailabilityDialog } from "@/components/knowledge-availability-dialog";
-import {
-  UserAuthorizationDialog,
-  UserBalanceDialog,
-} from "@/components/user-access-dialog";
+import { UserSettingsDialog } from "@/components/user-settings-dialog";
 import { listUsers } from "@/lib/api";
 
 type UserStatus = "正常" | "已停用";
@@ -204,28 +209,20 @@ export function UsersPage() {
           const user = toEditableUserSummary(item, item.userId);
 
           return (
-            <div className="flex items-center justify-end gap-2">
-              <KnowledgeAvailabilityDialog
-                selectedKnowledgeBaseIds={item.knowledgeBaseIds}
-                subjectId={user.id}
-                subjectLabel={user.username}
-                subjectType="user"
-                onSaved={refreshUsers}
-              />
-              <UserAuthorizationDialog user={user} />
-              <UserBalanceDialog user={user} />
-              <EditUserDialog user={user} onUpdated={refreshUsers} />
-              <DeleteUserDialog user={user} onDeleted={refreshUsers} />
-            </div>
+            <UserRowActions
+              selectedKnowledgeBaseIds={item.knowledgeBaseIds}
+              user={user}
+              onChanged={refreshUsers}
+            />
           );
         },
-        cellClassName: "w-[360px] min-w-[360px] max-w-[360px] pl-4 pr-4",
+        cellClassName: "w-[132px] min-w-[132px] max-w-[132px] pl-4 pr-4",
         header: "操作",
         headerClassName:
-          "w-[360px] min-w-[360px] max-w-[360px] whitespace-nowrap pl-4 pr-4",
+          "w-[132px] min-w-[132px] max-w-[132px] whitespace-nowrap pl-4 pr-4",
         id: "actions",
         pinned: "end",
-        width: 360,
+        width: 132,
       },
     ],
     [refreshUsers],
@@ -322,6 +319,57 @@ export function UsersPage() {
         />
       </section>
     </AdminPage>
+  );
+}
+
+function UserRowActions({
+  onChanged,
+  selectedKnowledgeBaseIds,
+  user,
+}: {
+  onChanged: () => void;
+  selectedKnowledgeBaseIds: number[];
+  user: EditableUserSummary;
+}) {
+  const deleteModal = useOverlayState();
+
+  return (
+    <div className="flex items-center justify-end gap-2">
+      <UserSettingsDialog
+        selectedKnowledgeBaseIds={selectedKnowledgeBaseIds}
+        user={user}
+        onUpdated={onChanged}
+      />
+      <Dropdown>
+        <Tooltip delay={0}>
+          <Dropdown.Trigger
+            aria-label="更多操作"
+            className="inline-flex size-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface hover:text-foreground"
+          >
+            <AdminIcon className="size-4" name="more" />
+          </Dropdown.Trigger>
+          <Tooltip.Content>更多操作</Tooltip.Content>
+        </Tooltip>
+        <Dropdown.Popover placement="bottom end">
+          <Dropdown.Menu
+            aria-label={`${user.username} 更多操作`}
+            onAction={(key) => {
+              if (key === "delete") deleteModal.open();
+            }}
+          >
+            <Dropdown.Item id="delete" variant="danger">
+              删除
+            </Dropdown.Item>
+          </Dropdown.Menu>
+        </Dropdown.Popover>
+      </Dropdown>
+      <DeleteUserDialog
+        hideTrigger
+        state={deleteModal}
+        user={user}
+        onDeleted={onChanged}
+      />
+    </div>
   );
 }
 

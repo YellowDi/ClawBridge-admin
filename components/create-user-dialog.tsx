@@ -13,7 +13,7 @@ import {
   TextField,
   useOverlayState,
 } from "@heroui/react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { AdminIcon } from "@/components/admin-icons";
 import { createUser, deleteUser, getUserDetail, updateUser } from "@/lib/api";
@@ -50,6 +50,8 @@ export type EditableUserSummary = {
   isAdmin: boolean;
   username: string;
 };
+
+type UserDeleteDialogState = ReturnType<typeof useOverlayState>;
 
 const DEFAULT_USER_FORM: UserForm = {
   enabled: true,
@@ -192,6 +194,45 @@ export function EditUserDialog({
   onUpdated: () => void;
   user: EditableUserSummary;
 }) {
+  const modal = useOverlayState();
+
+  return (
+    <Modal state={modal}>
+      <Modal.Trigger>
+        <Button size="sm" variant="tertiary">
+          编辑
+        </Button>
+      </Modal.Trigger>
+      <Modal.Backdrop>
+        <Modal.Container placement="center" scroll="outside" size="md">
+          <Modal.Dialog>
+            <Modal.Header>
+              <Modal.Heading>编辑用户</Modal.Heading>
+            </Modal.Header>
+            <UserEditPanel
+              isActive={modal.isOpen}
+              user={user}
+              onClose={() => modal.close()}
+              onUpdated={onUpdated}
+            />
+          </Modal.Dialog>
+        </Modal.Container>
+      </Modal.Backdrop>
+    </Modal>
+  );
+}
+
+export function UserEditPanel({
+  isActive,
+  onClose,
+  onUpdated,
+  user,
+}: {
+  isActive: boolean;
+  onClose: () => void;
+  onUpdated: () => void;
+  user: EditableUserSummary;
+}) {
   const loadRequestRef = useRef(0);
   const [state, setState] = useState<EditUserState>({
     error: null,
@@ -200,19 +241,22 @@ export function EditUserDialog({
     isSaving: false,
     loadedUserId: null,
   });
-  const modal = useOverlayState({
-    onOpenChange(isOpen) {
-      if (!isOpen) {
-        loadRequestRef.current += 1;
-
-        return;
-      }
-
-      loadUser();
-    },
-  });
   const { error, form, isLoading, isSaving, loadedUserId } = state;
   const isBusy = isLoading || isSaving;
+
+  useEffect(() => {
+    if (!isActive) {
+      loadRequestRef.current += 1;
+
+      return;
+    }
+
+    loadUser();
+
+    return () => {
+      loadRequestRef.current += 1;
+    };
+  }, [isActive, user.id]);
 
   function loadUser() {
     const requestId = loadRequestRef.current + 1;
@@ -253,7 +297,7 @@ export function EditUserDialog({
   function closeDialog() {
     if (isBusy) return;
 
-    modal.close();
+    onClose();
   }
 
   function updateForm(patch: Partial<UserForm>) {
@@ -296,7 +340,7 @@ export function EditUserDialog({
         password: form.password,
         username,
       });
-      modal.close();
+      onClose();
       setState({
         error: null,
         form: toUserForm({
@@ -320,81 +364,64 @@ export function EditUserDialog({
   }
 
   return (
-    <Modal state={modal}>
-      <Modal.Trigger>
-        <Button size="sm" variant="tertiary">
-          编辑
+    <form className="min-w-0" onSubmit={handleSubmit}>
+      <Modal.Body className="-mx-1 flex min-w-0 flex-col gap-4 px-1 py-1">
+        {isLoading ? (
+          <div className="text-muted text-sm">正在加载用户详情...</div>
+        ) : null}
+        <UserFormFields
+          form={form}
+          isDisabled={isBusy || loadedUserId == null}
+          passwordAutoComplete="new-password"
+          passwordPlaceholder="留空则不修改密码"
+          onChange={updateForm}
+        />
+        {error ? <UserFormError>{error}</UserFormError> : null}
+      </Modal.Body>
+      <Modal.Footer>
+        <Button
+          isDisabled={isBusy}
+          type="button"
+          variant="tertiary"
+          onPress={closeDialog}
+        >
+          取消
         </Button>
-      </Modal.Trigger>
-      <Modal.Backdrop
-        isDismissable={!isBusy}
-        isKeyboardDismissDisabled={isBusy}
-      >
-        <Modal.Container placement="center" scroll="outside" size="md">
-          <Modal.Dialog>
-            <form className="min-w-0" onSubmit={handleSubmit}>
-              <Modal.Header>
-                <Modal.Heading>编辑用户</Modal.Heading>
-              </Modal.Header>
-              <Modal.Body className="-mx-1 flex min-w-0 flex-col gap-4 px-1 py-1">
-                {isLoading ? (
-                  <div className="text-muted text-sm">正在加载用户详情...</div>
-                ) : null}
-                <UserFormFields
-                  form={form}
-                  isDisabled={isBusy || loadedUserId == null}
-                  passwordAutoComplete="new-password"
-                  passwordPlaceholder="留空则不修改密码"
-                  onChange={updateForm}
-                />
-                {error ? <UserFormError>{error}</UserFormError> : null}
-              </Modal.Body>
-              <Modal.Footer>
-                <Button
-                  isDisabled={isBusy}
-                  type="button"
-                  variant="tertiary"
-                  onPress={closeDialog}
-                >
-                  取消
-                </Button>
-                <Button
-                  isDisabled={isBusy || loadedUserId == null}
-                  type="submit"
-                >
-                  {isSaving ? "保存中..." : "保存修改"}
-                </Button>
-              </Modal.Footer>
-            </form>
-          </Modal.Dialog>
-        </Modal.Container>
-      </Modal.Backdrop>
-    </Modal>
+        <Button isDisabled={isBusy || loadedUserId == null} type="submit">
+          {isSaving ? "保存中..." : "保存修改"}
+        </Button>
+      </Modal.Footer>
+    </form>
   );
 }
 
 export function DeleteUserDialog({
+  hideTrigger = false,
   onDeleted,
+  state: controlledModal,
   user,
 }: {
+  hideTrigger?: boolean;
   onDeleted: () => void;
+  state?: UserDeleteDialogState;
   user: EditableUserSummary;
 }) {
   const [state, setState] = useState<DeleteUserState>({
     error: null,
     isDeleting: false,
   });
-  const modal = useOverlayState({
-    onOpenChange(isOpen) {
-      if (!isOpen) return;
-
-      setState({
-        error: null,
-        isDeleting: false,
-      });
-    },
-  });
+  const internalModal = useOverlayState();
+  const modal = controlledModal ?? internalModal;
   const { error, isDeleting } = state;
+
+  useEffect(() => {
+    if (!modal.isOpen) return;
+
+    setState({
+      error: null,
+      isDeleting: false,
+    });
+  }, [modal.isOpen]);
 
   function closeDialog() {
     if (isDeleting) return;
@@ -426,11 +453,13 @@ export function DeleteUserDialog({
 
   return (
     <Modal state={modal}>
-      <Modal.Trigger>
-        <Button size="sm" variant="danger-soft">
-          删除
-        </Button>
-      </Modal.Trigger>
+      {hideTrigger ? null : (
+        <Modal.Trigger>
+          <Button size="sm" variant="danger-soft">
+            删除
+          </Button>
+        </Modal.Trigger>
+      )}
       <Modal.Backdrop
         isDismissable={!isDeleting}
         isKeyboardDismissDisabled={isDeleting}

@@ -9,6 +9,7 @@ import {
   ChartPie,
   CirclePlus,
   Database,
+  EllipsisVertical,
   FaceRobot,
   FileArrowUp,
   FileText,
@@ -33,6 +34,7 @@ export type AdminIconName =
   | "knowledge"
   | "logout"
   | "model"
+  | "more"
   | "plus"
   | "refresh"
   | "search"
@@ -54,6 +56,7 @@ const ICONS: Record<AdminIconName, ComponentType<SVGProps<SVGSVGElement>>> = {
   knowledge: Bulb,
   logout: ArrowRightFromSquare,
   model: Server,
+  more: EllipsisVertical,
   plus: CirclePlus,
   refresh: ArrowsRotateLeft,
   search: Magnifier,
