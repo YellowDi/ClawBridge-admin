@@ -45,13 +45,17 @@
 
 ## 表单范围
 
-首版表单只覆盖常用结构化字段：
+表单覆盖接口文档中的 MCP 配置字段：
 
 - 基础字段：`serverName`、`displayName`、`description`、`enabled`。
-- 连接字段：`transport`、`command`、`args`、`url`、`cwd`。
+- 连接字段：`transport`、`command`、`args`、`url`、`cwd`、`workingDirectory`。
 - 配置值：`env`、`headers`，使用每行 `key / type / value 或 envName` 的简化输入。
 - 工具过滤：`toolFilter.include`、`toolFilter.exclude`，使用逗号分隔文本。
-- 超时：`connectionTimeoutMs`、`requestTimeoutMs`。
+- 超时：`connectionTimeoutMs`、`requestTimeoutMs`、`connectTimeout`、`timeout`。
+- 鉴权和连接安全：`auth`、`oauth.scope`、`oauth.redirectUrl`、`oauth.clientMetadataUrl`、`sslVerify`、`clientCert`、`clientKey`。
+- 其他能力：`supportsParallelToolCalls`、`codex`、`extra`。
+
+多行文本输入使用 HeroUI `TextArea`。`codex` 和 `extra` 使用 JSON object 文本输入，提交前做 JSON object 校验。
 
 `secret` 类型值由后端加密保存，返回时显示 `******`。编辑时如果用户保留 `******`，按后端规则沿用旧 secret；如果用户输入新值，则提交新 secret。
 
@@ -80,6 +84,5 @@
 
 ## 风险
 
-- 后端 MCP 配置结构支持字段很多，首版表单没有覆盖 `oauth`、mTLS、`codex`、`extra` 等低频字段。
 - OpenClaw 快照依赖 RPC 插件在线；离线或 bridge 不可用时只能展示错误和空状态。
 - `replace_agent_mcp` 的精确语义由后端和 OpenClaw 插件执行，前端只透传 mode。

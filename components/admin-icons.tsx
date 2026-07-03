@@ -14,6 +14,7 @@ import {
   FileArrowUp,
   FileText,
   Gear,
+  LogoMcp,
   Magnifier,
   Pencil,
   Persons,
@@ -33,6 +34,7 @@ export type AdminIconName =
   | "edit"
   | "knowledge"
   | "logout"
+  | "mcp"
   | "model"
   | "more"
   | "plus"
@@ -55,6 +57,7 @@ const ICONS: Record<AdminIconName, ComponentType<SVGProps<SVGSVGElement>>> = {
   edit: Pencil,
   knowledge: Bulb,
   logout: ArrowRightFromSquare,
+  mcp: LogoMcp,
   model: Server,
   more: EllipsisVertical,
   plus: CirclePlus,
