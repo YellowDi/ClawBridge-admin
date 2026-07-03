@@ -835,14 +835,17 @@ function MCPServerDialog({
         isKeyboardDismissDisabled={isSaving}
       >
         <Modal.Container placement="center" scroll="inside" size="lg">
-          <Modal.Dialog>
-            <form className="min-w-0" onSubmit={handleSubmit}>
+          <Modal.Dialog className="max-h-[calc(100dvh-5rem)]">
+            <form
+              className="flex max-h-[calc(100dvh-5rem)] min-w-0 flex-col"
+              onSubmit={handleSubmit}
+            >
               <Modal.Header>
                 <Modal.Heading>
                   {isEditing ? "编辑 MCP 配置" : "新建 MCP 配置"}
                 </Modal.Heading>
               </Modal.Header>
-              <Modal.Body className="-mx-1 flex min-w-0 flex-col gap-4 px-1 py-1">
+              <Modal.Body className="-mx-1 flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto px-1 py-1">
                 <MCPServerFormFields
                   form={form}
                   isDisabled={isSaving}
@@ -1288,10 +1291,11 @@ function ValueRowsEditor({
           rows.map((row) => (
             <div
               key={row.id}
-              className="grid grid-cols-1 gap-2 rounded-md border border-divider p-2 md:grid-cols-[minmax(120px,1fr)_120px_minmax(160px,1.2fr)_auto]"
+              className="grid grid-cols-1 items-center gap-2 rounded-md border border-divider p-2 md:grid-cols-[minmax(0,1fr)_104px_minmax(0,1.2fr)_64px]"
             >
               <Input
                 autoComplete="off"
+                className="min-w-0"
                 disabled={isDisabled}
                 placeholder="Key"
                 value={row.key}
@@ -1325,6 +1329,7 @@ function ValueRowsEditor({
               </Select>
               <Input
                 autoComplete="off"
+                className="min-w-0"
                 disabled={isDisabled}
                 placeholder={row.type === "env_ref" ? "ENV_NAME" : "Value"}
                 value={row.type === "env_ref" ? row.envName : row.value}
@@ -1338,8 +1343,8 @@ function ValueRowsEditor({
                 }
               />
               <Button
+                className="w-full"
                 isDisabled={isDisabled}
-                size="sm"
                 type="button"
                 variant="danger-soft"
                 onPress={() =>
