@@ -672,15 +672,9 @@ export function AdminMCPPage() {
               </Checkbox>
             </div>
 
-            <Disclosure className="rounded-md border border-divider p-3">
-              <Disclosure.Heading>
-                <Disclosure.Trigger className="flex w-full items-center justify-between text-left text-sm font-medium">
-                  <span>高级下发选项</span>
-                  <Disclosure.Indicator className="size-4 shrink-0" />
-                </Disclosure.Trigger>
-              </Disclosure.Heading>
+            <Disclosure>
               <Disclosure.Content>
-                <Disclosure.Body className="pt-3">
+                <Disclosure.Body>
                   <Select
                     fullWidth
                     className="min-w-0"
@@ -711,25 +705,33 @@ export function AdminMCPPage() {
                   </Select>
                 </Disclosure.Body>
               </Disclosure.Content>
+
+              {instancesState.error ? (
+                <InlineError>{instancesState.error}</InlineError>
+              ) : null}
+              {snapshotState.error ? (
+                <InlineError>{snapshotState.error}</InlineError>
+              ) : null}
+              {applyState.error ? (
+                <InlineError>{applyState.error}</InlineError>
+              ) : null}
+
+              <div className="flex items-center justify-between gap-2">
+                <Disclosure.Heading>
+                  <Disclosure.Trigger className="flex items-center gap-2 text-sm font-medium">
+                    <span>高级下发选项</span>
+                    <Disclosure.Indicator />
+                  </Disclosure.Trigger>
+                </Disclosure.Heading>
+                <Button
+                  isDisabled={applyState.isApplying || snapshotState.isLoading}
+                  isPending={applyState.isApplying}
+                  onPress={() => void handleApply()}
+                >
+                  {applyState.dryRun ? "预检 MCP 应用" : "应用 MCP 配置"}
+                </Button>
+              </div>
             </Disclosure>
-
-            {instancesState.error ? (
-              <InlineError>{instancesState.error}</InlineError>
-            ) : null}
-            {snapshotState.error ? (
-              <InlineError>{snapshotState.error}</InlineError>
-            ) : null}
-            {applyState.error ? (
-              <InlineError>{applyState.error}</InlineError>
-            ) : null}
-
-            <Button
-              isDisabled={applyState.isApplying || snapshotState.isLoading}
-              isPending={applyState.isApplying}
-              onPress={() => void handleApply()}
-            >
-              {applyState.dryRun ? "预检 MCP 应用" : "应用 MCP 配置"}
-            </Button>
           </div>
         </SectionCard>
       </section>
