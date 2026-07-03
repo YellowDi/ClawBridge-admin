@@ -20,6 +20,7 @@ import type { FormEvent } from "react";
 import { DataGrid } from "@heroui-pro/react";
 import {
   Button,
+  Card,
   Checkbox,
   Chip,
   Disclosure,
@@ -1690,33 +1691,36 @@ function OpenClawAgentsCard({
       <div className="flex max-h-[420px] flex-col gap-2 overflow-auto">
         {agents.length > 0 ? (
           agents.map((agent) => (
-            <div
+            <Card
               key={agent.agentId}
-              className="rounded-md border border-divider px-3 py-2"
+              className="gap-2 rounded-md border border-divider px-3 py-2"
+              variant="transparent"
             >
-              <div className="flex min-w-0 items-center justify-between gap-3">
+              <Card.Header className="flex-row items-center justify-between gap-3 p-0">
                 <div className="min-w-0">
-                  <div className="truncate text-sm font-medium">
+                  <Card.Title className="truncate text-sm">
                     {agent.displayName || agent.agentId || "未命名 Agent"}
-                  </div>
-                  <div className="text-muted truncate text-xs">
+                  </Card.Title>
+                  <Card.Description className="truncate text-xs">
                     {agent.agentId || "-"}
-                  </div>
+                  </Card.Description>
                 </div>
                 <Chip size="sm" variant="soft">
                   {(agent.toolsAlsoAllow?.length ?? 0) +
                     (agent.sandboxToolsAlsoAllow?.length ?? 0)}
                 </Chip>
-              </div>
-              <SnapshotLine
-                label="tools.alsoAllow"
-                values={agent.toolsAlsoAllow}
-              />
-              <SnapshotLine
-                label="sandbox.tools.alsoAllow"
-                values={agent.sandboxToolsAlsoAllow}
-              />
-            </div>
+              </Card.Header>
+              <Card.Content className="p-0">
+                <SnapshotLine
+                  label="tools.alsoAllow"
+                  values={agent.toolsAlsoAllow}
+                />
+                <SnapshotLine
+                  label="sandbox.tools.alsoAllow"
+                  values={agent.sandboxToolsAlsoAllow}
+                />
+              </Card.Content>
+            </Card>
           ))
         ) : (
           <EmptySnapshotText isLoading={isLoading} label="Agent" />
