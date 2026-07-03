@@ -59,7 +59,7 @@ const OPS_ITEMS: readonly NavItem[] = [
     key: "knowledge-bases",
     label: "知识库",
   },
-  { href: "/mcp", icon: "tool", key: "mcp", label: "OpenClaw MCP" },
+  { href: "/mcp", icon: "mcp", key: "mcp", label: "OpenClaw MCP" },
   { href: "/tools", icon: "tool", key: "tools", label: "工具与权限" },
   { href: "/audit", icon: "audit", key: "audit", label: "审计日志" },
 ] as const;
