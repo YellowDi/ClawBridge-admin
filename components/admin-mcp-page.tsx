@@ -1696,21 +1696,23 @@ function OpenClawAgentsCard({
                   {agent.displayName || agent.agentId || "未命名 Agent"}
                 </ItemCard.Title>
                 <ItemCard.Description>
-                  Agent ID：{agent.agentId || "-"}
+                  {agent.agentId || "-"}
                 </ItemCard.Description>
-                <ItemCard.Description>
-                  说明：{agent.description || "-"}
-                </ItemCard.Description>
-                <ItemCard.Description>
-                  tools.alsoAllow：{formatSnapshotValues(agent.toolsAlsoAllow)}
-                </ItemCard.Description>
-                <ItemCard.Description>
-                  sandbox.tools.alsoAllow：
-                  {formatSnapshotValues(agent.sandboxToolsAlsoAllow)}
-                </ItemCard.Description>
+                <dl className="mt-2 grid grid-cols-[96px_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
+                  <SnapshotField label="说明" value={agent.description} />
+                  <SnapshotField
+                    label="tools"
+                    value={formatSnapshotValues(agent.toolsAlsoAllow)}
+                  />
+                  <SnapshotField
+                    label="sandbox"
+                    value={formatSnapshotValues(agent.sandboxToolsAlsoAllow)}
+                  />
+                </dl>
               </ItemCard.Content>
               <ItemCard.Action>
                 <Chip size="sm" variant="soft">
+                  授权{" "}
                   {(agent.toolsAlsoAllow?.length ?? 0) +
                     (agent.sandboxToolsAlsoAllow?.length ?? 0)}
                 </Chip>
@@ -1820,6 +1822,15 @@ function SnapshotLine({ label, values }: { label: string; values?: string[] }) {
 
 function formatSnapshotValues(values?: string[]) {
   return values && values.length > 0 ? values.join(", ") : "-";
+}
+
+function SnapshotField({ label, value }: { label: string; value?: string }) {
+  return (
+    <>
+      <dt className="text-muted">{label}</dt>
+      <dd className="min-w-0 break-all text-foreground">{value || "-"}</dd>
+    </>
+  );
 }
 
 function EmptySnapshotText({
