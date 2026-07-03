@@ -972,36 +972,13 @@ function MCPServerFormFields({
         </Checkbox.Content>
       </Checkbox>
 
-      <div className="grid grid-cols-1 gap-3">
-        <Select
-          fullWidth
-          className="min-w-0"
-          isDisabled={isDisabled}
-          selectedKey={form.transport}
-          variant="secondary"
-          onSelectionChange={(key) =>
-            onChange({ transport: String(key ?? "stdio") })
-          }
-        >
-          <Label>连接方式</Label>
-          <Select.Trigger>
-            <Select.Value />
-            <Select.Indicator />
-          </Select.Trigger>
-          <Select.Popover>
-            <ListBox>
-              {MCP_TRANSPORT_OPTIONS.map((option) => (
-                <ListBox.Item key={option.id} id={option.id}>
-                  {option.label}
-                </ListBox.Item>
-              ))}
-            </ListBox>
-          </Select.Popover>
-        </Select>
-      </div>
-
       {isStdio ? (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+          <TransportSelect
+            isDisabled={isDisabled}
+            value={form.transport}
+            onChange={(transport) => onChange({ transport })}
+          />
           <TextField fullWidth variant="secondary">
             <Label>启动命令</Label>
             <Input
@@ -1033,6 +1010,11 @@ function MCPServerFormFields({
         </div>
       ) : (
         <div className="flex min-w-0 flex-col gap-4">
+          <TransportSelect
+            isDisabled={isDisabled}
+            value={form.transport}
+            onChange={(transport) => onChange({ transport })}
+          />
           <TextField fullWidth variant="secondary">
             <Label>远程服务地址</Label>
             <Input
@@ -1324,6 +1306,42 @@ function OptionalBooleanSelect({
           <ListBox.Item id="unset">默认</ListBox.Item>
           <ListBox.Item id="true">是</ListBox.Item>
           <ListBox.Item id="false">否</ListBox.Item>
+        </ListBox>
+      </Select.Popover>
+    </Select>
+  );
+}
+
+function TransportSelect({
+  isDisabled,
+  onChange,
+  value,
+}: {
+  isDisabled: boolean;
+  onChange: (value: MCPTransport) => void;
+  value: MCPTransport;
+}) {
+  return (
+    <Select
+      fullWidth
+      className="min-w-0"
+      isDisabled={isDisabled}
+      selectedKey={value}
+      variant="secondary"
+      onSelectionChange={(key) => onChange(String(key ?? "stdio"))}
+    >
+      <Label>连接方式</Label>
+      <Select.Trigger>
+        <Select.Value />
+        <Select.Indicator />
+      </Select.Trigger>
+      <Select.Popover>
+        <ListBox>
+          {MCP_TRANSPORT_OPTIONS.map((option) => (
+            <ListBox.Item key={option.id} id={option.id}>
+              {option.label}
+            </ListBox.Item>
+          ))}
         </ListBox>
       </Select.Popover>
     </Select>
