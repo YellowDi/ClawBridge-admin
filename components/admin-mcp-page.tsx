@@ -27,6 +27,7 @@ import {
   ListBox,
   Modal,
   Select,
+  TextArea,
   TextField,
   toast,
   useOverlayState,
@@ -82,23 +83,38 @@ type ConfigValueRow = {
   value: string;
 };
 
+type OptionalBooleanValue = "" | "false" | "true";
+
 type MCPServerFormState = {
   argsText: string;
+  auth: string;
+  clientCert: string;
+  clientKey: string;
   command: string;
+  codexJson: string;
+  connectTimeout: string;
   connectionTimeoutMs: string;
   cwd: string;
   description: string;
   displayName: string;
   enabled: boolean;
   envRows: ConfigValueRow[];
+  extraJson: string;
   headerRows: ConfigValueRow[];
   id?: number;
+  oauthClientMetadataUrl: string;
+  oauthRedirectUrl: string;
+  oauthScope: string;
   requestTimeoutMs: string;
   serverName: string;
+  sslVerify: OptionalBooleanValue;
+  supportsParallelToolCalls: OptionalBooleanValue;
   toolFilterExcludeText: string;
   toolFilterIncludeText: string;
+  timeout: string;
   transport: MCPTransport;
   url: string;
+  workingDirectory: string;
 };
 
 type MCPServerDialogState = {
@@ -954,6 +970,33 @@ function MCPServerFormFields({
         </TextField>
       </div>
 
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <TextField fullWidth variant="secondary">
+          <Label>连接超时 sec</Label>
+          <Input
+            autoComplete="off"
+            disabled={isDisabled}
+            inputMode="numeric"
+            placeholder="10"
+            value={form.connectTimeout}
+            onChange={(event) =>
+              onChange({ connectTimeout: event.target.value })
+            }
+          />
+        </TextField>
+        <TextField fullWidth variant="secondary">
+          <Label>请求超时 sec</Label>
+          <Input
+            autoComplete="off"
+            disabled={isDisabled}
+            inputMode="numeric"
+            placeholder="30"
+            value={form.timeout}
+            onChange={(event) => onChange({ timeout: event.target.value })}
+          />
+        </TextField>
+      </div>
+
       {isStdio ? (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           <TextField fullWidth variant="secondary">
@@ -974,6 +1017,18 @@ function MCPServerFormFields({
               placeholder="/srv/mcp"
               value={form.cwd}
               onChange={(event) => onChange({ cwd: event.target.value })}
+            />
+          </TextField>
+          <TextField fullWidth variant="secondary">
+            <Label>Working Directory</Label>
+            <Input
+              autoComplete="off"
+              disabled={isDisabled}
+              placeholder="/srv/mcp"
+              value={form.workingDirectory}
+              onChange={(event) =>
+                onChange({ workingDirectory: event.target.value })
+              }
             />
           </TextField>
           <div className="md:col-span-2">
@@ -999,6 +1054,93 @@ function MCPServerFormFields({
           />
         </TextField>
       )}
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <TextField fullWidth variant="secondary">
+          <Label>Auth</Label>
+          <Input
+            autoComplete="off"
+            disabled={isDisabled}
+            placeholder="oauth"
+            value={form.auth}
+            onChange={(event) => onChange({ auth: event.target.value })}
+          />
+        </TextField>
+        <OptionalBooleanSelect
+          isDisabled={isDisabled}
+          label="SSL Verify"
+          value={form.sslVerify}
+          onChange={(sslVerify) => onChange({ sslVerify })}
+        />
+        <OptionalBooleanSelect
+          isDisabled={isDisabled}
+          label="并行工具调用"
+          value={form.supportsParallelToolCalls}
+          onChange={(supportsParallelToolCalls) =>
+            onChange({ supportsParallelToolCalls })
+          }
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <TextField fullWidth variant="secondary">
+          <Label>Client Cert</Label>
+          <Input
+            autoComplete="off"
+            disabled={isDisabled}
+            placeholder="/etc/ssl/client.crt"
+            value={form.clientCert}
+            onChange={(event) => onChange({ clientCert: event.target.value })}
+          />
+        </TextField>
+        <TextField fullWidth variant="secondary">
+          <Label>Client Key</Label>
+          <Input
+            autoComplete="off"
+            disabled={isDisabled}
+            placeholder="/etc/ssl/client.key"
+            value={form.clientKey}
+            onChange={(event) => onChange({ clientKey: event.target.value })}
+          />
+        </TextField>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <TextField fullWidth variant="secondary">
+          <Label>OAuth Scope</Label>
+          <Input
+            autoComplete="off"
+            disabled={isDisabled}
+            placeholder="repo read:user"
+            value={form.oauthScope}
+            onChange={(event) => onChange({ oauthScope: event.target.value })}
+          />
+        </TextField>
+        <TextField fullWidth variant="secondary">
+          <Label>OAuth Redirect URL</Label>
+          <Input
+            autoComplete="off"
+            disabled={isDisabled}
+            placeholder="http://127.0.0.1:1455/oauth/callback"
+            value={form.oauthRedirectUrl}
+            onChange={(event) =>
+              onChange({ oauthRedirectUrl: event.target.value })
+            }
+          />
+        </TextField>
+        <TextField fullWidth variant="secondary">
+          <Label>OAuth Client Metadata URL</Label>
+          <Input
+            autoComplete="off"
+            disabled={isDisabled}
+            placeholder="https://example.com/.well-known/oauth-client"
+            value={form.oauthClientMetadataUrl}
+            onChange={(event) =>
+              onChange({ oauthClientMetadataUrl: event.target.value })
+            }
+          />
+        </TextField>
+      </div>
 
       <ValueRowsEditor
         isDisabled={isDisabled}
@@ -1036,6 +1178,25 @@ function MCPServerFormFields({
         />
       </div>
 
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <LabeledTextarea
+          isDisabled={isDisabled}
+          label="Codex JSON"
+          placeholder={'{"approvalPolicy":"never"}'}
+          rows={4}
+          value={form.codexJson}
+          onChange={(codexJson) => onChange({ codexJson })}
+        />
+        <LabeledTextarea
+          isDisabled={isDisabled}
+          label="Extra JSON"
+          placeholder={'{"customField":"value"}'}
+          rows={4}
+          value={form.extraJson}
+          onChange={(extraJson) => onChange({ extraJson })}
+        />
+      </div>
+
       <Checkbox
         isDisabled={isDisabled}
         isSelected={form.enabled}
@@ -1052,6 +1213,44 @@ function MCPServerFormFields({
         </Checkbox.Content>
       </Checkbox>
     </div>
+  );
+}
+
+function OptionalBooleanSelect({
+  isDisabled,
+  label,
+  onChange,
+  value,
+}: {
+  isDisabled: boolean;
+  label: string;
+  onChange: (value: OptionalBooleanValue) => void;
+  value: OptionalBooleanValue;
+}) {
+  return (
+    <Select
+      fullWidth
+      className="min-w-0"
+      isDisabled={isDisabled}
+      selectedKey={value || "unset"}
+      variant="secondary"
+      onSelectionChange={(key) =>
+        onChange(key === "true" || key === "false" ? key : "")
+      }
+    >
+      <Label>{label}</Label>
+      <Select.Trigger>
+        <Select.Value />
+        <Select.Indicator />
+      </Select.Trigger>
+      <Select.Popover>
+        <ListBox>
+          <ListBox.Item id="unset">默认</ListBox.Item>
+          <ListBox.Item id="true">是</ListBox.Item>
+          <ListBox.Item id="false">否</ListBox.Item>
+        </ListBox>
+      </Select.Popover>
+    </Select>
   );
 }
 
@@ -1529,17 +1728,16 @@ function LabeledTextarea({
   value: string;
 }) {
   return (
-    <label className="flex min-w-0 flex-col gap-1.5">
-      <span className="text-sm font-medium">{label}</span>
-      <textarea
-        className="min-w-0 rounded-md border border-divider bg-default-50 px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted focus:border-primary disabled:opacity-60"
-        disabled={isDisabled}
-        placeholder={placeholder}
-        rows={rows}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-      />
-    </label>
+    <TextField
+      fullWidth
+      isDisabled={isDisabled}
+      value={value}
+      variant="secondary"
+      onChange={onChange}
+    >
+      <Label>{label}</Label>
+      <TextArea placeholder={placeholder} rows={rows} variant="secondary" />
+    </TextField>
   );
 }
 
@@ -1559,21 +1757,36 @@ function toMCPServerForm(server?: MCPServer): MCPServerFormState {
 
   return {
     argsText: (config.args ?? []).join("\n"),
+    auth: config.auth ?? "",
+    clientCert: config.clientCert ?? "",
+    clientKey: config.clientKey ?? "",
     command: config.command ?? "",
+    codexJson: formatOptionalJson(config.codex),
+    connectTimeout: formatOptionalNumber(config.connectTimeout),
     connectionTimeoutMs: formatOptionalNumber(config.connectionTimeoutMs),
-    cwd: config.cwd ?? config.workingDirectory ?? "",
+    cwd: config.cwd ?? "",
     description: server?.description ?? "",
     displayName: server?.displayName ?? "",
     enabled: server?.enabled !== false,
     envRows: valueRowsFromMap(config.env),
+    extraJson: formatOptionalJson(config.extra),
     headerRows: valueRowsFromMap(config.headers),
     id: server?.id,
+    oauthClientMetadataUrl: config.oauth?.clientMetadataUrl ?? "",
+    oauthRedirectUrl: config.oauth?.redirectUrl ?? "",
+    oauthScope: config.oauth?.scope ?? "",
     requestTimeoutMs: formatOptionalNumber(config.requestTimeoutMs),
     serverName: server?.serverName ?? "",
+    sslVerify: optionalBooleanToForm(config.sslVerify),
+    supportsParallelToolCalls: optionalBooleanToForm(
+      config.supportsParallelToolCalls,
+    ),
     toolFilterExcludeText: (toolFilter.exclude ?? []).join("\n"),
     toolFilterIncludeText: (toolFilter.include ?? []).join("\n"),
+    timeout: formatOptionalNumber(config.timeout),
     transport,
     url: config.url ?? "",
+    workingDirectory: config.workingDirectory ?? "",
   };
 }
 
@@ -1600,6 +1813,9 @@ function buildMCPServerRequest(form: MCPServerFormState): ReqMCPServerCreate {
     config.args = splitTextList(form.argsText);
 
     if (form.cwd.trim()) config.cwd = form.cwd.trim();
+    if (form.workingDirectory.trim()) {
+      config.workingDirectory = form.workingDirectory.trim();
+    }
   } else {
     const url = form.url.trim();
 
@@ -1612,6 +1828,10 @@ function buildMCPServerRequest(form: MCPServerFormState): ReqMCPServerCreate {
   const headers = buildConfigValueMap(form.headerRows, "请求头");
   const toolFilterInclude = splitTextList(form.toolFilterIncludeText);
   const toolFilterExclude = splitTextList(form.toolFilterExcludeText);
+  const connectTimeout = parseOptionalNumber(
+    form.connectTimeout,
+    "连接超时 sec",
+  );
   const connectionTimeoutMs = parseOptionalNumber(
     form.connectionTimeoutMs,
     "连接超时",
@@ -1620,7 +1840,28 @@ function buildMCPServerRequest(form: MCPServerFormState): ReqMCPServerCreate {
     form.requestTimeoutMs,
     "请求超时",
   );
+  const timeout = parseOptionalNumber(form.timeout, "请求超时 sec");
+  const codex = parseOptionalObject(form.codexJson, "Codex JSON");
+  const extra = parseOptionalObject(form.extraJson, "Extra JSON");
+  const supportsParallelToolCalls = optionalBooleanFromForm(
+    form.supportsParallelToolCalls,
+  );
+  const sslVerify = optionalBooleanFromForm(form.sslVerify);
 
+  if (form.auth.trim()) config.auth = form.auth.trim();
+  if (form.clientCert.trim()) config.clientCert = form.clientCert.trim();
+  if (form.clientKey.trim()) config.clientKey = form.clientKey.trim();
+  if (
+    form.oauthScope.trim() ||
+    form.oauthRedirectUrl.trim() ||
+    form.oauthClientMetadataUrl.trim()
+  ) {
+    config.oauth = {
+      clientMetadataUrl: form.oauthClientMetadataUrl.trim(),
+      redirectUrl: form.oauthRedirectUrl.trim(),
+      scope: form.oauthScope.trim(),
+    };
+  }
   if (Object.keys(env).length > 0) config.env = env;
   if (Object.keys(headers).length > 0) config.headers = headers;
   if (toolFilterInclude.length > 0 || toolFilterExclude.length > 0) {
@@ -1629,12 +1870,22 @@ function buildMCPServerRequest(form: MCPServerFormState): ReqMCPServerCreate {
       include: toolFilterInclude,
     };
   }
+  if (typeof connectTimeout === "number") {
+    config.connectTimeout = connectTimeout;
+  }
   if (typeof connectionTimeoutMs === "number") {
     config.connectionTimeoutMs = connectionTimeoutMs;
   }
   if (typeof requestTimeoutMs === "number") {
     config.requestTimeoutMs = requestTimeoutMs;
   }
+  if (typeof timeout === "number") config.timeout = timeout;
+  if (typeof supportsParallelToolCalls === "boolean") {
+    config.supportsParallelToolCalls = supportsParallelToolCalls;
+  }
+  if (typeof sslVerify === "boolean") config.sslVerify = sslVerify;
+  if (codex) config.codex = codex;
+  if (extra) config.extra = extra;
 
   return {
     config,
@@ -1731,8 +1982,49 @@ function parseOptionalNumber(value: string, label: string) {
   return result;
 }
 
+function parseOptionalObject(value: string, label: string) {
+  const trimmed = value.trim();
+
+  if (!trimmed) return undefined;
+
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error(`${label} 必须是 JSON object。`);
+    }
+
+    return parsed as Record<string, unknown>;
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new Error(`${label} 格式不是有效 JSON。`);
+    }
+
+    throw error;
+  }
+}
+
 function formatOptionalNumber(value?: number) {
   return typeof value === "number" ? String(value) : "";
+}
+
+function formatOptionalJson(value?: Record<string, unknown>) {
+  if (!value || Object.keys(value).length === 0) return "";
+
+  return JSON.stringify(value, null, 2);
+}
+
+function optionalBooleanToForm(value?: boolean): OptionalBooleanValue {
+  if (typeof value !== "boolean") return "";
+
+  return value ? "true" : "false";
+}
+
+function optionalBooleanFromForm(value: OptionalBooleanValue) {
+  if (value === "true") return true;
+  if (value === "false") return false;
+
+  return undefined;
 }
 
 function formatCount(value: number) {

@@ -126,7 +126,7 @@ Use `useEffect`, `useCallback`, and existing API helpers to load MCP servers and
 
 - [ ] **Step 2: Add MCP config list and dialog**
 
-Use HeroUI `Modal`, `TextField`, `Select`, `Checkbox`, and `Button`. Cover `serverName`, `displayName`, `description`, `enabled`, `transport`, `command`, `args`, `url`, `cwd`, `env`, `headers`, `toolFilter`, and timeout fields.
+Use HeroUI `Modal`, `TextField`, `TextArea`, `Select`, `Checkbox`, and `Button`. Cover every MCP config field in the API docs: `serverName`, `displayName`, `description`, `enabled`, `transport`, `command`, `args`, `env`, `cwd`, `workingDirectory`, `url`, `headers`, `connectionTimeoutMs`, `connectTimeout`, `requestTimeoutMs`, `timeout`, `supportsParallelToolCalls`, `auth`, `oauth`, `sslVerify`, `clientCert`, `clientKey`, `toolFilter`, `codex`, and `extra`.
 
 - [ ] **Step 3: Add delete confirmation**
 
