@@ -835,12 +835,12 @@ function MCPServerDialog({
         isKeyboardDismissDisabled={isSaving}
       >
         <Modal.Container placement="center" scroll="inside" size="lg">
-          <Modal.Dialog className="max-h-[calc(100dvh-5rem)]">
+          <Modal.Dialog className="flex max-h-[calc(100dvh-5rem)] flex-col overflow-hidden">
             <form
-              className="flex max-h-[calc(100dvh-5rem)] min-w-0 flex-col"
+              className="flex min-h-0 min-w-0 flex-1 flex-col"
               onSubmit={handleSubmit}
             >
-              <Modal.Header>
+              <Modal.Header className="shrink-0">
                 <Modal.Heading>
                   {isEditing ? "编辑 MCP 配置" : "新建 MCP 配置"}
                 </Modal.Heading>
@@ -853,7 +853,7 @@ function MCPServerDialog({
                 />
                 {error ? <InlineError>{error}</InlineError> : null}
               </Modal.Body>
-              <Modal.Footer>
+              <Modal.Footer className="shrink-0">
                 <Button
                   isDisabled={isSaving}
                   type="button"
@@ -1299,6 +1299,7 @@ function ValueRowsEditor({
                 disabled={isDisabled}
                 placeholder="Key"
                 value={row.key}
+                variant="secondary"
                 onChange={(event) =>
                   updateRow(row.id, { key: event.target.value })
                 }
@@ -1333,6 +1334,7 @@ function ValueRowsEditor({
                 disabled={isDisabled}
                 placeholder={row.type === "env_ref" ? "ENV_NAME" : "Value"}
                 value={row.type === "env_ref" ? row.envName : row.value}
+                variant="secondary"
                 onChange={(event) =>
                   updateRow(
                     row.id,
