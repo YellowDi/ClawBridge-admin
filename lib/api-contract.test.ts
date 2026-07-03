@@ -13,6 +13,7 @@ import {
   applyOpenClawMCPConfig,
   createMCPServer,
   deleteMCPServer,
+  getMCPServerDetail,
   getOpenClawConfigSnapshot,
   getTencentCosSts,
   listMCPServers,
@@ -30,6 +31,7 @@ expectType<Promise<OpenClawRPCInstance[]>>(listOpenClawRPCInstances());
 expectType<Promise<OpenClawConfigSnapshot | undefined>>(
   getOpenClawConfigSnapshot({ pluginId: "clawcore-rpc" }),
 );
+expectType<Promise<MCPServer | undefined>>(getMCPServerDetail(1));
 expectType<Promise<MCPServer | undefined>>(
   createMCPServer({
     config: {

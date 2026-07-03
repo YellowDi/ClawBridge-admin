@@ -40,6 +40,7 @@ import {
   applyOpenClawMCPConfig,
   createMCPServer,
   deleteMCPServer,
+  getMCPServerDetail,
   getOpenClawConfigSnapshot,
   listMCPServers,
   listOpenClawRPCInstances,
@@ -120,6 +121,7 @@ type MCPServerFormState = {
 type MCPServerDialogState = {
   error: string | null;
   form: MCPServerFormState;
+  isLoadingDetail: boolean;
   isSaving: boolean;
 };
 
@@ -751,17 +753,40 @@ function MCPServerDialog({
       setState({
         error: null,
         form: toMCPServerForm(server),
+        isLoadingDetail: Boolean(server?.id),
         isSaving: false,
       });
+
+      if (server?.id) void loadServerDetail(server.id);
     },
   });
   const [state, setState] = useState<MCPServerDialogState>({
     error: null,
     form: toMCPServerForm(server),
+    isLoadingDetail: false,
     isSaving: false,
   });
   const isEditing = Boolean(server?.id);
-  const { error, form, isSaving } = state;
+  const { error, form, isLoadingDetail, isSaving } = state;
+
+  async function loadServerDetail(id: number) {
+    try {
+      const detail = await getMCPServerDetail(id);
+
+      setState((current) => ({
+        ...current,
+        error: null,
+        form: toMCPServerForm(detail ?? server),
+        isLoadingDetail: false,
+      }));
+    } catch (error) {
+      setState((current) => ({
+        ...current,
+        error: getMCPActionError(error, "MCP 配置详情加载失败。"),
+        isLoadingDetail: false,
+      }));
+    }
+  }
 
   function updateForm(patch: Partial<MCPServerFormState>) {
     setState((current) => ({
@@ -797,6 +822,7 @@ function MCPServerDialog({
       setState({
         error: null,
         form: toMCPServerForm(server),
+        isLoadingDetail: false,
         isSaving: false,
       });
       toast.success(isEditing ? "MCP 配置已更新。" : "MCP 配置已创建。");
@@ -848,22 +874,26 @@ function MCPServerDialog({
               <Modal.Body className="-mx-1 flex min-h-0 min-w-0 flex-1 flex-col gap-4 overflow-y-auto px-1 py-1">
                 <MCPServerFormFields
                   form={form}
-                  isDisabled={isSaving}
+                  isDisabled={isSaving || isLoadingDetail}
                   onChange={updateForm}
                 />
                 {error ? <InlineError>{error}</InlineError> : null}
               </Modal.Body>
               <Modal.Footer className="shrink-0">
                 <Button
-                  isDisabled={isSaving}
+                  isDisabled={isSaving || isLoadingDetail}
                   type="button"
                   variant="tertiary"
                   onPress={closeDialog}
                 >
                   取消
                 </Button>
-                <Button isDisabled={isSaving} type="submit">
-                  {isSaving ? "保存中..." : "保存配置"}
+                <Button isDisabled={isSaving || isLoadingDetail} type="submit">
+                  {isLoadingDetail
+                    ? "加载详情..."
+                    : isSaving
+                      ? "保存中..."
+                      : "保存配置"}
                 </Button>
               </Modal.Footer>
             </form>
