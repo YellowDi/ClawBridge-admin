@@ -301,105 +301,117 @@ export function AdminSkillsPage() {
   const isBusy =
     state.isActionRunning || state.isLoadingCatalog || state.isLoadingContext;
 
-  async function runSkillAction(
-    action: () => Promise<AgentSkillActionResult | undefined>,
-    successMessage: string,
-  ) {
-    setState((current) => ({
-      ...current,
-      error: null,
-      isActionRunning: true,
-    }));
-
-    try {
-      const result = await action();
-
-      if (!isMountedRef.current) return;
-
+  const runSkillAction = useCallback(
+    async (
+      action: () => Promise<AgentSkillActionResult | undefined>,
+      successMessage: string,
+    ) => {
       setState((current) => ({
         ...current,
-        isActionRunning: false,
-        lastResult: result ?? null,
+        error: null,
+        isActionRunning: true,
       }));
-      toast.success(successMessage);
-      void loadCatalog();
-    } catch (error) {
-      if (!isMountedRef.current) return;
 
-      const message = getSkillError(error, "Skill 操作失败。");
+      try {
+        const result = await action();
 
-      setState((current) => ({
-        ...current,
-        error: message,
-        isActionRunning: false,
-      }));
-      toast.danger(message);
-    }
-  }
+        if (!isMountedRef.current) return;
 
-  function applyRow(row: SkillRow | PublicSkillRow) {
-    if (!hasTargetAgent) {
-      toast.danger("请先选择 RPC 实例和 Agent。");
+        setState((current) => ({
+          ...current,
+          isActionRunning: false,
+          lastResult: result ?? null,
+        }));
+        toast.success(successMessage);
+        void loadCatalog();
+      } catch (error) {
+        if (!isMountedRef.current) return;
 
-      return;
-    }
+        const message = getSkillError(error, "Skill 操作失败。");
 
-    void runSkillAction(
-      () =>
-        applyAgentSkill({
-          ...toApplyRequest(row),
-          agentId,
-          dryRun,
-          pluginId,
-        }),
-      dryRun ? "Skill 分配预演完成。" : "Skill 已分配到 Agent。",
-    );
-  }
+        setState((current) => ({
+          ...current,
+          error: message,
+          isActionRunning: false,
+        }));
+        toast.danger(message);
+      }
+    },
+    [loadCatalog],
+  );
 
-  function setRowEnabled(row: SkillRow, enabled: boolean) {
-    if (!hasTargetAgent || !row.skillKey) {
-      toast.danger("请先选择 RPC 实例、Agent 和 Skill。");
+  const applyRow = useCallback(
+    (row: SkillRow | PublicSkillRow) => {
+      if (!hasTargetAgent) {
+        toast.danger("请先选择 RPC 实例和 Agent。");
 
-      return;
-    }
+        return;
+      }
 
-    void runSkillAction(
-      () =>
-        enabled
-          ? enableAgentSkill({
-              agentId,
-              dryRun,
-              pluginId,
-              skillKey: row.skillKey,
-            })
-          : disableAgentSkill({
-              agentId,
-              dryRun,
-              pluginId,
-              skillKey: row.skillKey,
-            }),
-      enabled ? "Skill 启用请求已提交。" : "Skill 禁用请求已提交。",
-    );
-  }
+      void runSkillAction(
+        () =>
+          applyAgentSkill({
+            ...toApplyRequest(row),
+            agentId,
+            dryRun,
+            pluginId,
+          }),
+        dryRun ? "Skill 分配预演完成。" : "Skill 已分配到 Agent。",
+      );
+    },
+    [agentId, dryRun, hasTargetAgent, pluginId, runSkillAction],
+  );
 
-  function removeRow(row: SkillRow) {
-    if (!hasTargetAgent || !row.skillKey) {
-      toast.danger("请先选择 RPC 实例、Agent 和 Skill。");
+  const setRowEnabled = useCallback(
+    (row: SkillRow, enabled: boolean) => {
+      if (!hasTargetAgent || !row.skillKey) {
+        toast.danger("请先选择 RPC 实例、Agent 和 Skill。");
 
-      return;
-    }
+        return;
+      }
 
-    void runSkillAction(
-      () =>
-        removeAgentSkill({
-          agentId,
-          dryRun,
-          pluginId,
-          skillKey: row.skillKey,
-        }),
-      dryRun ? "Skill 移除预演完成。" : "Skill 已从 Agent 可见列表移除。",
-    );
-  }
+      void runSkillAction(
+        () =>
+          enabled
+            ? enableAgentSkill({
+                agentId,
+                dryRun,
+                pluginId,
+                skillKey: row.skillKey,
+              })
+            : disableAgentSkill({
+                agentId,
+                dryRun,
+                pluginId,
+                skillKey: row.skillKey,
+              }),
+        enabled ? "Skill 启用请求已提交。" : "Skill 禁用请求已提交。",
+      );
+    },
+    [agentId, dryRun, hasTargetAgent, pluginId, runSkillAction],
+  );
+
+  const removeRow = useCallback(
+    (row: SkillRow) => {
+      if (!hasTargetAgent || !row.skillKey) {
+        toast.danger("请先选择 RPC 实例、Agent 和 Skill。");
+
+        return;
+      }
+
+      void runSkillAction(
+        () =>
+          removeAgentSkill({
+            agentId,
+            dryRun,
+            pluginId,
+            skillKey: row.skillKey,
+          }),
+        dryRun ? "Skill 移除预演完成。" : "Skill 已从 Agent 可见列表移除。",
+      );
+    },
+    [agentId, dryRun, hasTargetAgent, pluginId, runSkillAction],
+  );
 
   async function searchPublic() {
     setState((current) => ({
@@ -484,7 +496,7 @@ export function AdminSkillsPage() {
         width: 216,
       },
     ],
-    [hasTargetAgent, state.isActionRunning],
+    [applyRow, hasTargetAgent, removeRow, setRowEnabled, state.isActionRunning],
   );
   const privateColumns = useMemo<DataGridColumn<SkillRow>[]>(
     () => [
@@ -519,7 +531,7 @@ export function AdminSkillsPage() {
         width: 148,
       },
     ],
-    [hasTargetAgent, loadCatalog, state.isActionRunning],
+    [applyRow, hasTargetAgent, loadCatalog, state.isActionRunning],
   );
   const publicColumns = useMemo<DataGridColumn<PublicSkillRow>[]>(
     () => [
@@ -548,90 +560,35 @@ export function AdminSkillsPage() {
         width: 148,
       },
     ],
-    [hasTargetAgent, pluginId, state.isActionRunning],
+    [applyRow, hasTargetAgent, pluginId, state.isActionRunning],
   );
 
   return (
     <AdminPage
       actions={
-        <>
-          <Button
-            isPending={state.isLoadingContext || state.isLoadingCatalog}
-            size="sm"
-            variant="tertiary"
-            onPress={refreshAll}
-          >
-            <AdminIcon className="size-4" name="refresh" />
-            刷新
-          </Button>
-          <UploadPrivateSkillDialog onUploaded={loadCatalog} />
-        </>
+        <SkillsPageActions
+          isLoading={state.isLoadingContext || state.isLoadingCatalog}
+          onRefresh={refreshAll}
+          onUploaded={loadCatalog}
+        />
       }
       description="管理 OpenClaw Agent 可见 Skill、私有 Skill 归档和公共 Skill 源。"
       eyebrow="Skills"
       title="Skill 管理"
     >
-      <SectionCard title="分配上下文">
-        <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
-          <RPCInstanceSelect
-            instances={state.instances}
-            isDisabled={isBusy}
-            selectedPluginId={pluginId}
-            onChange={setPluginId}
-          />
-          <AgentSelect
-            agents={state.agents}
-            isDisabled={isBusy || !pluginId}
-            selectedAgentId={agentId}
-            onChange={setAgentId}
-          />
-          <Switch isDisabled={isBusy} isSelected={dryRun} onChange={setDryRun}>
-            <Switch.Content className="text-sm">
-              <Switch.Control>
-                <Switch.Thumb />
-              </Switch.Control>
-              Dry run
-            </Switch.Content>
-          </Switch>
-        </div>
-        {!pluginId ? (
-          <p className="text-muted mt-3 text-sm">
-            当前没有已连接的 OpenClaw RPC 实例，Agent
-            分配、启停和移除操作已禁用。
-          </p>
-        ) : !agentId ? (
-          <p className="text-muted mt-3 text-sm">
-            当前实例没有可选 Agent，Agent 级操作已禁用。
-          </p>
-        ) : null}
-      </SectionCard>
-
-      <StatGrid
-        stats={[
-          {
-            helper: "当前目录可见条目",
-            label: "Skill 总数",
-            value: formatCount(stats.total, state.isLoadingCatalog),
-          },
-          {
-            helper: "目标 Agent 已扫描",
-            label: "已安装",
-            value: formatCount(stats.installed, state.isLoadingCatalog),
-          },
-          {
-            helper: "当前 Agent 可使用",
-            label: "已启用",
-            tone: "success",
-            value: formatCount(stats.enabled, state.isLoadingCatalog),
-          },
-          {
-            helper: "不可运行或有告警",
-            label: "需关注",
-            tone: stats.attention > 0 ? "warning" : "success",
-            value: formatCount(stats.attention, state.isLoadingCatalog),
-          },
-        ]}
+      <SkillContextCard
+        agentId={agentId}
+        agents={state.agents}
+        dryRun={dryRun}
+        instances={state.instances}
+        isBusy={isBusy}
+        pluginId={pluginId}
+        onAgentChange={setAgentId}
+        onDryRunChange={setDryRun}
+        onPluginChange={setPluginId}
       />
+
+      <SkillStatsGrid isLoading={state.isLoadingCatalog} stats={stats} />
 
       <WarningList
         error={state.error}
@@ -640,27 +597,218 @@ export function AdminSkillsPage() {
 
       {state.lastResult ? <ActionResult result={state.lastResult} /> : null}
 
-      <Tabs
-        selectedKey={activeTab}
-        onSelectionChange={(key) => setActiveTab(String(key) as SkillTab)}
+      <SkillTabsSection
+        activeTab={activeTab}
+        catalogQuery={catalogQuery}
+        isActionRunning={state.isActionRunning}
+        isLoadingCatalog={state.isLoadingCatalog}
+        privateColumns={privateColumns}
+        privateRows={privateRows}
+        publicColumns={publicColumns}
+        publicQuery={publicQuery}
+        publicRows={publicRows}
+        publicSourceId={publicSourceId}
+        publicSources={state.publicSources}
+        skillColumns={skillColumns}
+        skillRows={skillRows}
+        onCatalogQueryChange={setCatalogQuery}
+        onPublicQueryChange={setPublicQuery}
+        onPublicSearch={searchPublic}
+        onPublicSourceChange={setPublicSourceId}
+        onTabChange={setActiveTab}
+      />
+    </AdminPage>
+  );
+}
+
+function SkillsPageActions({
+  isLoading,
+  onRefresh,
+  onUploaded,
+}: {
+  isLoading: boolean;
+  onRefresh: () => void;
+  onUploaded: () => void;
+}) {
+  return (
+    <>
+      <Button
+        isPending={isLoading}
+        size="sm"
+        variant="tertiary"
+        onPress={onRefresh}
       >
-        <Tabs.ListContainer>
-          <Tabs.List aria-label="Skill 管理视图">
-            <Tabs.Tab className="whitespace-nowrap" id="agent">
-              Agent 分配
-              <Tabs.Indicator />
-            </Tabs.Tab>
-            <Tabs.Tab className="whitespace-nowrap" id="private">
-              私有库
-              <Tabs.Indicator />
-            </Tabs.Tab>
-            <Tabs.Tab className="whitespace-nowrap" id="public">
-              公共库
-              <Tabs.Indicator />
-            </Tabs.Tab>
-          </Tabs.List>
-        </Tabs.ListContainer>
-      </Tabs>
+        <AdminIcon className="size-4" name="refresh" />
+        刷新
+      </Button>
+      <UploadPrivateSkillDialog onUploaded={onUploaded} />
+    </>
+  );
+}
+
+function SkillContextCard({
+  agentId,
+  agents,
+  dryRun,
+  instances,
+  isBusy,
+  onAgentChange,
+  onDryRunChange,
+  onPluginChange,
+  pluginId,
+}: {
+  agentId: string;
+  agents: OpenClawAgentConfigSnapshot[];
+  dryRun: boolean;
+  instances: OpenClawRPCInstance[];
+  isBusy: boolean;
+  onAgentChange: (agentId: string) => void;
+  onDryRunChange: (enabled: boolean) => void;
+  onPluginChange: (pluginId: string) => void;
+  pluginId: string;
+}) {
+  return (
+    <SectionCard title="分配上下文">
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+        <RPCInstanceSelect
+          instances={instances}
+          isDisabled={isBusy}
+          selectedPluginId={pluginId}
+          onChange={onPluginChange}
+        />
+        <AgentSelect
+          agents={agents}
+          isDisabled={isBusy || !pluginId}
+          selectedAgentId={agentId}
+          onChange={onAgentChange}
+        />
+        <Switch
+          isDisabled={isBusy}
+          isSelected={dryRun}
+          onChange={onDryRunChange}
+        >
+          <Switch.Content className="text-sm">
+            <Switch.Control>
+              <Switch.Thumb />
+            </Switch.Control>
+            Dry run
+          </Switch.Content>
+        </Switch>
+      </div>
+      {!pluginId ? (
+        <p className="text-muted mt-3 text-sm">
+          当前没有已连接的 OpenClaw RPC 实例，Agent 分配、启停和移除操作已禁用。
+        </p>
+      ) : !agentId ? (
+        <p className="text-muted mt-3 text-sm">
+          当前实例没有可选 Agent，Agent 级操作已禁用。
+        </p>
+      ) : null}
+    </SectionCard>
+  );
+}
+
+function SkillStatsGrid({
+  isLoading,
+  stats,
+}: {
+  isLoading: boolean;
+  stats: ReturnType<typeof getSkillStats>;
+}) {
+  return (
+    <StatGrid
+      stats={[
+        {
+          helper: "当前目录可见条目",
+          label: "Skill 总数",
+          value: formatCount(stats.total, isLoading),
+        },
+        {
+          helper: "目标 Agent 已扫描",
+          label: "已安装",
+          value: formatCount(stats.installed, isLoading),
+        },
+        {
+          helper: "当前 Agent 可使用",
+          label: "已启用",
+          tone: "success",
+          value: formatCount(stats.enabled, isLoading),
+        },
+        {
+          helper: "不可运行或有告警",
+          label: "需关注",
+          tone: stats.attention > 0 ? "warning" : "success",
+          value: formatCount(stats.attention, isLoading),
+        },
+      ]}
+    />
+  );
+}
+
+function SkillTabsSection({
+  activeTab,
+  catalogQuery,
+  isActionRunning,
+  isLoadingCatalog,
+  onCatalogQueryChange,
+  onPublicQueryChange,
+  onPublicSearch,
+  onPublicSourceChange,
+  onTabChange,
+  privateColumns,
+  privateRows,
+  publicColumns,
+  publicQuery,
+  publicRows,
+  publicSourceId,
+  publicSources,
+  skillColumns,
+  skillRows,
+}: {
+  activeTab: SkillTab;
+  catalogQuery: string;
+  isActionRunning: boolean;
+  isLoadingCatalog: boolean;
+  onCatalogQueryChange: (query: string) => void;
+  onPublicQueryChange: (query: string) => void;
+  onPublicSearch: () => void;
+  onPublicSourceChange: (sourceId: string) => void;
+  onTabChange: (tab: SkillTab) => void;
+  privateColumns: DataGridColumn<SkillRow>[];
+  privateRows: SkillRow[];
+  publicColumns: DataGridColumn<PublicSkillRow>[];
+  publicQuery: string;
+  publicRows: PublicSkillRow[];
+  publicSourceId: string;
+  publicSources: PublicSkillSource[];
+  skillColumns: DataGridColumn<SkillRow>[];
+  skillRows: SkillRow[];
+}) {
+  return (
+    <section className="flex min-w-0 flex-col gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <Tabs
+          selectedKey={activeTab}
+          onSelectionChange={(key) => onTabChange(String(key) as SkillTab)}
+        >
+          <Tabs.ListContainer>
+            <Tabs.List aria-label="Skill 管理视图">
+              <Tabs.Tab className="whitespace-nowrap" id="agent">
+                Agent 分配
+                <Tabs.Indicator />
+              </Tabs.Tab>
+              <Tabs.Tab className="whitespace-nowrap" id="private">
+                私有库
+                <Tabs.Indicator />
+              </Tabs.Tab>
+              <Tabs.Tab className="whitespace-nowrap" id="public">
+                公共库
+                <Tabs.Indicator />
+              </Tabs.Tab>
+            </Tabs.List>
+          </Tabs.ListContainer>
+        </Tabs>
+      </div>
 
       {activeTab === "agent" ? (
         <SectionCard title="Agent Skill 分配">
@@ -670,8 +818,8 @@ export function AdminSkillsPage() {
               className="sm:max-w-md"
               value={catalogQuery}
               variant="secondary"
-              onChange={setCatalogQuery}
-              onSubmit={setCatalogQuery}
+              onChange={onCatalogQueryChange}
+              onSubmit={onCatalogQueryChange}
             >
               <Label>搜索目录</Label>
               <SearchField.Group>
@@ -690,7 +838,7 @@ export function AdminSkillsPage() {
           />
           {skillRows.length === 0 ? (
             <EmptyText
-              isLoading={state.isLoadingCatalog}
+              isLoading={isLoadingCatalog}
               text="没有可分配的 Skill。"
             />
           ) : null}
@@ -708,7 +856,7 @@ export function AdminSkillsPage() {
           />
           {privateRows.length === 0 ? (
             <EmptyText
-              isLoading={state.isLoadingCatalog}
+              isLoading={isLoadingCatalog}
               text="私有库还没有 Skill 归档。"
             />
           ) : null}
@@ -722,8 +870,8 @@ export function AdminSkillsPage() {
               fullWidth
               value={publicQuery}
               variant="secondary"
-              onChange={setPublicQuery}
-              onSubmit={() => void searchPublic()}
+              onChange={onPublicQueryChange}
+              onSubmit={() => onPublicSearch()}
             >
               <Label>搜索公共 Skill</Label>
               <SearchField.Group>
@@ -734,13 +882,13 @@ export function AdminSkillsPage() {
             </SearchField>
             <PublicSourceSelect
               selectedSourceId={publicSourceId}
-              sources={state.publicSources}
-              onChange={setPublicSourceId}
+              sources={publicSources}
+              onChange={onPublicSourceChange}
             />
             <Button
-              isDisabled={state.isActionRunning}
-              isPending={state.isActionRunning}
-              onPress={() => void searchPublic()}
+              isDisabled={isActionRunning}
+              isPending={isActionRunning}
+              onPress={onPublicSearch}
             >
               搜索
             </Button>
@@ -754,13 +902,13 @@ export function AdminSkillsPage() {
           />
           {publicRows.length === 0 ? (
             <EmptyText
-              isLoading={state.isActionRunning || state.isLoadingCatalog}
+              isLoading={isActionRunning || isLoadingCatalog}
               text="没有公共 Skill 结果。"
             />
           ) : null}
         </SectionCard>
       ) : null}
-    </AdminPage>
+    </section>
   );
 }
 
