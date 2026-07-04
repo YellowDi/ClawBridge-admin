@@ -668,8 +668,25 @@ function SkillContextCard({
   pluginId: string;
 }) {
   return (
-    <SectionCard title="分配上下文">
-      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+    <SectionCard
+      action={
+        <Switch
+          isDisabled={isBusy}
+          isSelected={dryRun}
+          onChange={onDryRunChange}
+        >
+          <Switch.Content className="text-sm">
+            <Switch.Control>
+              <Switch.Thumb />
+            </Switch.Control>
+            预演模式
+          </Switch.Content>
+        </Switch>
+      }
+      description="下方的分配、启用、禁用和移除都会作用到这个 Agent。"
+      title="分配目标"
+    >
+      <div className="grid gap-3 md:grid-cols-2">
         <RPCInstanceSelect
           instances={instances}
           isDisabled={isBusy}
@@ -682,28 +699,21 @@ function SkillContextCard({
           selectedAgentId={agentId}
           onChange={onAgentChange}
         />
-        <Switch
-          isDisabled={isBusy}
-          isSelected={dryRun}
-          onChange={onDryRunChange}
-        >
-          <Switch.Content className="text-sm">
-            <Switch.Control>
-              <Switch.Thumb />
-            </Switch.Control>
-            Dry run
-          </Switch.Content>
-        </Switch>
+
+        {!pluginId ? (
+          <div className="md:col-span-2">
+            <p className="text-muted">
+              当前没有已连接的 OpenClaw 实例，分配、启用、禁用和移除操作已禁用。
+            </p>
+          </div>
+        ) : !agentId ? (
+          <div className="md:col-span-2">
+            <p className="text-muted">
+              当前实例没有可选 Agent，Agent 级操作已禁用。
+            </p>
+          </div>
+        ) : null}
       </div>
-      {!pluginId ? (
-        <p className="text-muted mt-3 text-sm">
-          当前没有已连接的 OpenClaw RPC 实例，Agent 分配、启停和移除操作已禁用。
-        </p>
-      ) : !agentId ? (
-        <p className="text-muted mt-3 text-sm">
-          当前实例没有可选 Agent，Agent 级操作已禁用。
-        </p>
-      ) : null}
     </SectionCard>
   );
 }

@@ -76,10 +76,12 @@ export function StatGrid({
 }
 
 export function SectionCard({
+  action,
   children,
   description,
   title,
 }: {
+  action?: ReactNode;
   children: ReactNode;
   description?: string;
   title: string;
@@ -87,10 +89,17 @@ export function SectionCard({
   return (
     <Card>
       <Card.Header>
-        <Card.Title className="text-base">{title}</Card.Title>
-        {description ? (
-          <Card.Description className="text-xs">{description}</Card.Description>
-        ) : null}
+        <div className="flex w-full min-w-0 items-start justify-between gap-3">
+          <div className="min-w-0">
+            <Card.Title className="text-base">{title}</Card.Title>
+            {description ? (
+              <Card.Description className="text-xs">
+                {description}
+              </Card.Description>
+            ) : null}
+          </div>
+          {action ? <div className="shrink-0">{action}</div> : null}
+        </div>
       </Card.Header>
       <Card.Content>{children}</Card.Content>
     </Card>
