@@ -857,6 +857,200 @@ export interface OpenClawMCPApplyResult {
   [property: string]: unknown;
 }
 
+export type SkillSource = "private" | "public" | "system" | string;
+
+export interface SkillCatalogItem {
+  description?: string;
+  displayName?: string;
+  eligible?: boolean;
+  enabled?: boolean;
+  id?: number;
+  installed?: boolean;
+  readonly?: boolean;
+  skillKey?: string;
+  slug?: string;
+  source?: SkillSource;
+  sourceId?: string;
+  sourceType?: string;
+  tags?: string[];
+  version?: string;
+  visibleToAgent?: boolean;
+  warnings?: string[];
+  [property: string]: unknown;
+}
+
+export interface PrivateSkill {
+  createdAt?: string;
+  description?: string;
+  displayName?: string;
+  id?: number;
+  objectKey?: string;
+  sha256?: string;
+  sizeBytes?: number;
+  slug?: string;
+  storageType?: string;
+  tags?: string[];
+  updatedAt?: string;
+  version?: string;
+  [property: string]: unknown;
+}
+
+export interface PublicSkillSource {
+  displayName?: string;
+  enabled?: boolean;
+  id?: string;
+  indexUrl?: string;
+  timeoutMs?: number;
+  type?: string;
+  [property: string]: unknown;
+}
+
+export interface PublicSkillSearchItem {
+  archiveUrl?: string;
+  description?: string;
+  displayName?: string;
+  homepage?: string;
+  security?: Record<string, string>;
+  sha256?: string;
+  slug?: string;
+  sourceId?: string;
+  sourceType?: string;
+  tags?: string[];
+  version?: string;
+  warnings?: string[];
+  [property: string]: unknown;
+}
+
+export interface AgentSkill {
+  description?: string;
+  displayName?: string;
+  eligible?: boolean;
+  enabled?: boolean;
+  installed?: boolean;
+  name?: string;
+  origin?: Record<string, string>;
+  readonly?: boolean;
+  skillKey?: string;
+  source?: SkillSource;
+  version?: string;
+  visibleToAgent?: boolean;
+  warnings?: string[];
+  [property: string]: unknown;
+}
+
+export interface ReqSkillCatalogList extends ReqPagination {
+  agentId?: string;
+  pluginId?: string;
+  query?: string;
+  [property: string]: unknown;
+}
+
+export interface ResSkillCatalog {
+  privateItems?: PrivateSkill[];
+  privatePagination?: Pagination;
+  publicItems?: SkillCatalogItem[];
+  publicSources?: PublicSkillSource[];
+  systemItems?: SkillCatalogItem[];
+  warnings?: string[];
+  [property: string]: unknown;
+}
+
+export interface ReqAgentSkillList {
+  agentId?: string;
+  pluginId?: string;
+  [property: string]: unknown;
+}
+
+export interface ResAgentSkills {
+  configHash?: string;
+  items?: AgentSkill[];
+  warnings?: string[];
+  [property: string]: unknown;
+}
+
+export interface ReqAgentSkillApply {
+  agentId?: string;
+  dryRun?: boolean;
+  force?: boolean;
+  pluginId?: string;
+  privateSkillId?: number;
+  skillKey?: string;
+  slug?: string;
+  source?: SkillSource;
+  sourceId?: string;
+  sourceType?: string;
+  timeoutMs?: number;
+  version?: string;
+  [property: string]: unknown;
+}
+
+export interface AgentSkillActionResult {
+  changed?: string[];
+  configHash?: string;
+  dryRun?: boolean;
+  followUpMode?: string;
+  followUpReason?: string;
+  message?: string;
+  success?: boolean;
+  warnings?: string[];
+  [property: string]: unknown;
+}
+
+export interface ReqAgentSkillState {
+  agentId?: string;
+  dryRun?: boolean;
+  enabled?: boolean;
+  instanceScope?: boolean;
+  pluginId?: string;
+  skillKey?: string;
+  [property: string]: unknown;
+}
+
+export interface ReqAgentSkillRemove {
+  agentId?: string;
+  dryRun?: boolean;
+  pluginId?: string;
+  skillKey?: string;
+  [property: string]: unknown;
+}
+
+export interface ReqPrivateSkillDelete {
+  id?: number;
+  [property: string]: unknown;
+}
+
+export interface ReqPublicSkillSearch {
+  limit?: number;
+  pluginId?: string;
+  query?: string;
+  sourceId?: string;
+  [property: string]: unknown;
+}
+
+export interface ResPublicSkillSearch {
+  items?: PublicSkillSearchItem[];
+  warnings?: string[];
+  [property: string]: unknown;
+}
+
+export interface ReqPublicSkillDetail {
+  pluginId?: string;
+  slug?: string;
+  sourceId?: string;
+  version?: string;
+  [property: string]: unknown;
+}
+
+export interface ReqPublicSkillSourcesList {
+  onlyEnabled?: boolean;
+  [property: string]: unknown;
+}
+
+export interface ResPublicSkillSources {
+  items?: PublicSkillSource[];
+  [property: string]: unknown;
+}
+
 export type AuthSession = {
   expireAt?: string;
   token: string;
@@ -1462,6 +1656,136 @@ export async function applyOpenClawMCPConfig(
   );
 }
 
+export async function listSkillCatalog(
+  request: ReqSkillCatalogList = {},
+): Promise<ResSkillCatalog> {
+  return requestJson<ResSkillCatalog>("/api/openclaw/skills/catalog/list", {
+    body: JSON.stringify(request),
+    method: "POST",
+  });
+}
+
+export async function listAgentSkills(
+  request: ReqAgentSkillList,
+): Promise<ResAgentSkills> {
+  return requestJson<ResAgentSkills>("/api/openclaw/skills/agent/list", {
+    body: JSON.stringify(request),
+    method: "POST",
+  });
+}
+
+export async function applyAgentSkill(
+  request: ReqAgentSkillApply,
+): Promise<AgentSkillActionResult | undefined> {
+  return requestJson<AgentSkillActionResult | undefined>(
+    "/api/openclaw/skills/agent/apply",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+}
+
+export async function enableAgentSkill(
+  request: ReqAgentSkillState,
+): Promise<AgentSkillActionResult | undefined> {
+  return requestJson<AgentSkillActionResult | undefined>(
+    "/api/openclaw/skills/agent/enable",
+    {
+      body: JSON.stringify({ ...request, enabled: true }),
+      method: "POST",
+    },
+  );
+}
+
+export async function disableAgentSkill(
+  request: ReqAgentSkillState,
+): Promise<AgentSkillActionResult | undefined> {
+  return requestJson<AgentSkillActionResult | undefined>(
+    "/api/openclaw/skills/agent/disable",
+    {
+      body: JSON.stringify({ ...request, enabled: false }),
+      method: "POST",
+    },
+  );
+}
+
+export async function removeAgentSkill(
+  request: ReqAgentSkillRemove,
+): Promise<AgentSkillActionResult | undefined> {
+  return requestJson<AgentSkillActionResult | undefined>(
+    "/api/openclaw/skills/agent/remove",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+}
+
+export async function uploadPrivateSkill(
+  file: File,
+  version?: string,
+): Promise<PrivateSkill | undefined> {
+  const formData = new FormData();
+
+  formData.set("file", file);
+  if (version?.trim()) formData.set("version", version.trim());
+
+  return requestJson<PrivateSkill | undefined>(
+    "/api/openclaw/skills/private/upload",
+    {
+      body: formData,
+      method: "POST",
+    },
+  );
+}
+
+export async function deletePrivateSkill(id: number): Promise<PrivateSkill> {
+  return requestJson<PrivateSkill>("/api/openclaw/skills/private/delete", {
+    body: JSON.stringify({ id } satisfies ReqPrivateSkillDelete),
+    method: "POST",
+  });
+}
+
+export async function searchPublicSkills(
+  request: ReqPublicSkillSearch,
+): Promise<ResPublicSkillSearch> {
+  return requestJson<ResPublicSkillSearch>(
+    "/api/openclaw/skills/public/search",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+}
+
+export async function getPublicSkillDetail(
+  request: ReqPublicSkillDetail,
+): Promise<PublicSkillSearchItem | undefined> {
+  return requestJson<PublicSkillSearchItem | undefined>(
+    "/api/openclaw/skills/public/detail",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+}
+
+export async function listPublicSkillSources(
+  request: ReqPublicSkillSourcesList = {},
+): Promise<PublicSkillSource[]> {
+  const response = await requestJson<
+    ResPublicSkillSources | PublicSkillSource[]
+  >("/api/openclaw/skills/public/sources/list", {
+    body: JSON.stringify(request),
+    method: "POST",
+  });
+
+  if (Array.isArray(response)) return response;
+
+  return response.items ?? [];
+}
+
 export function readStoredAuthSession(): AuthSession | null {
   if (typeof window === "undefined") return null;
 
@@ -1494,7 +1818,11 @@ async function requestJson<T>(path: string, init: ApiRequestInit): Promise<T> {
   const { auth = true, headers, ...requestInit } = init;
   const requestHeaders = new Headers(headers);
 
-  if (requestInit.body && !requestHeaders.has("Content-Type")) {
+  if (
+    requestInit.body &&
+    !(requestInit.body instanceof FormData) &&
+    !requestHeaders.has("Content-Type")
+  ) {
     requestHeaders.set("Content-Type", "application/json");
   }
 

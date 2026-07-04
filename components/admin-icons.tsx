@@ -18,6 +18,7 @@ import {
   Magnifier,
   Pencil,
   Persons,
+  PlugWire,
   Server,
   Shield,
   TrashBin,
@@ -42,6 +43,7 @@ export type AdminIconName =
   | "search"
   | "settings"
   | "shield"
+  | "skill"
   | "trash"
   | "tool"
   | "upload"
@@ -65,6 +67,7 @@ const ICONS: Record<AdminIconName, ComponentType<SVGProps<SVGSVGElement>>> = {
   search: Magnifier,
   settings: Gear,
   shield: Shield,
+  skill: PlugWire,
   trash: TrashBin,
   tool: Wrench,
   upload: FileArrowUp,

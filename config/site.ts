@@ -21,6 +21,10 @@ export const siteConfig = {
       href: "/agents",
     },
     {
+      label: "Skill 管理",
+      href: "/skills",
+    },
+    {
       label: "审计日志",
       href: "/audit",
     },
@@ -45,6 +49,10 @@ export const siteConfig = {
     {
       label: "工具与权限",
       href: "/tools",
+    },
+    {
+      label: "Skill 管理",
+      href: "/skills",
     },
     {
       label: "审计日志",

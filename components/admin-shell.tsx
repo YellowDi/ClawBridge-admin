@@ -7,13 +7,7 @@ import { Avatar, Button, Tooltip } from "@heroui/react";
 import { AppLayout, Navbar, Sidebar } from "@heroui-pro/react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  useState,
-} from "react";
+import { createContext, use, useCallback, useMemo, useState } from "react";
 
 import { AdminIcon } from "@/components/admin-icons";
 import { useAuth } from "@/components/auth-provider";
@@ -59,6 +53,7 @@ const OPS_ITEMS: readonly NavItem[] = [
     key: "knowledge-bases",
     label: "知识库",
   },
+  { href: "/skills", icon: "skill", key: "skills", label: "Skill 管理" },
   { href: "/mcp", icon: "mcp", key: "mcp", label: "OpenClaw MCP" },
   { href: "/tools", icon: "tool", key: "tools", label: "工具与权限" },
   { href: "/audit", icon: "audit", key: "audit", label: "审计日志" },
@@ -152,7 +147,7 @@ function AdminNavbar({
 }
 
 export function useAdminPageActions() {
-  return useContext(AdminPageActionsContext);
+  return use(AdminPageActionsContext);
 }
 
 function AdminSidebar({ pathname }: { pathname: string }) {
