@@ -22,6 +22,7 @@ import {
   Label,
   ListBox,
   Modal,
+  Pagination,
   SearchField,
   Select,
   Switch,
@@ -52,6 +53,7 @@ import {
 } from "@/lib/api";
 
 type SkillTab = "agent" | "private" | "public";
+type SkillPageState = Record<SkillTab, number>;
 
 type SkillRow = {
   description: string;
@@ -123,6 +125,12 @@ const SOURCE_LABELS: Record<string, string> = {
 
 const SKILL_UPLOAD_ACCEPT = ".zip,.skill";
 const ALL_SOURCE_ID = "__all";
+const SKILL_TABLE_PAGE_SIZE = 10;
+const INITIAL_PAGE_STATE: SkillPageState = {
+  agent: 1,
+  private: 1,
+  public: 1,
+};
 
 export function AdminSkillsPage() {
   const isMountedRef = useRef(false);
@@ -136,6 +144,8 @@ export function AdminSkillsPage() {
   const [agentId, setAgentId] = useState("");
   const [publicQuery, setPublicQuery] = useState("");
   const [publicSourceId, setPublicSourceId] = useState(ALL_SOURCE_ID);
+  const [pageByTab, setPageByTab] =
+    useState<SkillPageState>(INITIAL_PAGE_STATE);
 
   const loadContext = useCallback(async () => {
     const requestId = contextRequestRef.current + 1;
@@ -275,6 +285,30 @@ export function AdminSkillsPage() {
     void loadContext();
     void loadCatalog();
   }, [loadCatalog, loadContext]);
+  const setTabPage = useCallback((tab: SkillTab, page: number) => {
+    setPageByTab((current) => ({ ...current, [tab]: page }));
+  }, []);
+  const handleCatalogQueryChange = useCallback(
+    (query: string) => {
+      setCatalogQuery(query);
+      setTabPage("agent", 1);
+    },
+    [setTabPage],
+  );
+  const handlePublicQueryChange = useCallback(
+    (query: string) => {
+      setPublicQuery(query);
+      setTabPage("public", 1);
+    },
+    [setTabPage],
+  );
+  const handlePublicSourceChange = useCallback(
+    (sourceId: string) => {
+      setPublicSourceId(sourceId);
+      setTabPage("public", 1);
+    },
+    [setTabPage],
+  );
 
   const skillRows = useMemo(
     () =>
@@ -622,6 +656,7 @@ export function AdminSkillsPage() {
         catalogQuery={catalogQuery}
         isActionRunning={state.isActionRunning}
         isLoadingCatalog={state.isLoadingCatalog}
+        pageByTab={pageByTab}
         privateColumns={privateColumns}
         privateRows={privateRows}
         publicColumns={publicColumns}
@@ -631,10 +666,11 @@ export function AdminSkillsPage() {
         publicSources={state.publicSources}
         skillColumns={skillColumns}
         skillRows={skillRows}
-        onCatalogQueryChange={setCatalogQuery}
-        onPublicQueryChange={setPublicQuery}
+        onCatalogQueryChange={handleCatalogQueryChange}
+        onPageChange={setTabPage}
+        onPublicQueryChange={handlePublicQueryChange}
         onPublicSearch={searchPublic}
-        onPublicSourceChange={setPublicSourceId}
+        onPublicSourceChange={handlePublicSourceChange}
         onTabChange={setActiveTab}
       />
     </AdminPage>
@@ -785,10 +821,12 @@ function SkillTabsSection({
   isActionRunning,
   isLoadingCatalog,
   onCatalogQueryChange,
+  onPageChange,
   onPublicQueryChange,
   onPublicSearch,
   onPublicSourceChange,
   onTabChange,
+  pageByTab,
   privateColumns,
   privateRows,
   publicColumns,
@@ -804,10 +842,12 @@ function SkillTabsSection({
   isActionRunning: boolean;
   isLoadingCatalog: boolean;
   onCatalogQueryChange: (query: string) => void;
+  onPageChange: (tab: SkillTab, page: number) => void;
   onPublicQueryChange: (query: string) => void;
   onPublicSearch: () => void;
   onPublicSourceChange: (sourceId: string) => void;
   onTabChange: (tab: SkillTab) => void;
+  pageByTab: SkillPageState;
   privateColumns: DataGridColumn<SkillRow>[];
   privateRows: SkillRow[];
   publicColumns: DataGridColumn<PublicSkillRow>[];
@@ -818,6 +858,22 @@ function SkillTabsSection({
   skillColumns: DataGridColumn<SkillRow>[];
   skillRows: SkillRow[];
 }) {
+  const agentPage = paginateRows(
+    skillRows,
+    pageByTab.agent,
+    SKILL_TABLE_PAGE_SIZE,
+  );
+  const privatePage = paginateRows(
+    privateRows,
+    pageByTab.private,
+    SKILL_TABLE_PAGE_SIZE,
+  );
+  const publicPage = paginateRows(
+    publicRows,
+    pageByTab.public,
+    SKILL_TABLE_PAGE_SIZE,
+  );
+
   return (
     <section className="flex min-w-0 flex-col gap-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -898,7 +954,7 @@ function SkillTabsSection({
             aria-label="Agent Skill 分配"
             columns={skillColumns}
             contentClassName="min-w-[1120px]"
-            data={skillRows}
+            data={agentPage.rows}
             getRowId={(item) => item.id}
           />
           {skillRows.length === 0 ? (
@@ -907,6 +963,13 @@ function SkillTabsSection({
               text="没有可分配的 Skill。"
             />
           ) : null}
+          <TablePagination
+            page={agentPage.page}
+            pageSize={SKILL_TABLE_PAGE_SIZE}
+            total={agentPage.total}
+            totalPages={agentPage.totalPages}
+            onPageChange={(page) => onPageChange("agent", page)}
+          />
         </>
       ) : null}
 
@@ -916,7 +979,7 @@ function SkillTabsSection({
             aria-label="私有 Skill 库"
             columns={privateColumns}
             contentClassName="min-w-[980px]"
-            data={privateRows}
+            data={privatePage.rows}
             getRowId={(item) => item.id}
           />
           {privateRows.length === 0 ? (
@@ -925,6 +988,13 @@ function SkillTabsSection({
               text="私有库还没有 Skill 归档。"
             />
           ) : null}
+          <TablePagination
+            page={privatePage.page}
+            pageSize={SKILL_TABLE_PAGE_SIZE}
+            total={privatePage.total}
+            totalPages={privatePage.totalPages}
+            onPageChange={(page) => onPageChange("private", page)}
+          />
         </>
       ) : null}
 
@@ -934,7 +1004,7 @@ function SkillTabsSection({
             aria-label="公共 Skill 库"
             columns={publicColumns}
             contentClassName="min-w-[1060px]"
-            data={publicRows}
+            data={publicPage.rows}
             getRowId={(item) => item.id}
           />
           {publicRows.length === 0 ? (
@@ -943,6 +1013,13 @@ function SkillTabsSection({
               text="没有公共 Skill 结果。"
             />
           ) : null}
+          <TablePagination
+            page={publicPage.page}
+            pageSize={SKILL_TABLE_PAGE_SIZE}
+            total={publicPage.total}
+            totalPages={publicPage.totalPages}
+            onPageChange={(page) => onPageChange("public", page)}
+          />
         </>
       ) : null}
     </section>
@@ -1712,6 +1789,50 @@ function EmptyText({ isLoading, text }: { isLoading: boolean; text: string }) {
   );
 }
 
+function TablePagination({
+  onPageChange,
+  page,
+  pageSize,
+  total,
+  totalPages,
+}: {
+  onPageChange: (page: number) => void;
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}) {
+  if (total <= pageSize) return null;
+
+  return (
+    <Pagination aria-label="表格分页" className="mt-1" size="sm">
+      <Pagination.Summary>
+        第 {page} / {totalPages} 页，共 {total} 条
+      </Pagination.Summary>
+      <Pagination.Content>
+        <Pagination.Item>
+          <Pagination.Previous
+            isDisabled={page <= 1}
+            onPress={() => onPageChange(page - 1)}
+          >
+            <Pagination.PreviousIcon />
+            上一页
+          </Pagination.Previous>
+        </Pagination.Item>
+        <Pagination.Item>
+          <Pagination.Next
+            isDisabled={page >= totalPages}
+            onPress={() => onPageChange(page + 1)}
+          >
+            下一页
+            <Pagination.NextIcon />
+          </Pagination.Next>
+        </Pagination.Item>
+      </Pagination.Content>
+    </Pagination>
+  );
+}
+
 function DetailLine({ label, value }: { label: string; value?: string }) {
   return (
     <div className="grid min-w-0 gap-1 sm:grid-cols-[120px_minmax(0,1fr)]">
@@ -1923,6 +2044,20 @@ function getSkillStats(rows: SkillRow[]) {
 
 function formatCount(value: number, isLoading: boolean) {
   return isLoading ? "-" : String(value);
+}
+
+function paginateRows<T>(rows: T[], page: number, pageSize: number) {
+  const total = rows.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const safePage = Math.min(Math.max(page, 1), totalPages);
+  const start = (safePage - 1) * pageSize;
+
+  return {
+    page: safePage,
+    rows: rows.slice(start, start + pageSize),
+    total,
+    totalPages,
+  };
 }
 
 function formatBytes(value?: number) {
