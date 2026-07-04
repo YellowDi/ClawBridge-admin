@@ -78,11 +78,13 @@ export function StatGrid({
 export function SectionCard({
   action,
   children,
+  compactHeader,
   description,
   title,
 }: {
   action?: ReactNode;
   children: ReactNode;
+  compactHeader?: boolean;
   description?: string;
   title: string;
 }) {
@@ -90,10 +92,12 @@ export function SectionCard({
     <Card>
       <Card.Header>
         <div className="flex w-full min-w-0 items-start justify-between gap-3">
-          <div className="min-w-0">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
             <Card.Title className="text-base">{title}</Card.Title>
             {description ? (
-              <Card.Description className="text-xs">
+              <Card.Description
+                className={compactHeader ? "text-xs" : "w-full text-xs"}
+              >
                 {description}
               </Card.Description>
             ) : null}

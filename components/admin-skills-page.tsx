@@ -669,19 +669,23 @@ function SkillContextCard({
 }) {
   return (
     <SectionCard
+      compactHeader
       action={
-        <Switch
-          isDisabled={isBusy}
-          isSelected={dryRun}
-          onChange={onDryRunChange}
-        >
-          <Switch.Content className="text-sm">
-            <Switch.Control>
-              <Switch.Thumb />
-            </Switch.Control>
-            预演模式
-          </Switch.Content>
-        </Switch>
+        <div className="flex items-center gap-2 whitespace-nowrap text-sm">
+          <span>预演模式</span>
+          <Switch
+            aria-label="预演模式"
+            isDisabled={isBusy}
+            isSelected={dryRun}
+            onChange={onDryRunChange}
+          >
+            <Switch.Content>
+              <Switch.Control>
+                <Switch.Thumb />
+              </Switch.Control>
+            </Switch.Content>
+          </Switch>
+        </div>
       }
       description="下方的分配、启用、禁用和移除都会作用到这个 Agent。"
       title="分配目标"
@@ -818,72 +822,34 @@ function SkillTabsSection({
             </Tabs.List>
           </Tabs.ListContainer>
         </Tabs>
-      </div>
 
-      {activeTab === "agent" ? (
-        <SectionCard title="Agent Skill 分配">
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        {activeTab === "agent" ? (
+          <SearchField
+            aria-label="搜索目录"
+            className="w-full sm:w-[320px]"
+            value={catalogQuery}
+            variant="secondary"
+            onChange={onCatalogQueryChange}
+            onSubmit={onCatalogQueryChange}
+          >
+            <SearchField.Group>
+              <SearchField.SearchIcon />
+              <SearchField.Input placeholder="搜索 slug、名称、说明或标签" />
+              <SearchField.ClearButton />
+            </SearchField.Group>
+          </SearchField>
+        ) : null}
+
+        {activeTab === "public" ? (
+          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-end">
             <SearchField
-              fullWidth
-              className="sm:max-w-md"
-              value={catalogQuery}
-              variant="secondary"
-              onChange={onCatalogQueryChange}
-              onSubmit={onCatalogQueryChange}
-            >
-              <Label>搜索目录</Label>
-              <SearchField.Group>
-                <SearchField.SearchIcon />
-                <SearchField.Input placeholder="搜索 slug、名称、说明或标签" />
-                <SearchField.ClearButton />
-              </SearchField.Group>
-            </SearchField>
-          </div>
-          <DataGrid
-            aria-label="Agent Skill 分配"
-            columns={skillColumns}
-            contentClassName="min-w-[1120px]"
-            data={skillRows}
-            getRowId={(item) => item.id}
-          />
-          {skillRows.length === 0 ? (
-            <EmptyText
-              isLoading={isLoadingCatalog}
-              text="没有可分配的 Skill。"
-            />
-          ) : null}
-        </SectionCard>
-      ) : null}
-
-      {activeTab === "private" ? (
-        <SectionCard title="私有 Skill 库">
-          <DataGrid
-            aria-label="私有 Skill 库"
-            columns={privateColumns}
-            contentClassName="min-w-[980px]"
-            data={privateRows}
-            getRowId={(item) => item.id}
-          />
-          {privateRows.length === 0 ? (
-            <EmptyText
-              isLoading={isLoadingCatalog}
-              text="私有库还没有 Skill 归档。"
-            />
-          ) : null}
-        </SectionCard>
-      ) : null}
-
-      {activeTab === "public" ? (
-        <SectionCard title="公共 Skill 库">
-          <div className="mb-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(180px,240px)_auto]">
-            <SearchField
-              fullWidth
+              aria-label="搜索公共 Skill"
+              className="w-full sm:w-[260px]"
               value={publicQuery}
               variant="secondary"
               onChange={onPublicQueryChange}
               onSubmit={() => onPublicSearch()}
             >
-              <Label>搜索公共 Skill</Label>
               <SearchField.Group>
                 <SearchField.SearchIcon />
                 <SearchField.Input placeholder="输入关键词" />
@@ -903,6 +869,47 @@ function SkillTabsSection({
               搜索
             </Button>
           </div>
+        ) : null}
+      </div>
+
+      {activeTab === "agent" ? (
+        <>
+          <DataGrid
+            aria-label="Agent Skill 分配"
+            columns={skillColumns}
+            contentClassName="min-w-[1120px]"
+            data={skillRows}
+            getRowId={(item) => item.id}
+          />
+          {skillRows.length === 0 ? (
+            <EmptyText
+              isLoading={isLoadingCatalog}
+              text="没有可分配的 Skill。"
+            />
+          ) : null}
+        </>
+      ) : null}
+
+      {activeTab === "private" ? (
+        <>
+          <DataGrid
+            aria-label="私有 Skill 库"
+            columns={privateColumns}
+            contentClassName="min-w-[980px]"
+            data={privateRows}
+            getRowId={(item) => item.id}
+          />
+          {privateRows.length === 0 ? (
+            <EmptyText
+              isLoading={isLoadingCatalog}
+              text="私有库还没有 Skill 归档。"
+            />
+          ) : null}
+        </>
+      ) : null}
+
+      {activeTab === "public" ? (
+        <>
           <DataGrid
             aria-label="公共 Skill 库"
             columns={publicColumns}
@@ -916,7 +923,7 @@ function SkillTabsSection({
               text="没有公共 Skill 结果。"
             />
           ) : null}
-        </SectionCard>
+        </>
       ) : null}
     </section>
   );
