@@ -15,6 +15,7 @@ import type {
 
 import { DataGrid, DropZone } from "@heroui-pro/react";
 import {
+  Badge,
   Button,
   Chip,
   Dropdown,
@@ -953,7 +954,7 @@ function SkillTabsSection({
           <DataGrid
             aria-label="Agent Skill 分配"
             columns={skillColumns}
-            contentClassName="min-w-[1120px]"
+            contentClassName="min-w-[1040px]"
             data={agentPage.rows}
             getRowId={(item) => item.id}
           />
@@ -1069,14 +1070,6 @@ const SKILL_COLUMNS: DataGridColumn<SkillRow>[] = [
     width: 80,
   },
   {
-    cell: (item) => <BoolChip active={item.enabled} label="启用" />,
-    cellClassName: "whitespace-nowrap",
-    header: "启用",
-    headerClassName: "whitespace-nowrap",
-    id: "enabled",
-    width: 80,
-  },
-  {
     cell: (item) => <BoolChip active={item.eligible} label="可运行" />,
     cellClassName: "whitespace-nowrap",
     header: "可运行",
@@ -1115,8 +1108,8 @@ const PRIVATE_COLUMNS: DataGridColumn<SkillRow>[] = [
     id: "storage",
     minWidth: 160,
   },
+  SKILL_COLUMNS[6],
   SKILL_COLUMNS[7],
-  SKILL_COLUMNS[8],
 ];
 
 const PUBLIC_COLUMNS: DataGridColumn<PublicSkillRow>[] = [
@@ -1659,22 +1652,36 @@ function ActionResult({ result }: { result: AgentSkillActionResult }) {
 }
 
 function SkillNameCell({ row }: { row: SkillRow }) {
+  const enabledLabel = row.enabled ? "已启用" : "未启用";
+  const title = row.displayName || row.slug || row.skillKey || "未命名 Skill";
+  const identifier = row.skillKey || row.slug || "";
+  const showIdentifier = Boolean(identifier && identifier !== title);
+
   return (
-    <div className="flex min-w-0 flex-col">
-      <span className="truncate text-xs font-medium">
-        {row.displayName || row.slug || row.skillKey || "未命名 Skill"}
-      </span>
-      <span
-        className="text-muted truncate text-xs"
-        title={row.skillKey || row.slug}
-      >
-        {row.skillKey || row.slug || "-"}
-      </span>
-      {row.description ? (
-        <span className="text-muted line-clamp-1 text-xs">
-          {row.description}
-        </span>
-      ) : null}
+    <div className="flex min-w-0 items-center gap-2">
+      <Badge.Anchor className="size-1.5">
+        <span className="sr-only">{enabledLabel}</span>
+        <Badge
+          className="min-h-2 min-w-2 border-0"
+          color={row.enabled ? "success" : "warning"}
+          placement="top-left"
+          size="sm"
+          title={enabledLabel}
+        />
+      </Badge.Anchor>
+      <div className="flex min-w-0 flex-col">
+        <span className="truncate text-xs font-medium">{title}</span>
+        {showIdentifier ? (
+          <span className="text-muted truncate text-xs" title={identifier}>
+            {identifier}
+          </span>
+        ) : null}
+        {row.description ? (
+          <span className="text-muted line-clamp-1 text-xs">
+            {row.description}
+          </span>
+        ) : null}
+      </div>
     </div>
   );
 }
