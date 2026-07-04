@@ -17,6 +17,7 @@ import { DataGrid, DropZone } from "@heroui-pro/react";
 import {
   Button,
   Chip,
+  Dropdown,
   Input,
   Label,
   ListBox,
@@ -26,6 +27,7 @@ import {
   Switch,
   Tabs,
   TextField,
+  Tooltip,
   toast,
   useOverlayState,
 } from "@heroui/react";
@@ -456,15 +458,7 @@ export function AdminSkillsPage() {
       {
         align: "end",
         cell: (item) => (
-          <div className="flex justify-end gap-2">
-            <Button
-              isDisabled={!hasTargetAgent || state.isActionRunning}
-              size="sm"
-              variant="tertiary"
-              onPress={() => applyRow(item)}
-            >
-              分配
-            </Button>
+          <div className="flex items-center justify-end gap-2">
             <Button
               isDisabled={!hasTargetAgent || state.isActionRunning}
               size="sm"
@@ -473,27 +467,53 @@ export function AdminSkillsPage() {
             >
               {item.enabled === false ? "启用" : "禁用"}
             </Button>
-            <Button
-              isDisabled={
-                !hasTargetAgent ||
-                state.isActionRunning ||
-                item.visibleToAgent === false
-              }
-              size="sm"
-              variant="danger-soft"
-              onPress={() => removeRow(item)}
-            >
-              移除
-            </Button>
+            <Dropdown>
+              <Tooltip delay={0}>
+                <Dropdown.Trigger
+                  aria-label="更多操作"
+                  className="inline-flex size-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface hover:text-foreground"
+                >
+                  <AdminIcon className="size-4" name="more" />
+                </Dropdown.Trigger>
+                <Tooltip.Content>更多操作</Tooltip.Content>
+              </Tooltip>
+              <Dropdown.Popover placement="bottom end">
+                <Dropdown.Menu
+                  aria-label={`${item.displayName || item.slug || item.skillKey} 更多操作`}
+                  onAction={(key) => {
+                    if (key === "apply") applyRow(item);
+                    if (key === "remove") removeRow(item);
+                  }}
+                >
+                  <Dropdown.Item
+                    id="apply"
+                    isDisabled={!hasTargetAgent || state.isActionRunning}
+                  >
+                    分配
+                  </Dropdown.Item>
+                  <Dropdown.Item
+                    id="remove"
+                    isDisabled={
+                      !hasTargetAgent ||
+                      state.isActionRunning ||
+                      item.visibleToAgent === false
+                    }
+                    variant="danger"
+                  >
+                    移除
+                  </Dropdown.Item>
+                </Dropdown.Menu>
+              </Dropdown.Popover>
+            </Dropdown>
           </div>
         ),
-        cellClassName: "w-[216px] min-w-[216px] max-w-[216px] pl-4 pr-4",
+        cellClassName: "w-[132px] min-w-[132px] max-w-[132px] pl-4 pr-4",
         header: "操作",
         headerClassName:
-          "w-[216px] min-w-[216px] max-w-[216px] whitespace-nowrap pl-4 pr-4",
+          "w-[132px] min-w-[132px] max-w-[132px] whitespace-nowrap pl-4 pr-4",
         id: "actions",
         pinned: "end",
-        width: 216,
+        width: 132,
       },
     ],
     [applyRow, hasTargetAgent, removeRow, setRowEnabled, state.isActionRunning],
