@@ -877,7 +877,7 @@ function SkillTabsSection({
 
   return (
     <section className="flex min-w-0 flex-col gap-3">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <Tabs
           selectedKey={activeTab}
           onSelectionChange={(key) => onTabChange(String(key) as SkillTab)}
@@ -903,7 +903,7 @@ function SkillTabsSection({
         {activeTab === "agent" ? (
           <SearchField
             aria-label="搜索目录"
-            className="w-full sm:w-[320px]"
+            className="w-full sm:w-[320px] lg:ml-auto"
             value={catalogQuery}
             variant="secondary"
             onChange={onCatalogQueryChange}
@@ -918,10 +918,10 @@ function SkillTabsSection({
         ) : null}
 
         {activeTab === "public" ? (
-          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-end">
+          <div className="flex w-full flex-wrap items-center gap-3 lg:ml-auto lg:w-auto lg:justify-end">
             <SearchField
               aria-label="搜索公共 Skill"
-              className="w-full sm:w-[260px]"
+              className="min-w-[220px] flex-1 sm:w-[260px] sm:flex-none"
               value={publicQuery}
               variant="secondary"
               onChange={onPublicQueryChange}
@@ -939,6 +939,7 @@ function SkillTabsSection({
               onChange={onPublicSourceChange}
             />
             <Button
+              className="w-full sm:w-auto"
               isDisabled={isActionRunning}
               isPending={isActionRunning}
               onPress={onPublicSearch}
@@ -1275,11 +1276,12 @@ function PublicSourceSelect({
   return (
     <Select
       fullWidth
+      aria-label="公共源"
+      className="w-full min-w-[160px] sm:w-[180px]"
       selectedKey={selectedSourceId}
       variant="secondary"
       onSelectionChange={(key) => onChange(String(key ?? ALL_SOURCE_ID))}
     >
-      <Label>公共源</Label>
       <Select.Trigger>
         <Select.Value />
         <Select.Indicator />
