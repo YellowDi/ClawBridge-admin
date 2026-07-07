@@ -736,10 +736,10 @@ function AssignSkillDialog({ skill }: { skill: PrivateSkill }) {
                         isDisabled={isFailed}
                         value={agentId}
                       >
-                        <Checkbox.Control>
-                          <Checkbox.Indicator />
-                        </Checkbox.Control>
-                        <Checkbox.Content className="min-w-0">
+                        <Checkbox.Content>
+                          <Checkbox.Control>
+                            <Checkbox.Indicator />
+                          </Checkbox.Control>
                           <span className="min-w-0 truncate text-sm font-medium">
                             {agent.displayName || agentId}
                           </span>

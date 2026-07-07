@@ -6,6 +6,7 @@ import {
   Button,
   Checkbox,
   Chip,
+  Description,
   FieldError,
   Form,
   Input,
@@ -17,7 +18,7 @@ import {
   Tooltip,
   toast,
 } from "@heroui/react";
-import { useCallback, useEffect, useReducer } from "react";
+import { useCallback, useEffect, useReducer, useState } from "react";
 
 import { AdminIcon } from "@/components/admin-icons";
 import { ModelProviderLogo } from "@/components/model-provider-logo";
@@ -25,9 +26,13 @@ import {
   createModel,
   deleteModel,
   listModels,
+  listOpenClawRPCInstances,
   type Model,
+  type OpenClawRPCInstance,
   type ReqModelCreate,
   type ReqModelUpdate,
+  type SyncOpenClawModelsResult,
+  syncModelsToOpenClaw,
   updateModel,
 } from "@/lib/api";
 
@@ -69,10 +74,32 @@ type ModelFormState = {
   model: string;
   modelConfigName: string;
   modelEnabled: boolean;
+  openClawContextTokens: string;
+  openClawContextWindow: string;
+  openClawMaxTokens: string;
+  openClawProviderApi: string;
+  openClawProviderApiKeyRef: string;
+  openClawProviderBaseUrl: string;
+  openClawReasoning: boolean;
+  openClawSyncProviderCatalog: boolean;
   outputPricePerMillion: string;
   providerType: string;
   selectedCapabilities: ModelCapabilityValue[];
   unitPriceAmount: string;
+};
+
+type ModelSyncDialogState = {
+  changed: unknown[];
+  error: string | null;
+  instances: OpenClawRPCInstance[];
+  isConfirming: boolean;
+  isLoadingInstances: boolean;
+  isOpen: boolean;
+  isPreviewing: boolean;
+  message: string;
+  pluginId: string;
+  result: SyncOpenClawModelsResult | null;
+  syncProviderCatalog: boolean;
 };
 
 type ModelConfigurationPageState = {
@@ -189,10 +216,32 @@ const DEFAULT_MODEL_FORM: ModelFormState = {
   model: "",
   modelConfigName: "",
   modelEnabled: true,
+  openClawContextTokens: "",
+  openClawContextWindow: "",
+  openClawMaxTokens: "",
+  openClawProviderApi: "",
+  openClawProviderApiKeyRef: "",
+  openClawProviderBaseUrl: "",
+  openClawReasoning: false,
+  openClawSyncProviderCatalog: false,
   outputPricePerMillion: "",
   providerType: defaultModelProviderPreset.id,
   selectedCapabilities: ["chat"],
   unitPriceAmount: "",
+};
+
+const DEFAULT_MODEL_SYNC_DIALOG_STATE: ModelSyncDialogState = {
+  changed: [],
+  error: null,
+  instances: [],
+  isConfirming: false,
+  isLoadingInstances: false,
+  isOpen: false,
+  isPreviewing: false,
+  message: "",
+  pluginId: "",
+  result: null,
+  syncProviderCatalog: false,
 };
 
 const INITIAL_MODEL_CONFIGURATION_PAGE_STATE: ModelConfigurationPageState = {
@@ -287,6 +336,10 @@ export function ModelConfigurationPage() {
     modelConfigurationPageReducer,
     INITIAL_MODEL_CONFIGURATION_PAGE_STATE,
   );
+  const [selectedModelIds, setSelectedModelIds] = useState<number[]>([]);
+  const [syncDialogState, setSyncDialogState] = useState<ModelSyncDialogState>(
+    DEFAULT_MODEL_SYNC_DIALOG_STATE,
+  );
   const {
     editingModelConfiguration,
     form,
@@ -307,6 +360,11 @@ export function ModelConfigurationPage() {
   const modelPlaceholder = suggestedModel
     ? `例如：${suggestedModel}`
     : "例如：gemini-2.5-pro";
+  const selectedModels = modelConfigurations.filter(
+    (modelConfiguration) =>
+      modelConfiguration.recordId !== undefined &&
+      selectedModelIds.includes(modelConfiguration.recordId),
+  );
 
   const loadModelConfigurations = useCallback(async () => {
     dispatch({ type: "modelsLoading" });
@@ -345,11 +403,33 @@ export function ModelConfigurationPage() {
     const nextCacheReadPrice = form.cacheReadPricePerMillion.trim();
     const nextCacheWritePrice = form.cacheWritePricePerMillion.trim();
     const nextCurrency = form.currency.trim();
+    let nextOpenClawContextWindow: number | undefined;
+    let nextOpenClawContextTokens: number | undefined;
+    let nextOpenClawMaxTokens: number | undefined;
     const nextCapabilities = form.selectedCapabilities.flatMap((capability) => {
       const trimmedCapability = capability.trim();
 
       return trimmedCapability ? [trimmedCapability] : [];
     });
+
+    try {
+      nextOpenClawContextWindow = getOptionalTokenNumber(
+        form.openClawContextWindow,
+        "原生上下文窗口",
+      );
+      nextOpenClawContextTokens = getOptionalTokenNumber(
+        form.openClawContextTokens,
+        "运行上下文预算",
+      );
+      nextOpenClawMaxTokens = getOptionalTokenNumber(
+        form.openClawMaxTokens,
+        "最大输出 token",
+      );
+    } catch (error) {
+      toast.danger(getActionErrorMessage(error));
+
+      return;
+    }
 
     if (!nextName) {
       toast.danger("配置名称为必填项。");
@@ -394,6 +474,14 @@ export function ModelConfigurationPage() {
         enabled: form.modelEnabled,
         inputPricePerMillion: nextInputPrice,
         modelid: nextModel,
+        openClawContextTokens: nextOpenClawContextTokens,
+        openClawContextWindow: nextOpenClawContextWindow,
+        openClawMaxTokens: nextOpenClawMaxTokens,
+        openClawProviderApi: form.openClawProviderApi.trim(),
+        openClawProviderApiKeyRef: form.openClawProviderApiKeyRef.trim(),
+        openClawProviderBaseUrl: form.openClawProviderBaseUrl.trim(),
+        openClawReasoning: form.openClawReasoning,
+        openClawSyncProviderCatalog: form.openClawSyncProviderCatalog,
         outputPricePerMillion: nextOutputPrice,
         provider: nextProvider,
         unitPriceAmount: nextUnitPrice,
@@ -451,6 +539,9 @@ export function ModelConfigurationPage() {
         modelConfigurationId: editingModelConfiguration.id,
         type: "modelDeleted",
       });
+      setSelectedModelIds((current) =>
+        current.filter((id) => id !== editingModelConfiguration.recordId),
+      );
     } catch (error) {
       toast.danger(`模型配置删除失败：${getActionErrorMessage(error)}`);
       dispatch({ type: "deleteFinished" });
@@ -461,15 +552,140 @@ export function ModelConfigurationPage() {
     dispatch({ capability, selected, type: "capabilityToggled" });
   }
 
+  function toggleSelectedModel(modelId: number, selected: boolean) {
+    setSelectedModelIds((current) =>
+      selected
+        ? current.includes(modelId)
+          ? current
+          : [...current, modelId]
+        : current.filter((id) => id !== modelId),
+    );
+  }
+
+  async function openSyncDialog() {
+    if (selectedModelIds.length === 0) {
+      toast.danger("请先选择要同步的模型。");
+
+      return;
+    }
+
+    setSyncDialogState({
+      ...DEFAULT_MODEL_SYNC_DIALOG_STATE,
+      isLoadingInstances: true,
+      isOpen: true,
+    });
+
+    try {
+      const instances = await listOpenClawRPCInstances();
+      const pluginId =
+        instances.find((instance) => instance.pluginId?.trim())?.pluginId ?? "";
+
+      setSyncDialogState((current) => ({
+        ...current,
+        error: pluginId ? null : "当前没有可用的 OpenClaw RPC 实例。",
+        instances,
+        isLoadingInstances: false,
+        pluginId,
+      }));
+    } catch (error) {
+      const message = getActionErrorMessage(error);
+
+      setSyncDialogState((current) => ({
+        ...current,
+        error: message,
+        isLoadingInstances: false,
+      }));
+      toast.danger(`OpenClaw 实例加载失败：${message}`);
+    }
+  }
+
+  async function previewSync() {
+    if (!syncDialogState.pluginId) {
+      toast.danger("请选择目标 OpenClaw 实例。");
+
+      return;
+    }
+
+    setSyncDialogState((current) => ({
+      ...current,
+      error: null,
+      isPreviewing: true,
+      result: null,
+    }));
+
+    try {
+      const result = await syncModelsToOpenClaw({
+        dryRun: true,
+        modelIds: selectedModelIds,
+        pluginId: syncDialogState.pluginId,
+        syncProviderCatalog: syncDialogState.syncProviderCatalog,
+      });
+
+      setSyncDialogState((current) => ({
+        ...current,
+        changed: result?.changed ?? [],
+        isPreviewing: false,
+        message: result?.message ?? "",
+        result: result ?? null,
+      }));
+    } catch (error) {
+      const message = getActionErrorMessage(error);
+
+      setSyncDialogState((current) => ({
+        ...current,
+        error: message,
+        isPreviewing: false,
+      }));
+      toast.danger(`同步预演失败：${message}`);
+    }
+  }
+
+  async function confirmSync() {
+    if (!syncDialogState.pluginId || !syncDialogState.result) return;
+
+    setSyncDialogState((current) => ({
+      ...current,
+      error: null,
+      isConfirming: true,
+    }));
+
+    try {
+      const result = await syncModelsToOpenClaw({
+        dryRun: false,
+        modelIds: selectedModelIds,
+        pluginId: syncDialogState.pluginId,
+        syncProviderCatalog: syncDialogState.syncProviderCatalog,
+      });
+
+      toast.success(
+        result?.message ||
+          "模型已同步到目标 OpenClaw 实例。若是新 provider，请确认目标 OpenClaw 运行环境已配置对应的 API key 环境变量。",
+      );
+      setSyncDialogState(DEFAULT_MODEL_SYNC_DIALOG_STATE);
+    } catch (error) {
+      const message = getActionErrorMessage(error);
+
+      setSyncDialogState((current) => ({
+        ...current,
+        error: message,
+        isConfirming: false,
+      }));
+      toast.danger(`模型同步失败：${message}`);
+    }
+  }
+
   return (
     <div className="flex w-full flex-col gap-5">
       <ModelConfigurationGrid
         isLoadingModels={isLoadingModels}
         loadError={loadError}
         modelConfigurations={modelConfigurations}
+        selectedModelIds={selectedModelIds}
         onCreate={() => openCreateProviderDialog()}
         onEdit={openEditProviderDialog}
         onReload={() => void loadModelConfigurations()}
+        onSelectModel={toggleSelectedModel}
+        onSync={() => void openSyncDialog()}
       />
 
       <ModelConfigurationDialog
@@ -491,6 +707,19 @@ export function ModelConfigurationPage() {
         }
         onSubmit={submitProvider}
       />
+
+      <ModelSyncDialog
+        selectedModels={selectedModels}
+        state={syncDialogState}
+        onConfirm={() => void confirmSync()}
+        onOpenChange={(isOpen) =>
+          setSyncDialogState((current) =>
+            isOpen ? current : DEFAULT_MODEL_SYNC_DIALOG_STATE,
+          )
+        }
+        onPreview={() => void previewSync()}
+        onStateChange={setSyncDialogState}
+      />
     </div>
   );
 }
@@ -502,6 +731,9 @@ function ModelConfigurationGrid({
   onCreate,
   onEdit,
   onReload,
+  onSelectModel,
+  onSync,
+  selectedModelIds,
 }: {
   isLoadingModels: boolean;
   loadError: string | null;
@@ -509,9 +741,30 @@ function ModelConfigurationGrid({
   onCreate: () => void;
   onEdit: (modelConfiguration: ModelConfiguration) => void;
   onReload: () => void;
+  onSelectModel: (modelId: number, selected: boolean) => void;
+  onSync: () => void;
+  selectedModelIds: number[];
 }) {
   return (
     <>
+      <div className="bg-surface flex flex-wrap items-center justify-between gap-3 rounded-3xl px-4 py-3">
+        <div className="min-w-0">
+          <Typography type="body-sm" weight="medium">
+            已选择 {selectedModelIds.length} 个模型
+          </Typography>
+          <Typography className="block truncate" color="muted" type="body-xs">
+            先预演 OpenClaw 配置变更，确认后再正式写入。
+          </Typography>
+        </div>
+        <Button
+          isDisabled={selectedModelIds.length === 0 || isLoadingModels}
+          type="button"
+          onPress={onSync}
+        >
+          <AdminIcon className="size-4" name="model" />
+          同步到 OpenClaw
+        </Button>
+      </div>
       <div className="grid gap-3 md:grid-cols-3">
         <button
           className="border-border bg-surface cursor-[var(--cursor-interactive)] hover:bg-surface-hover disabled:text-muted flex min-h-28 items-center gap-3 rounded-3xl border border-dashed px-3 text-left disabled:cursor-not-allowed disabled:opacity-70"
@@ -533,6 +786,23 @@ function ModelConfigurationGrid({
             className="bg-surface flex min-h-28 min-w-0 items-center justify-between gap-3 rounded-3xl px-3 py-3"
           >
             <div className="flex min-w-0 items-center gap-3">
+              {modelConfiguration.recordId !== undefined ? (
+                <Checkbox
+                  aria-label={`选择 ${modelConfiguration.name}`}
+                  isSelected={selectedModelIds.includes(
+                    modelConfiguration.recordId,
+                  )}
+                  onChange={(selected) =>
+                    onSelectModel(modelConfiguration.recordId!, selected)
+                  }
+                >
+                  <Checkbox.Content>
+                    <Checkbox.Control>
+                      <Checkbox.Indicator />
+                    </Checkbox.Control>
+                  </Checkbox.Content>
+                </Checkbox>
+              ) : null}
               <ModelProviderLogo
                 label={modelProviderLabel(modelConfiguration.provider_type)}
                 providerType={modelConfiguration.provider_type}
@@ -613,6 +883,199 @@ function ModelConfigurationGrid({
         </div>
       ) : null}
     </>
+  );
+}
+
+function ModelSyncDialog({
+  onConfirm,
+  onOpenChange,
+  onPreview,
+  onStateChange,
+  selectedModels,
+  state,
+}: {
+  onConfirm: () => void;
+  onOpenChange: (isOpen: boolean) => void;
+  onPreview: () => void;
+  onStateChange: (
+    update:
+      | ModelSyncDialogState
+      | ((current: ModelSyncDialogState) => ModelSyncDialogState),
+  ) => void;
+  selectedModels: ModelConfiguration[];
+  state: ModelSyncDialogState;
+}) {
+  const canPreview =
+    Boolean(state.pluginId) && !state.isLoadingInstances && !state.isPreviewing;
+  const canConfirm =
+    Boolean(state.result) && !state.isConfirming && !state.isPreviewing;
+
+  return (
+    <Modal.Backdrop
+      isDismissable={!state.isConfirming && !state.isPreviewing}
+      isKeyboardDismissDisabled={state.isConfirming || state.isPreviewing}
+      isOpen={state.isOpen}
+      onOpenChange={onOpenChange}
+    >
+      <Modal.Container placement="auto" scroll="inside" size="lg">
+        <Modal.Dialog>
+          <Modal.CloseTrigger />
+          <Modal.Header>
+            <Modal.Heading>同步到 OpenClaw</Modal.Heading>
+            <Typography color="muted" type="body-sm">
+              这是预演结果，尚未写入 OpenClaw。请确认变更项后再正式同步。
+            </Typography>
+          </Modal.Header>
+          <Modal.Body className="grid gap-4">
+            <div className="flex flex-wrap gap-2">
+              {selectedModels.map((model) => (
+                <Chip key={model.id} size="sm" variant="soft">
+                  {model.provider_type}/{model.model || model.name}
+                </Chip>
+              ))}
+            </div>
+            <Select
+              fullWidth
+              isRequired
+              isDisabled={state.isLoadingInstances || state.isPreviewing}
+              name="openclaw_plugin_id"
+              selectedKey={state.pluginId}
+              variant="secondary"
+              onSelectionChange={(key) =>
+                onStateChange((current) => ({
+                  ...current,
+                  pluginId: String(key ?? ""),
+                  result: null,
+                }))
+              }
+            >
+              <Label>目标 OpenClaw 实例</Label>
+              <Select.Trigger>
+                <Select.Value />
+                <Select.Indicator />
+              </Select.Trigger>
+              <Select.Popover>
+                <ListBox>
+                  {state.instances.map((instance) => {
+                    const pluginId = instance.pluginId?.trim() ?? "";
+
+                    return pluginId ? (
+                      <ListBox.Item
+                        key={pluginId}
+                        id={pluginId}
+                        textValue={pluginId}
+                      >
+                        {pluginId}
+                        <ListBox.ItemIndicator />
+                      </ListBox.Item>
+                    ) : null;
+                  })}
+                </ListBox>
+              </Select.Popover>
+              <FieldError />
+            </Select>
+            <Checkbox
+              isSelected={state.syncProviderCatalog}
+              onChange={(syncProviderCatalog) =>
+                onStateChange((current) => ({
+                  ...current,
+                  result: null,
+                  syncProviderCatalog,
+                }))
+              }
+            >
+              <Checkbox.Content>
+                <Checkbox.Control>
+                  <Checkbox.Indicator />
+                </Checkbox.Control>
+                本次同步强制写入 provider catalog
+              </Checkbox.Content>
+            </Checkbox>
+            {state.error ? (
+              <div className="bg-danger-soft text-danger rounded-2xl px-3 py-2 text-sm">
+                {state.error}
+              </div>
+            ) : null}
+            {state.isLoadingInstances ? (
+              <Typography color="muted" type="body-sm">
+                正在加载 OpenClaw 实例...
+              </Typography>
+            ) : null}
+            {state.result ? (
+              <div className="border-border grid gap-3 rounded-3xl border px-3 py-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Chip
+                    color={
+                      state.result.success === false ? "danger" : "success"
+                    }
+                    size="sm"
+                    variant="soft"
+                  >
+                    {state.result.success === false ? "失败" : "成功"}
+                  </Chip>
+                  <Chip size="sm" variant="soft">
+                    {state.result.dryRun === false ? "正式同步" : "预演"}
+                  </Chip>
+                </div>
+                {state.message ? (
+                  <Typography type="body-sm">{state.message}</Typography>
+                ) : null}
+                <div className="grid gap-2">
+                  <Typography type="body-sm" weight="medium">
+                    变更项
+                  </Typography>
+                  {state.changed.length > 0 ? (
+                    <ul className="grid max-h-56 gap-2 overflow-auto pr-1 text-sm">
+                      {state.changed.map((item, index) => (
+                        <li
+                          key={`${index}-${formatChangedItem(item)}`}
+                          className="bg-muted/40 rounded-2xl px-3 py-2"
+                        >
+                          {formatChangedItem(item)}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <Typography color="muted" type="body-sm">
+                      没有配置变更。
+                    </Typography>
+                  )}
+                </div>
+              </div>
+            ) : null}
+          </Modal.Body>
+          <Modal.Footer>
+            <div className="flex w-full flex-wrap justify-end gap-2">
+              <Button
+                isDisabled={state.isConfirming || state.isPreviewing}
+                type="button"
+                variant="secondary"
+                onPress={() => onOpenChange(false)}
+              >
+                取消
+              </Button>
+              <Button
+                isDisabled={!canPreview}
+                isPending={state.isPreviewing}
+                type="button"
+                variant="secondary"
+                onPress={onPreview}
+              >
+                预演同步
+              </Button>
+              <Button
+                isDisabled={!canConfirm}
+                isPending={state.isConfirming}
+                type="button"
+                onPress={onConfirm}
+              >
+                正式同步
+              </Button>
+            </div>
+          </Modal.Footer>
+        </Modal.Dialog>
+      </Modal.Container>
+    </Modal.Backdrop>
   );
 }
 
@@ -775,7 +1238,7 @@ function ModelConfigurationFields({
         value={form.model}
         onChange={(value) => onFormChange({ model: value })}
       >
-        <Label>模型名称</Label>
+        <Label>模型 ID</Label>
         <Input placeholder={modelPlaceholder} variant="secondary" />
         <FieldError />
       </TextField>
@@ -784,6 +1247,7 @@ function ModelConfigurationFields({
         selectedCapabilities={form.selectedCapabilities}
         onCapabilityToggle={onCapabilityToggle}
       />
+      <OpenClawConfigurationFields form={form} onFormChange={onFormChange} />
     </div>
   );
 }
@@ -934,21 +1398,152 @@ function ModelCapabilityFields({
             isSelected={selectedCapabilities.includes(definition.id)}
             onChange={(selected) => onCapabilityToggle(definition.id, selected)}
           >
-            <Checkbox.Control>
-              <Checkbox.Indicator />
-            </Checkbox.Control>
             <Checkbox.Content>
-              <span className="block text-sm font-medium">
-                {definition.label}
-              </span>
-              <span className="text-muted block text-xs">
-                {definition.description}
-              </span>
+              <Checkbox.Control>
+                <Checkbox.Indicator />
+              </Checkbox.Control>
+              {definition.label}
             </Checkbox.Content>
+            <Description>{definition.description}</Description>
           </Checkbox>
         ))}
       </div>
     </div>
+  );
+}
+
+function OpenClawConfigurationFields({
+  form,
+  onFormChange,
+}: {
+  form: ModelFormState;
+  onFormChange: (patch: Partial<ModelFormState>) => void;
+}) {
+  return (
+    <details className="border-border rounded-3xl border px-4 py-3">
+      <summary className="cursor-[var(--cursor-interactive)] text-sm font-medium">
+        OpenClaw 配置
+      </summary>
+      <div className="mt-4 grid gap-4">
+        <Typography className="block" color="muted" type="body-sm">
+          官方 provider 通常只需要同步到 OpenClaw 模型 allowlist，不需要填写
+          OpenClaw provider catalog 配置。
+        </Typography>
+        <Typography className="block" color="muted" type="body-sm">
+          自定义 provider、OpenAI-compatible 代理或本地模型服务需要开启「同步
+          provider catalog」，并填写 API 地址、协议适配器和密钥环境变量引用。
+        </Typography>
+        <Checkbox
+          isSelected={form.openClawSyncProviderCatalog}
+          onChange={(openClawSyncProviderCatalog) =>
+            onFormChange({ openClawSyncProviderCatalog })
+          }
+        >
+          <Checkbox.Content>
+            <Checkbox.Control>
+              <Checkbox.Indicator />
+            </Checkbox.Control>
+            同步 provider catalog
+          </Checkbox.Content>
+        </Checkbox>
+        <div className="grid gap-4 md:grid-cols-2">
+          <TextField
+            fullWidth
+            name="openclaw_provider_base_url"
+            value={form.openClawProviderBaseUrl}
+            onChange={(openClawProviderBaseUrl) =>
+              onFormChange({ openClawProviderBaseUrl })
+            }
+          >
+            <Label>API 基础地址</Label>
+            <Input
+              placeholder="https://api.example.com/v1"
+              variant="secondary"
+            />
+            <FieldError />
+          </TextField>
+          <TextField
+            fullWidth
+            name="openclaw_provider_api"
+            value={form.openClawProviderApi}
+            onChange={(openClawProviderApi) =>
+              onFormChange({ openClawProviderApi })
+            }
+          >
+            <Label>协议适配器</Label>
+            <Input placeholder="openai-completions" variant="secondary" />
+            <FieldError />
+          </TextField>
+          <TextField
+            fullWidth
+            name="openclaw_provider_api_key_ref"
+            value={form.openClawProviderApiKeyRef}
+            onChange={(openClawProviderApiKeyRef) =>
+              onFormChange({ openClawProviderApiKeyRef })
+            }
+          >
+            <Label>API key 环境变量引用</Label>
+            <Input placeholder="${CUSTOM_API_KEY}" variant="secondary" />
+            <FieldError />
+          </TextField>
+          <TextField
+            fullWidth
+            name="openclaw_context_window"
+            value={form.openClawContextWindow}
+            onChange={(openClawContextWindow) =>
+              onFormChange({ openClawContextWindow })
+            }
+          >
+            <Label>原生上下文窗口</Label>
+            <Input
+              inputMode="numeric"
+              placeholder="128000"
+              variant="secondary"
+            />
+            <FieldError />
+          </TextField>
+          <TextField
+            fullWidth
+            name="openclaw_context_tokens"
+            value={form.openClawContextTokens}
+            onChange={(openClawContextTokens) =>
+              onFormChange({ openClawContextTokens })
+            }
+          >
+            <Label>运行上下文预算</Label>
+            <Input
+              inputMode="numeric"
+              placeholder="96000"
+              variant="secondary"
+            />
+            <FieldError />
+          </TextField>
+          <TextField
+            fullWidth
+            name="openclaw_max_tokens"
+            value={form.openClawMaxTokens}
+            onChange={(openClawMaxTokens) =>
+              onFormChange({ openClawMaxTokens })
+            }
+          >
+            <Label>最大输出 token</Label>
+            <Input inputMode="numeric" placeholder="8192" variant="secondary" />
+            <FieldError />
+          </TextField>
+        </div>
+        <Checkbox
+          isSelected={form.openClawReasoning}
+          onChange={(openClawReasoning) => onFormChange({ openClawReasoning })}
+        >
+          <Checkbox.Content>
+            <Checkbox.Control>
+              <Checkbox.Indicator />
+            </Checkbox.Control>
+            支持 thinking/reasoning 控制
+          </Checkbox.Content>
+        </Checkbox>
+      </div>
+    </details>
   );
 }
 
@@ -1181,6 +1776,25 @@ function getModelFormFromConfiguration(
     model: modelConfiguration.model || modelConfiguration.models?.[0] || "",
     modelConfigName: modelConfiguration.name,
     modelEnabled: modelConfiguration.enabled,
+    openClawContextTokens: optionalNumberToString(
+      modelConfiguration.record?.openClawContextTokens,
+    ),
+    openClawContextWindow: optionalNumberToString(
+      modelConfiguration.record?.openClawContextWindow,
+    ),
+    openClawMaxTokens: optionalNumberToString(
+      modelConfiguration.record?.openClawMaxTokens,
+    ),
+    openClawProviderApi:
+      modelConfiguration.record?.openClawProviderApi?.trim() ?? "",
+    openClawProviderApiKeyRef:
+      modelConfiguration.record?.openClawProviderApiKeyRef?.trim() ?? "",
+    openClawProviderBaseUrl:
+      modelConfiguration.record?.openClawProviderBaseUrl?.trim() ?? "",
+    openClawReasoning: Boolean(modelConfiguration.record?.openClawReasoning),
+    openClawSyncProviderCatalog: Boolean(
+      modelConfiguration.record?.openClawSyncProviderCatalog,
+    ),
     outputPricePerMillion:
       modelConfiguration.record?.outputPricePerMillion?.trim() ?? "",
     providerType: nextProvider?.id ?? "custom",
@@ -1206,6 +1820,14 @@ function buildModelRequest({
   enabled,
   inputPricePerMillion,
   modelid,
+  openClawContextTokens,
+  openClawContextWindow,
+  openClawMaxTokens,
+  openClawProviderApi,
+  openClawProviderApiKeyRef,
+  openClawProviderBaseUrl,
+  openClawReasoning,
+  openClawSyncProviderCatalog,
   outputPricePerMillion,
   provider,
   unitPriceAmount,
@@ -1219,6 +1841,14 @@ function buildModelRequest({
   enabled: boolean;
   inputPricePerMillion: string;
   modelid: string;
+  openClawContextTokens?: number;
+  openClawContextWindow?: number;
+  openClawMaxTokens?: number;
+  openClawProviderApi: string;
+  openClawProviderApiKeyRef: string;
+  openClawProviderBaseUrl: string;
+  openClawReasoning: boolean;
+  openClawSyncProviderCatalog: boolean;
   outputPricePerMillion: string;
   provider: string;
   unitPriceAmount: string;
@@ -1230,6 +1860,8 @@ function buildModelRequest({
     currency,
     enabled,
     modelid,
+    openClawReasoning,
+    openClawSyncProviderCatalog,
     provider,
   };
 
@@ -1247,6 +1879,24 @@ function buildModelRequest({
   }
   if (unitPriceAmount) {
     request.unitPriceAmount = unitPriceAmount;
+  }
+  if (openClawContextTokens !== undefined) {
+    request.openClawContextTokens = openClawContextTokens;
+  }
+  if (openClawContextWindow !== undefined) {
+    request.openClawContextWindow = openClawContextWindow;
+  }
+  if (openClawMaxTokens !== undefined) {
+    request.openClawMaxTokens = openClawMaxTokens;
+  }
+  if (openClawProviderApi) {
+    request.openClawProviderApi = openClawProviderApi;
+  }
+  if (openClawProviderApiKeyRef) {
+    request.openClawProviderApiKeyRef = openClawProviderApiKeyRef;
+  }
+  if (openClawProviderBaseUrl) {
+    request.openClawProviderBaseUrl = openClawProviderBaseUrl;
   }
 
   return request;
@@ -1330,6 +1980,33 @@ function parseModelList(value: string): string[] {
 
 function providerPresetModels(provider: ModelProviderPreset) {
   return parseModelList(provider.defaultModel);
+}
+
+function getOptionalTokenNumber(value: string, label: string) {
+  const nextValue = value.trim();
+
+  if (!nextValue) return undefined;
+
+  const numberValue = Number(nextValue);
+
+  if (!Number.isInteger(numberValue) || numberValue < 0) {
+    throw new Error(`${label}必须是非负整数。`);
+  }
+
+  return numberValue;
+}
+
+function optionalNumberToString(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value)
+    ? String(value)
+    : "";
+}
+
+function formatChangedItem(item: unknown) {
+  if (typeof item === "string") return item;
+  if (item == null) return String(item);
+
+  return JSON.stringify(item);
 }
 
 function normalizeText(value?: string) {

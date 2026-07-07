@@ -11,6 +11,7 @@ import type { EditableUserSummary } from "@/components/create-user-dialog";
 import {
   Button,
   Checkbox,
+  Description,
   Input,
   Label,
   ListBox,
@@ -594,17 +595,13 @@ function AccessList({
                 isSelected={selectedIds.includes(itemId)}
                 onChange={(selected) => onToggle(itemId, selected)}
               >
-                <Checkbox.Control>
-                  <Checkbox.Indicator />
-                </Checkbox.Control>
                 <Checkbox.Content>
-                  <span className="block truncate text-sm font-medium">
-                    {getItemLabel(item)}
-                  </span>
-                  <span className="text-muted block truncate text-xs">
-                    {getItemDescription(item)}
-                  </span>
+                  <Checkbox.Control>
+                    <Checkbox.Indicator />
+                  </Checkbox.Control>
+                  <span className="truncate">{getItemLabel(item)}</span>
                 </Checkbox.Content>
+                <Description>{getItemDescription(item)}</Description>
               </Checkbox>
             );
           })}

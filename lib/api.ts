@@ -105,6 +105,14 @@ export interface ReqModelCreate {
   enabled?: boolean;
   inputPricePerMillion?: string;
   modelid?: string;
+  openClawContextTokens?: number;
+  openClawContextWindow?: number;
+  openClawMaxTokens?: number;
+  openClawProviderApi?: string;
+  openClawProviderApiKeyRef?: string;
+  openClawProviderBaseUrl?: string;
+  openClawReasoning?: boolean;
+  openClawSyncProviderCatalog?: boolean;
   outputPricePerMillion?: string;
   provider?: string;
   unitPriceAmount?: string;
@@ -129,6 +137,14 @@ export interface ReqModelUpdate {
   id?: number;
   inputPricePerMillion?: string;
   modelid?: string;
+  openClawContextTokens?: number;
+  openClawContextWindow?: number;
+  openClawMaxTokens?: number;
+  openClawProviderApi?: string;
+  openClawProviderApiKeyRef?: string;
+  openClawProviderBaseUrl?: string;
+  openClawReasoning?: boolean;
+  openClawSyncProviderCatalog?: boolean;
   outputPricePerMillion?: string;
   provider?: string;
   unitPriceAmount?: string;
@@ -159,6 +175,14 @@ export interface Model {
   inputPricePerMillion?: string;
   isDelete?: number;
   modelid?: string;
+  openClawContextTokens?: number;
+  openClawContextWindow?: number;
+  openClawMaxTokens?: number;
+  openClawProviderApi?: string;
+  openClawProviderApiKeyRef?: string;
+  openClawProviderBaseUrl?: string;
+  openClawReasoning?: boolean;
+  openClawSyncProviderCatalog?: boolean;
   outputPricePerMillion?: string;
   provider?: string;
   unitPriceAmount?: string;
@@ -374,6 +398,7 @@ export interface Agent {
   defaultVideoGenerationModel?: Model;
   defaultVideoGenerationModelid?: string;
   description?: string;
+  devInitialized?: boolean;
   displayName?: string;
   enabled?: boolean;
   id?: number;
@@ -825,6 +850,22 @@ export interface ReqApplyOpenClawConfig {
 
 export interface ApplyOpenClawConfigResult {
   changed?: string[];
+  dryRun?: boolean;
+  message?: string;
+  success?: boolean;
+  [property: string]: unknown;
+}
+
+export interface ReqSyncOpenClawModels {
+  dryRun?: boolean;
+  modelIds?: number[];
+  pluginId?: string;
+  syncProviderCatalog?: boolean;
+  [property: string]: unknown;
+}
+
+export interface SyncOpenClawModelsResult {
+  changed?: unknown[];
   dryRun?: boolean;
   message?: string;
   success?: boolean;
@@ -1363,6 +1404,18 @@ export async function deleteModel(id: number): Promise<void> {
     body: JSON.stringify({ id } satisfies ReqModelDelete),
     method: "POST",
   });
+}
+
+export async function syncModelsToOpenClaw(
+  request: ReqSyncOpenClawModels,
+): Promise<SyncOpenClawModelsResult | undefined> {
+  return requestJson<SyncOpenClawModelsResult | undefined>(
+    "/api/models/sync-openclaw",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
 }
 
 export async function listAgents(request: ReqAgentList = {}): Promise<Agent[]> {

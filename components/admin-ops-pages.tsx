@@ -5,6 +5,7 @@ import type { Agent, Model } from "@/lib/api";
 import {
   Button,
   Checkbox,
+  Description,
   Input,
   Label,
   TextField,
@@ -227,15 +228,13 @@ export function SettingsPage() {
               />
             </TextField>
             <Checkbox isSelected={dryRun} onChange={setDryRun}>
-              <Checkbox.Control>
-                <Checkbox.Indicator />
-              </Checkbox.Control>
               <Checkbox.Content>
-                <span className="block text-sm font-medium">Dry run</span>
-                <span className="text-muted block text-xs">
-                  先验证配置，不实际下发到 OpenClaw。
-                </span>
+                <Checkbox.Control>
+                  <Checkbox.Indicator />
+                </Checkbox.Control>
+                Dry run
               </Checkbox.Content>
+              <Description>先验证配置，不实际下发到 OpenClaw。</Description>
             </Checkbox>
             {state.error ? (
               <div className="rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">

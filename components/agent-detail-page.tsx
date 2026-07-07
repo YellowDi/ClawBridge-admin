@@ -26,7 +26,6 @@ import {
   Select,
   Tabs,
   TextField,
-  Tooltip,
   toast,
   useOverlayState,
 } from "@heroui/react";
@@ -58,6 +57,7 @@ type DetailState = {
   exports: AgentExport[];
   isLoading: boolean;
   models: Model[];
+  workspaceName: string;
 };
 
 type DetailTab = "knowledge" | "markdown" | "versions";
@@ -83,25 +83,44 @@ export function AgentDetailPage({ agentRecordId }: { agentRecordId: number }) {
     exports: EMPTY_AGENT_EXPORTS,
     isLoading: true,
     models: EMPTY_MODELS,
+    workspaceName: "",
   });
   const [tab, setTab] = useState<DetailTab>("markdown");
-  const { agent, deployments, error, exports, isLoading, models } = state;
+  const {
+    agent,
+    deployments,
+    error,
+    exports,
+    isLoading,
+    models,
+    workspaceName: loadedWorkspaceName,
+  } = state;
 
   const loadDetail = useCallback(async () => {
     setState((current) => ({ ...current, error: null, isLoading: true }));
 
     try {
-      const [agentDetail, modelList, exportList, deploymentList] =
-        await Promise.all([
-          getAgentDetail(agentRecordId),
-          listModels({ pageSize: 500 }),
-          listAgentExports({
-            agentId: agentRecordId,
-            page: 1,
-            pageSize: 50,
-          }),
-          listAgentDeployments({ agentId: agentRecordId }),
-        ]);
+      const [
+        agentDetail,
+        modelList,
+        exportList,
+        deploymentList,
+        workspaceInfo,
+      ] = await Promise.all([
+        getAgentDetail(agentRecordId),
+        listModels({ pageSize: 500 }),
+        listAgentExports({
+          agentId: agentRecordId,
+          page: 1,
+          pageSize: 50,
+        }),
+        listAgentDeployments({ agentId: agentRecordId }),
+        readAgentMarkdown({
+          agentId: agentRecordId,
+          paths: ["AGENTS.md"],
+          pluginId: "",
+        }).catch(() => null),
+      ]);
 
       if (!isMountedRef.current) return;
 
@@ -115,6 +134,7 @@ export function AgentDetailPage({ agentRecordId }: { agentRecordId: number }) {
           exports: EMPTY_AGENT_EXPORTS,
           isLoading: false,
           models: modelList,
+          workspaceName: "",
         });
         toast.danger(message);
 
@@ -128,6 +148,7 @@ export function AgentDetailPage({ agentRecordId }: { agentRecordId: number }) {
         exports: exportList.items ?? [],
         isLoading: false,
         models: modelList,
+        workspaceName: workspaceInfo?.workspaceName?.trim() ?? "",
       });
     } catch (error) {
       if (!isMountedRef.current) return;
@@ -154,6 +175,9 @@ export function AgentDetailPage({ agentRecordId }: { agentRecordId: number }) {
 
   const latestExport = getLatestExport(exports);
   const latestDeployment = getLatestDeployment(deployments);
+  const workspaceName =
+    loadedWorkspaceName ||
+    getAgentWorkspaceName(latestExport, latestDeployment);
   const agentLabel = getAgentLabel(agent);
   const editableAgent =
     agent?.id == null
@@ -185,6 +209,7 @@ export function AgentDetailPage({ agentRecordId }: { agentRecordId: number }) {
         <AgentDetailActions
           agentRecordId={agentRecordId}
           editableAgent={editableAgent}
+          isInitialized={agent.devInitialized === true}
           models={models}
           onChanged={() => void loadDetail()}
         />
@@ -197,7 +222,15 @@ export function AgentDetailPage({ agentRecordId }: { agentRecordId: number }) {
           返回列表
         </Button>
       ),
-    [agent, agentRecordId, editableAgent, loadDetail, models, router],
+    [
+      agent,
+      agentRecordId,
+      editableAgent,
+      loadDetail,
+      models,
+      router,
+      workspaceName,
+    ],
   );
   const navigation = useMemo(
     () =>
@@ -230,6 +263,7 @@ export function AgentDetailPage({ agentRecordId }: { agentRecordId: number }) {
             agent={agent}
             latestDeployment={latestDeployment}
             latestExport={latestExport}
+            workspaceName={workspaceName}
           />
 
           {tab === "markdown" ? (
@@ -289,11 +323,13 @@ function AgentDetailTabs({
 function AgentDetailActions({
   agentRecordId,
   editableAgent,
+  isInitialized,
   models,
   onChanged,
 }: {
   agentRecordId: number;
   editableAgent: EditableAgentSummary | null;
+  isInitialized: boolean;
   models: Model[];
   onChanged: () => void;
 }) {
@@ -308,7 +344,9 @@ function AgentDetailActions({
       >
         返回列表
       </Button>
-      <InitDevAgentButton agentRecordId={agentRecordId} onDone={onChanged} />
+      {isInitialized ? null : (
+        <InitDevAgentButton agentRecordId={agentRecordId} onDone={onChanged} />
+      )}
       {editableAgent ? (
         <EditAgentDialog
           agent={editableAgent}
@@ -316,67 +354,34 @@ function AgentDetailActions({
           onUpdated={onChanged}
         />
       ) : null}
-      <AgentDetailMoreActions
-        agentRecordId={agentRecordId}
-        editableAgent={editableAgent}
-        onChanged={onChanged}
-      />
+      {editableAgent ? (
+        <AgentDetailMoreActions editableAgent={editableAgent} />
+      ) : null}
     </>
   );
 }
 
 function AgentDetailMoreActions({
-  agentRecordId,
   editableAgent,
-  onChanged,
 }: {
-  agentRecordId: number;
-  editableAgent: EditableAgentSummary | null;
-  onChanged: () => void;
+  editableAgent: EditableAgentSummary;
 }) {
   const router = useRouter();
   const deleteModal = useOverlayState();
-  const [isExporting, setIsExporting] = useState(false);
-
-  async function runExport() {
-    if (isExporting) return;
-
-    setIsExporting(true);
-
-    try {
-      await createAgentExport({ agentId: agentRecordId });
-      toast.success("Agent 版本已导出。");
-      onChanged();
-    } catch (error) {
-      toast.danger(getAgentActionError(error, "Agent 版本导出失败。"));
-    } finally {
-      setIsExporting(false);
-    }
-  }
 
   return (
     <>
       <Dropdown>
-        <Tooltip delay={0}>
-          <Dropdown.Trigger
-            aria-label="更多操作"
-            className="inline-flex size-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface hover:text-foreground"
-          >
-            <AdminIcon className="size-4" name="more" />
-          </Dropdown.Trigger>
-          <Tooltip.Content>更多操作</Tooltip.Content>
-        </Tooltip>
+        <Button isIconOnly aria-label="更多操作" size="sm" variant="tertiary">
+          <AdminIcon className="size-4" name="more" />
+        </Button>
         <Dropdown.Popover placement="bottom end">
           <Dropdown.Menu
             aria-label="Agent 更多操作"
             onAction={(key) => {
-              if (key === "export") void runExport();
               if (key === "delete") deleteModal.open();
             }}
           >
-            <Dropdown.Item id="export">
-              {isExporting ? "导出中..." : "导出版本"}
-            </Dropdown.Item>
             {editableAgent ? (
               <Dropdown.Item id="delete" variant="danger">
                 删除
@@ -385,14 +390,12 @@ function AgentDetailMoreActions({
           </Dropdown.Menu>
         </Dropdown.Popover>
       </Dropdown>
-      {editableAgent ? (
-        <DeleteAgentDialog
-          hideTrigger
-          agent={editableAgent}
-          state={deleteModal}
-          onDeleted={() => router.push("/agents")}
-        />
-      ) : null}
+      <DeleteAgentDialog
+        hideTrigger
+        agent={editableAgent}
+        state={deleteModal}
+        onDeleted={() => router.push("/agents")}
+      />
     </>
   );
 }
@@ -401,10 +404,12 @@ function AgentHero({
   agent,
   latestDeployment,
   latestExport,
+  workspaceName,
 }: {
   agent: Agent;
   latestDeployment?: AgentDeployment;
   latestExport?: AgentExport;
+  workspaceName: string;
 }) {
   return (
     <section className="flex flex-col gap-4">
@@ -461,10 +466,7 @@ function AgentHero({
             label="更新时间"
             value={formatDateTime(agent.updatedAt)}
           />
-          <DetailMeta
-            label="工作区"
-            value={latestExport?.workspaceName || "dev 工作区"}
-          />
+          <DetailMeta label="工作区" value={workspaceName || "-"} />
         </dl>
       </div>
     </section>
@@ -954,10 +956,12 @@ function AgentVersionsPanel({
                         )
                       }
                     >
-                      <Checkbox.Control>
-                        <Checkbox.Indicator />
-                      </Checkbox.Control>
-                      <Checkbox.Content>{instance.pluginId}</Checkbox.Content>
+                      <Checkbox.Content>
+                        <Checkbox.Control>
+                          <Checkbox.Indicator />
+                        </Checkbox.Control>
+                        {instance.pluginId}
+                      </Checkbox.Content>
                     </Checkbox>
                   ) : null,
                 )}
@@ -1036,7 +1040,8 @@ function InitDevAgentButton({
   agentRecordId: number;
   onDone: () => void;
 }) {
-  const modal = useOverlayState();
+  const confirmModal = useOverlayState();
+  const conflictModal = useOverlayState();
   const [conflict, setConflict] = useState<AgentDeployment | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(false);
@@ -1052,7 +1057,8 @@ function InitDevAgentButton({
 
       if (deployment?.status === "conflict" && !force) {
         setConflict(deployment);
-        modal.open();
+        confirmModal.close();
+        conflictModal.open();
         toast.info("dev OpenClaw 已存在冲突，请确认后强制覆盖。");
       } else if (deployment?.status === "failed") {
         const message =
@@ -1062,7 +1068,8 @@ function InitDevAgentButton({
         toast.danger(message);
       } else {
         toast.success("Agent 已初始化到 dev OpenClaw。");
-        modal.close();
+        confirmModal.close();
+        conflictModal.close();
         setConflict(null);
         onDone();
       }
@@ -1085,12 +1092,46 @@ function InitDevAgentButton({
         isDisabled={isInitializing}
         size="sm"
         variant="secondary"
-        onPress={() => void runInit(false)}
+        onPress={confirmModal.open}
       >
-        {isInitializing ? "初始化中..." : "初始化到 dev"}
+        {isInitializing ? "初始化中..." : "初始化"}
       </Button>
       {error ? <span className="text-danger text-xs">{error}</span> : null}
-      <Modal state={modal}>
+      <Modal state={confirmModal}>
+        <Modal.Backdrop
+          isDismissable={!isInitializing}
+          isKeyboardDismissDisabled={isInitializing}
+        >
+          <Modal.Container placement="center" scroll="inside" size="sm">
+            <Modal.Dialog>
+              <Modal.Header>
+                <Modal.Heading>初始化 Agent</Modal.Heading>
+              </Modal.Header>
+              <Modal.Body className="flex min-w-0 flex-col gap-3">
+                <p className="text-sm text-muted">
+                  确认初始化当前 Agent 到 dev OpenClaw？
+                </p>
+              </Modal.Body>
+              <Modal.Footer>
+                <Button
+                  isDisabled={isInitializing}
+                  variant="tertiary"
+                  onPress={confirmModal.close}
+                >
+                  取消
+                </Button>
+                <Button
+                  isDisabled={isInitializing}
+                  onPress={() => void runInit(false)}
+                >
+                  {isInitializing ? "初始化中..." : "确认初始化"}
+                </Button>
+              </Modal.Footer>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
+      </Modal>
+      <Modal state={conflictModal}>
         <Modal.Backdrop
           isDismissable={!isInitializing}
           isKeyboardDismissDisabled={isInitializing}
@@ -1107,7 +1148,7 @@ function InitDevAgentButton({
                 <Button
                   isDisabled={isInitializing}
                   variant="tertiary"
-                  onPress={modal.close}
+                  onPress={conflictModal.close}
                 >
                   取消
                 </Button>
@@ -1134,6 +1175,7 @@ function CreateAgentExportButton({
   agentRecordId: number;
   onDone: () => void;
 }) {
+  const modal = useOverlayState();
   const [isExporting, setIsExporting] = useState(false);
 
   async function runExport() {
@@ -1144,6 +1186,7 @@ function CreateAgentExportButton({
     try {
       await createAgentExport({ agentId: agentRecordId });
       toast.success("Agent 版本已导出。");
+      modal.close();
       onDone();
     } catch (error) {
       toast.danger(getAgentActionError(error, "Agent 版本导出失败。"));
@@ -1154,13 +1197,43 @@ function CreateAgentExportButton({
 
   return (
     <>
-      <Button
-        isDisabled={isExporting}
-        size="sm"
-        onPress={() => void runExport()}
-      >
+      <Button isDisabled={isExporting} size="sm" onPress={modal.open}>
         {isExporting ? "导出中..." : "导出版本"}
       </Button>
+      <Modal state={modal}>
+        <Modal.Backdrop
+          isDismissable={!isExporting}
+          isKeyboardDismissDisabled={isExporting}
+        >
+          <Modal.Container placement="center" scroll="inside" size="sm">
+            <Modal.Dialog>
+              <Modal.Header>
+                <Modal.Heading>导出版本</Modal.Heading>
+              </Modal.Header>
+              <Modal.Body className="flex min-w-0 flex-col gap-3">
+                <p className="text-sm text-muted">
+                  确认从 dev OpenClaw 导出当前 Agent 版本？
+                </p>
+              </Modal.Body>
+              <Modal.Footer>
+                <Button
+                  isDisabled={isExporting}
+                  variant="tertiary"
+                  onPress={modal.close}
+                >
+                  取消
+                </Button>
+                <Button
+                  isDisabled={isExporting}
+                  onPress={() => void runExport()}
+                >
+                  {isExporting ? "导出中..." : "确认导出"}
+                </Button>
+              </Modal.Footer>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
+      </Modal>
     </>
   );
 }
@@ -1345,6 +1418,17 @@ function getLatestDeployment(deployments: AgentDeployment[]) {
       new Date(b.updatedAt ?? "").getTime() -
       new Date(a.updatedAt ?? "").getTime(),
   )[0];
+}
+
+function getAgentWorkspaceName(
+  latestExport?: AgentExport,
+  latestDeployment?: AgentDeployment,
+) {
+  return (
+    latestExport?.workspaceName?.trim() ||
+    latestDeployment?.workspaceName?.trim() ||
+    ""
+  );
 }
 
 function getAgentInitials(value: string) {

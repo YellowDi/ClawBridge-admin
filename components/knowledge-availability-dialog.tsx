@@ -2,7 +2,14 @@
 
 import type { KnowledgeBase } from "@/lib/api";
 
-import { Button, Checkbox, Modal, toast, useOverlayState } from "@heroui/react";
+import {
+  Button,
+  Checkbox,
+  Description,
+  Modal,
+  toast,
+  useOverlayState,
+} from "@heroui/react";
 import { useEffect, useRef, useState } from "react";
 
 import {
@@ -225,17 +232,13 @@ export function KnowledgeAvailabilityPanel({
                     }))
                   }
                 >
-                  <Checkbox.Control>
-                    <Checkbox.Indicator />
-                  </Checkbox.Control>
                   <Checkbox.Content>
-                    <span className="block truncate text-sm font-medium">
-                      {getKnowledgeLabel(item)}
-                    </span>
-                    <span className="text-muted block truncate text-xs">
-                      {getKnowledgeDescription(item)}
-                    </span>
+                    <Checkbox.Control>
+                      <Checkbox.Indicator />
+                    </Checkbox.Control>
+                    <span className="truncate">{getKnowledgeLabel(item)}</span>
                   </Checkbox.Content>
+                  <Description>{getKnowledgeDescription(item)}</Description>
                 </Checkbox>
               );
             })}

@@ -22,6 +22,7 @@ import {
   Button,
   Checkbox,
   Chip,
+  Description,
   Disclosure,
   Input,
   Label,
@@ -612,22 +613,22 @@ export function AdminMCPPage() {
                           }))
                         }
                       >
-                        <Checkbox.Control>
-                          <Checkbox.Indicator />
-                        </Checkbox.Control>
                         <Checkbox.Content>
-                          <span className="block truncate text-sm font-medium">
+                          <Checkbox.Control>
+                            <Checkbox.Indicator />
+                          </Checkbox.Control>
+                          <span className="truncate">
                             {server.displayName ||
                               server.serverName ||
                               `#${id}`}
                           </span>
-                          <span className="text-muted block truncate text-xs">
-                            {server.serverName || "-"} ·{" "}
-                            {server.transportType ||
-                              server.config?.transport ||
-                              "-"}
-                          </span>
                         </Checkbox.Content>
+                        <Description>
+                          {server.serverName || "-"} ·{" "}
+                          {server.transportType ||
+                            server.config?.transport ||
+                            "-"}
+                        </Description>
                       </Checkbox>
                     );
                   })
@@ -647,15 +648,13 @@ export function AdminMCPPage() {
                   setApplyState((current) => ({ ...current, dryRun }))
                 }
               >
-                <Checkbox.Control>
-                  <Checkbox.Indicator />
-                </Checkbox.Control>
                 <Checkbox.Content>
-                  <span className="block text-sm font-medium">预览下发</span>
-                  <span className="text-muted block text-xs">
-                    先预检，不写入 OpenClaw 配置。
-                  </span>
+                  <Checkbox.Control>
+                    <Checkbox.Indicator />
+                  </Checkbox.Control>
+                  预览下发
                 </Checkbox.Content>
+                <Description>先预检，不写入 OpenClaw 配置。</Description>
               </Checkbox>
               <Checkbox
                 isDisabled={applyState.isApplying}
@@ -667,17 +666,15 @@ export function AdminMCPPage() {
                   }))
                 }
               >
-                <Checkbox.Control>
-                  <Checkbox.Indicator />
-                </Checkbox.Control>
                 <Checkbox.Content>
-                  <span className="block text-sm font-medium">
-                    校验环境变量引用
-                  </span>
-                  <span className="text-muted block text-xs">
-                    由 OpenClaw 插件检查 env_ref 是否存在。
-                  </span>
+                  <Checkbox.Control>
+                    <Checkbox.Indicator />
+                  </Checkbox.Control>
+                  校验环境变量引用
                 </Checkbox.Content>
+                <Description>
+                  由 OpenClaw 插件检查 env_ref 是否存在。
+                </Description>
               </Checkbox>
             </div>
 
@@ -1001,15 +998,13 @@ function MCPServerFormFields({
         isSelected={form.enabled}
         onChange={(enabled) => onChange({ enabled })}
       >
-        <Checkbox.Control>
-          <Checkbox.Indicator />
-        </Checkbox.Control>
         <Checkbox.Content>
-          <span className="block text-sm font-medium">启用配置</span>
-          <span className="text-muted block text-xs">
-            下发到 OpenClaw 后默认启用该 MCP 服务。
-          </span>
+          <Checkbox.Control>
+            <Checkbox.Indicator />
+          </Checkbox.Control>
+          启用配置
         </Checkbox.Content>
+        <Description>下发到 OpenClaw 后默认启用该 MCP 服务。</Description>
       </Checkbox>
 
       {isStdio ? (

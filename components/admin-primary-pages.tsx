@@ -7,11 +7,11 @@ import type { EditableUserSummary } from "@/components/create-user-dialog";
 
 import {
   Avatar,
+  Button,
   Chip,
   Dropdown,
   SearchField,
   Tabs,
-  Tooltip,
   toast,
   useOverlayState,
 } from "@heroui/react";
@@ -345,15 +345,9 @@ function UserRowActions({
         onUpdated={onChanged}
       />
       <Dropdown>
-        <Tooltip delay={0}>
-          <Dropdown.Trigger
-            aria-label="更多操作"
-            className="inline-flex size-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface hover:text-foreground"
-          >
-            <AdminIcon className="size-4" name="more" />
-          </Dropdown.Trigger>
-          <Tooltip.Content>更多操作</Tooltip.Content>
-        </Tooltip>
+        <Button isIconOnly aria-label="更多操作" size="sm" variant="tertiary">
+          <AdminIcon className="size-4" name="more" />
+        </Button>
         <Dropdown.Popover placement="bottom end">
           <Dropdown.Menu
             aria-label={`${user.username} 更多操作`}
