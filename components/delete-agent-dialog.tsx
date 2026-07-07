@@ -3,7 +3,7 @@
 import type { EditableAgentSummary } from "@/components/agent-dialog-types";
 
 import { Button, Modal, useOverlayState } from "@heroui/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { AgentFormError } from "@/components/agent-form-error";
 import {
@@ -16,30 +16,36 @@ type DeleteAgentState = {
   error: string | null;
   isDeleting: boolean;
 };
+type DeleteAgentDialogState = ReturnType<typeof useOverlayState>;
 
 export function DeleteAgentDialog({
   agent,
+  hideTrigger = false,
   onDeleted,
+  state: controlledModal,
 }: {
   agent: EditableAgentSummary;
+  hideTrigger?: boolean;
   onDeleted: () => void;
+  state?: DeleteAgentDialogState;
 }) {
   const [state, setState] = useState<DeleteAgentState>({
     error: null,
     isDeleting: false,
   });
-  const modal = useOverlayState({
-    onOpenChange(isOpen) {
-      if (!isOpen) return;
-
-      setState({
-        error: null,
-        isDeleting: false,
-      });
-    },
-  });
+  const internalModal = useOverlayState();
+  const modal = controlledModal ?? internalModal;
   const { error, isDeleting } = state;
   const agentName = getAgentLabel(agent);
+
+  useEffect(() => {
+    if (!modal.isOpen) return;
+
+    setState({
+      error: null,
+      isDeleting: false,
+    });
+  }, [modal.isOpen]);
 
   function closeDialog() {
     if (isDeleting) return;
@@ -71,11 +77,13 @@ export function DeleteAgentDialog({
 
   return (
     <Modal state={modal}>
-      <Modal.Trigger>
-        <Button size="sm" variant="danger-soft">
-          删除
-        </Button>
-      </Modal.Trigger>
+      {hideTrigger ? null : (
+        <Modal.Trigger>
+          <Button size="sm" variant="danger-soft">
+            删除
+          </Button>
+        </Modal.Trigger>
+      )}
       <Modal.Backdrop
         isDismissable={!isDeleting}
         isKeyboardDismissDisabled={isDeleting}

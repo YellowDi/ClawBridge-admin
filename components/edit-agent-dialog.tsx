@@ -156,9 +156,7 @@ export function EditAgentDialog({
   return (
     <Modal state={modal}>
       <Modal.Trigger>
-        <Button size="sm" variant="tertiary">
-          编辑
-        </Button>
+        <Button size="sm">编辑配置</Button>
       </Modal.Trigger>
       <Modal.Backdrop
         isDismissable={!isBusy}

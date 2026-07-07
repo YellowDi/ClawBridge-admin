@@ -27,6 +27,7 @@ type NavGroup = {
 
 type AdminPageActionsContextValue = {
   setActions: (actions: ReactNode) => void;
+  setNavigation: (navigation: ReactNode) => void;
 };
 
 const AdminPageActionsContext =
@@ -80,9 +81,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [pageActions, setPageActions] = useState<ReactNode>(null);
+  const [pageNavigation, setPageNavigation] = useState<ReactNode>(null);
   const navigate = useCallback((href: string) => router.push(href), [router]);
   const pageActionsContext = useMemo(
-    () => ({ setActions: setPageActions }),
+    () => ({ setActions: setPageActions, setNavigation: setPageNavigation }),
     [],
   );
 
@@ -96,8 +98,14 @@ export function AdminShell({ children }: { children: ReactNode }) {
     return matched?.label ?? siteConfig.name;
   }, [pathname]);
   const navbar = useMemo(
-    () => <AdminNavbar actions={pageActions} title={title} />,
-    [pageActions, title],
+    () => (
+      <AdminNavbar
+        actions={pageActions}
+        navigation={pageNavigation}
+        title={title}
+      />
+    ),
+    [pageActions, pageNavigation, title],
   );
   const sidebar = useMemo(
     () => <AdminSidebar pathname={pathname} />,
@@ -124,9 +132,11 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
 function AdminNavbar({
   actions,
+  navigation,
   title,
 }: {
   actions: ReactNode;
+  navigation: ReactNode;
   title: string;
 }) {
   return (
@@ -137,9 +147,15 @@ function AdminNavbar({
         <h1 className="text-foreground truncate text-xl font-semibold">
           {title}
         </h1>
-        <Navbar.Spacer />
+        {navigation ? (
+          <div className="flex min-w-0 flex-1 justify-center px-3">
+            <div className="max-w-full overflow-x-auto">{navigation}</div>
+          </div>
+        ) : (
+          <Navbar.Spacer />
+        )}
         {actions ? (
-          <div className="flex items-center gap-2">{actions}</div>
+          <div className="flex shrink-0 items-center gap-2">{actions}</div>
         ) : null}
       </Navbar.Header>
     </Navbar>

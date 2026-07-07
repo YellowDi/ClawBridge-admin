@@ -1,6 +1,7 @@
 "use client";
 
 import type { Key } from "react";
+import type { EditableAgentSummary } from "@/components/agent-dialog-types";
 import type {
   Agent,
   AgentDeployment,
@@ -19,6 +20,7 @@ import {
   Card,
   Checkbox,
   Chip,
+  Dropdown,
   Input,
   Label,
   ListBox,
@@ -27,6 +29,7 @@ import {
   Select,
   Tabs,
   TextField,
+  Tooltip,
   toast,
   useOverlayState,
 } from "@heroui/react";
@@ -35,7 +38,7 @@ import ReactMarkdown from "react-markdown";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AdminIcon } from "@/components/admin-icons";
-import { AdminPage, SectionCard, StatGrid } from "@/components/admin-page-kit";
+import { AdminPage, SectionCard } from "@/components/admin-page-kit";
 import { DeleteAgentDialog, EditAgentDialog } from "@/components/agent-dialog";
 import { KnowledgeAvailabilityDialog } from "@/components/knowledge-availability-dialog";
 import {
@@ -64,7 +67,7 @@ type DetailState = {
   models: Model[];
 };
 
-type DetailTab = "knowledge" | "markdown" | "overview" | "skills" | "versions";
+type DetailTab = "knowledge" | "markdown" | "skills" | "versions";
 
 const EMPTY_AGENT_EXPORTS: AgentExport[] = [];
 const EMPTY_DEPLOYMENTS: AgentDeployment[] = [];
@@ -88,7 +91,7 @@ export function AgentDetailPage({ agentRecordId }: { agentRecordId: number }) {
     isLoading: true,
     models: EMPTY_MODELS,
   });
-  const [tab, setTab] = useState<DetailTab>("overview");
+  const [tab, setTab] = useState<DetailTab>("markdown");
   const { agent, deployments, error, exports, isLoading, models } = state;
 
   const loadDetail = useCallback(async () => {
@@ -180,36 +183,12 @@ export function AgentDetailPage({ agentRecordId }: { agentRecordId: number }) {
   const actions = useMemo(
     () =>
       agent ? (
-        <>
-          <Button
-            size="sm"
-            variant="secondary"
-            onPress={() => router.push("/agents")}
-          >
-            返回列表
-          </Button>
-          {editableAgent ? (
-            <>
-              <EditAgentDialog
-                agent={editableAgent}
-                modelOptions={models}
-                onUpdated={() => void loadDetail()}
-              />
-              <DeleteAgentDialog
-                agent={editableAgent}
-                onDeleted={() => router.push("/agents")}
-              />
-            </>
-          ) : null}
-          <InitDevAgentButton
-            agentRecordId={agentRecordId}
-            onDone={() => void loadDetail()}
-          />
-          <CreateAgentExportButton
-            agentRecordId={agentRecordId}
-            onDone={() => void loadDetail()}
-          />
-        </>
+        <AgentDetailActions
+          agentRecordId={agentRecordId}
+          editableAgent={editableAgent}
+          models={models}
+          onChanged={() => void loadDetail()}
+        />
       ) : (
         <Button
           size="sm"
@@ -221,12 +200,23 @@ export function AgentDetailPage({ agentRecordId }: { agentRecordId: number }) {
       ),
     [agent, agentRecordId, editableAgent, loadDetail, models, router],
   );
+  const navigation = useMemo(
+    () =>
+      agent ? (
+        <AgentDetailTabs
+          selectedKey={tab}
+          onSelectionChange={(key) => setTab(toDetailTab(key))}
+        />
+      ) : null,
+    [agent, tab],
+  );
 
   return (
     <AdminPage
       actions={actions}
       description="编辑 Agent 配置、工作区 Markdown、Skill、知识库和版本分发。"
       eyebrow="Agent Detail"
+      navigation={navigation}
       title={agentLabel}
     >
       {error ? (
@@ -239,48 +229,10 @@ export function AgentDetailPage({ agentRecordId }: { agentRecordId: number }) {
         <>
           <AgentHero
             agent={agent}
-            deployments={deployments}
             latestDeployment={latestDeployment}
             latestExport={latestExport}
           />
 
-          <Tabs
-            selectedKey={tab}
-            onSelectionChange={(key) => setTab(toDetailTab(key))}
-          >
-            <Tabs.ListContainer>
-              <Tabs.List aria-label="Agent 详情页签">
-                <Tabs.Tab id="overview">
-                  概览
-                  <Tabs.Indicator />
-                </Tabs.Tab>
-                <Tabs.Tab id="markdown">
-                  Markdown
-                  <Tabs.Indicator />
-                </Tabs.Tab>
-                <Tabs.Tab id="skills">
-                  Skills
-                  <Tabs.Indicator />
-                </Tabs.Tab>
-                <Tabs.Tab id="knowledge">
-                  知识库
-                  <Tabs.Indicator />
-                </Tabs.Tab>
-                <Tabs.Tab id="versions">
-                  版本与分发
-                  <Tabs.Indicator />
-                </Tabs.Tab>
-              </Tabs.List>
-            </Tabs.ListContainer>
-          </Tabs>
-
-          {tab === "overview" ? (
-            <AgentOverview
-              agent={agent}
-              deployments={deployments}
-              exports={exports}
-            />
-          ) : null}
           {tab === "markdown" ? (
             <AgentMarkdownPanel agentRecordId={agentRecordId} />
           ) : null}
@@ -307,19 +259,161 @@ export function AgentDetailPage({ agentRecordId }: { agentRecordId: number }) {
   );
 }
 
+function AgentDetailTabs({
+  onSelectionChange,
+  selectedKey,
+}: {
+  onSelectionChange: (key: Key) => void;
+  selectedKey: DetailTab;
+}) {
+  return (
+    <Tabs selectedKey={selectedKey} onSelectionChange={onSelectionChange}>
+      <Tabs.ListContainer className="w-auto">
+        <Tabs.List aria-label="Agent 详情页签" className="w-auto">
+          <Tabs.Tab className="whitespace-nowrap" id="markdown">
+            Markdown
+            <Tabs.Indicator />
+          </Tabs.Tab>
+          <Tabs.Tab className="whitespace-nowrap" id="skills">
+            Skills
+            <Tabs.Indicator />
+          </Tabs.Tab>
+          <Tabs.Tab className="whitespace-nowrap" id="knowledge">
+            知识库
+            <Tabs.Indicator />
+          </Tabs.Tab>
+          <Tabs.Tab className="whitespace-nowrap" id="versions">
+            版本与分发
+            <Tabs.Indicator />
+          </Tabs.Tab>
+        </Tabs.List>
+      </Tabs.ListContainer>
+    </Tabs>
+  );
+}
+
+function AgentDetailActions({
+  agentRecordId,
+  editableAgent,
+  models,
+  onChanged,
+}: {
+  agentRecordId: number;
+  editableAgent: EditableAgentSummary | null;
+  models: Model[];
+  onChanged: () => void;
+}) {
+  const router = useRouter();
+
+  return (
+    <>
+      <Button
+        size="sm"
+        variant="secondary"
+        onPress={() => router.push("/agents")}
+      >
+        返回列表
+      </Button>
+      <InitDevAgentButton agentRecordId={agentRecordId} onDone={onChanged} />
+      {editableAgent ? (
+        <EditAgentDialog
+          agent={editableAgent}
+          modelOptions={models}
+          onUpdated={onChanged}
+        />
+      ) : null}
+      <AgentDetailMoreActions
+        agentRecordId={agentRecordId}
+        editableAgent={editableAgent}
+        onChanged={onChanged}
+      />
+    </>
+  );
+}
+
+function AgentDetailMoreActions({
+  agentRecordId,
+  editableAgent,
+  onChanged,
+}: {
+  agentRecordId: number;
+  editableAgent: EditableAgentSummary | null;
+  onChanged: () => void;
+}) {
+  const router = useRouter();
+  const deleteModal = useOverlayState();
+  const [isExporting, setIsExporting] = useState(false);
+
+  async function runExport() {
+    if (isExporting) return;
+
+    setIsExporting(true);
+
+    try {
+      await createAgentExport({ agentId: agentRecordId });
+      toast.success("Agent 版本已导出。");
+      onChanged();
+    } catch (error) {
+      toast.danger(getAgentActionError(error, "Agent 版本导出失败。"));
+    } finally {
+      setIsExporting(false);
+    }
+  }
+
+  return (
+    <>
+      <Dropdown>
+        <Tooltip delay={0}>
+          <Dropdown.Trigger
+            aria-label="更多操作"
+            className="inline-flex size-8 items-center justify-center rounded-md text-muted transition-colors hover:bg-surface hover:text-foreground"
+          >
+            <AdminIcon className="size-4" name="more" />
+          </Dropdown.Trigger>
+          <Tooltip.Content>更多操作</Tooltip.Content>
+        </Tooltip>
+        <Dropdown.Popover placement="bottom end">
+          <Dropdown.Menu
+            aria-label="Agent 更多操作"
+            onAction={(key) => {
+              if (key === "export") void runExport();
+              if (key === "delete") deleteModal.open();
+            }}
+          >
+            <Dropdown.Item id="export">
+              {isExporting ? "导出中..." : "导出版本"}
+            </Dropdown.Item>
+            {editableAgent ? (
+              <Dropdown.Item id="delete" variant="danger">
+                删除
+              </Dropdown.Item>
+            ) : null}
+          </Dropdown.Menu>
+        </Dropdown.Popover>
+      </Dropdown>
+      {editableAgent ? (
+        <DeleteAgentDialog
+          hideTrigger
+          agent={editableAgent}
+          state={deleteModal}
+          onDeleted={() => router.push("/agents")}
+        />
+      ) : null}
+    </>
+  );
+}
+
 function AgentHero({
   agent,
-  deployments,
   latestDeployment,
   latestExport,
 }: {
   agent: Agent;
-  deployments: AgentDeployment[];
   latestDeployment?: AgentDeployment;
   latestExport?: AgentExport;
 }) {
   return (
-    <section className="flex flex-col gap-5 rounded-md border border-default-200 bg-content1 p-5">
+    <section className="flex flex-col gap-4">
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="flex min-w-0 items-start gap-4">
           <Avatar className="size-14 shrink-0">
@@ -354,93 +448,32 @@ function AgentHero({
             </p>
           </div>
         </div>
-        <div className="grid grid-cols-2 gap-3 text-xs md:min-w-72">
-          <MetaBox label="默认模型" value={getDefaultModelLabel(agent)} />
-          <MetaBox
-            label="知识库"
-            value={`${getKnowledgeBaseIds(agent.knowledgeBases).length} 个`}
-          />
-          <MetaBox
-            label="最新导出"
-            value={
-              latestExport?.version == null ? "-" : `v${latestExport.version}`
-            }
-          />
-          <MetaBox label="下发目标" value={`${deployments.length} 个`} />
-        </div>
-      </div>
-      <StatGrid
-        stats={[
-          {
-            helper: latestExport?.status || "暂无导出",
-            label: "最新版本",
-            value:
-              latestExport?.version == null ? "-" : `v${latestExport.version}`,
-          },
-          {
-            helper: latestExport?.workspaceName || "dev 工作区",
-            label: "工作区",
-            value: latestExport?.workspaceName ? "已记录" : "-",
-          },
-          {
-            helper: latestDeployment?.targetPluginId || "暂无目标",
-            label: "最近下发",
-            value: latestDeployment?.status || "-",
-          },
-          {
-            helper: formatDateTime(agent.updatedAt),
-            label: "更新时间",
-            value: agent.enabled === false ? "停用" : "启用",
-          },
-        ]}
-      />
-    </section>
-  );
-}
-
-function AgentOverview({
-  agent,
-  deployments,
-  exports,
-}: {
-  agent: Agent;
-  deployments: AgentDeployment[];
-  exports: AgentExport[];
-}) {
-  return (
-    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-      <SectionCard title="基础配置">
-        <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-          <DetailMeta label="Agent ID" value={agent.agentId || "-"} />
+        <dl className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm md:min-w-[440px]">
           <DetailMeta label="默认模型" value={getDefaultModelLabel(agent)} />
           <DetailMeta label="Reasoning" value={agent.reasoningLevel || "-"} />
           <DetailMeta label="Thinking" value={agent.thinkingLevel || "-"} />
           <DetailMeta label="Verbose" value={agent.verboseLevel || "-"} />
           <DetailMeta
-            label="更新时间"
-            value={formatDateTime(agent.updatedAt)}
-          />
-        </dl>
-      </SectionCard>
-      <SectionCard title="生命周期">
-        <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-          <DetailMeta label="导出版本数" value={`${exports.length}`} />
-          <DetailMeta label="下发记录数" value={`${deployments.length}`} />
-          <DetailMeta
             label="最新导出"
             value={
-              getLatestExport(exports)?.version == null
-                ? "-"
-                : `v${getLatestExport(exports)?.version}`
+              latestExport?.version == null ? "-" : `v${latestExport.version}`
             }
           />
           <DetailMeta
-            label="最近下发状态"
-            value={getLatestDeployment(deployments)?.status || "-"}
+            label="最近下发"
+            value={latestDeployment?.status || "-"}
           />
-        </div>
-      </SectionCard>
-    </div>
+          <DetailMeta
+            label="更新时间"
+            value={formatDateTime(agent.updatedAt)}
+          />
+          <DetailMeta
+            label="工作区"
+            value={latestExport?.workspaceName || "dev 工作区"}
+          />
+        </dl>
+      </div>
+    </section>
   );
 }
 
@@ -983,7 +1016,7 @@ function AgentKnowledgePanel({
           />
         )
       }
-      description="这里展示当前 Agent 已绑定的知识库，修改会覆盖完整列表。"
+      description={`当前绑定 ${getKnowledgeBaseIds(agent.knowledgeBases).length} 个知识库，修改会覆盖完整列表。`}
       title="可用知识库"
     >
       <div className="flex flex-wrap gap-2">
@@ -1079,7 +1112,7 @@ function AgentVersionsPanel({
             onDone={onChanged}
           />
         }
-        description="导出固定从 dev OpenClaw 生成。"
+        description={`导出固定从 dev OpenClaw 生成，当前 ${exports.length} 个版本。`}
         title="导出版本"
       >
         <div className="grid grid-cols-1 gap-3">
@@ -1201,7 +1234,10 @@ function AgentVersionsPanel({
         </div>
       </SectionCard>
 
-      <SectionCard title="下发状态">
+      <SectionCard
+        description={`当前 ${deployments.length} 条下发记录。`}
+        title="下发状态"
+      >
         <div className="grid grid-cols-1 gap-3">
           {deployments.length === 0 ? (
             <p className="text-muted text-sm">暂无下发记录。</p>
@@ -1490,17 +1526,6 @@ function getAssignedSkillKeys(items: AgentSkill[]) {
   );
 }
 
-function MetaBox({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0 rounded-md border border-default-200 bg-content2 px-3 py-2">
-      <div className="text-muted text-xs">{label}</div>
-      <div className="truncate text-sm font-medium" title={value}>
-        {value}
-      </div>
-    </div>
-  );
-}
-
 function DetailMeta({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
@@ -1576,14 +1601,13 @@ function toDetailTab(key: Key): DetailTab {
   if (
     key === "knowledge" ||
     key === "markdown" ||
-    key === "overview" ||
     key === "skills" ||
     key === "versions"
   ) {
     return key;
   }
 
-  return "overview";
+  return "markdown";
 }
 
 function getAgentLabel(agent?: Pick<Agent, "agentId" | "displayName"> | null) {
