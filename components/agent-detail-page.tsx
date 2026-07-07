@@ -22,6 +22,7 @@ import {
   Label,
   ListBox,
   Modal,
+  ScrollShadow,
   Select,
   Tabs,
   TextField,
@@ -607,7 +608,7 @@ function AgentMarkdownPanel({ agentRecordId }: { agentRecordId: number }) {
       description="默认读取 dev OpenClaw；保存只覆盖当前文件。"
       title="Markdown 工作区"
     >
-      <div className="flex flex-col gap-4">
+      <div className="flex min-h-[560px] flex-col gap-4 lg:h-[calc(100dvh-25rem)]">
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-[260px_minmax(0,1fr)]">
           <Select
             fullWidth
@@ -663,12 +664,12 @@ function AgentMarkdownPanel({ agentRecordId }: { agentRecordId: number }) {
 
         {error ? <InlineError>{error}</InlineError> : null}
 
-        <div className="grid min-h-[520px] grid-cols-1 overflow-hidden rounded-md border border-default-200 lg:grid-cols-[240px_minmax(0,1fr)]">
-          <div className="border-b border-default-200 bg-content2 p-3 lg:border-b-0 lg:border-r">
+        <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden rounded-md border border-default-200 lg:grid-cols-[240px_minmax(0,1fr)]">
+          <div className="flex min-h-0 flex-col border-b border-default-200 bg-content2 p-3 lg:border-b-0 lg:border-r">
             <div className="text-muted mb-3 text-xs">
               {isLoading ? "正在读取..." : `${files.length} 个 Markdown 文件`}
             </div>
-            <div className="flex max-h-72 flex-col gap-1 overflow-auto lg:max-h-[460px]">
+            <ScrollShadow className="flex min-h-0 flex-1 flex-col gap-1">
               {files.length === 0 && !isLoading ? (
                 <span className="text-muted text-sm">暂无 Markdown 文件。</span>
               ) : null}
@@ -685,9 +686,9 @@ function AgentMarkdownPanel({ agentRecordId }: { agentRecordId: number }) {
                   <span className="truncate">{file.path}</span>
                 </Button>
               ))}
-            </div>
+            </ScrollShadow>
           </div>
-          <div className="flex min-w-0 flex-col">
+          <div className="flex min-h-0 min-w-0 flex-col">
             <div className="flex flex-col gap-2 border-b border-default-200 p-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <div className="text-foreground truncate text-sm font-medium">
@@ -740,21 +741,21 @@ function AgentMarkdownPanel({ agentRecordId }: { agentRecordId: number }) {
                 )}
               </div>
             </div>
-            {mode === "edit" ? (
-              <textarea
-                className="min-h-[460px] w-full flex-1 resize-none bg-transparent p-4 font-mono text-sm outline-none"
-                disabled={!selectedPath || isSaving}
-                spellCheck={false}
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-              />
-            ) : (
-              <div className="min-h-[460px] overflow-auto p-4">
-                <div className="prose prose-sm max-w-none text-foreground [&_code]:rounded [&_code]:bg-content2 [&_code]:px-1 [&_h1]:text-xl [&_h2]:text-lg [&_li]:my-1 [&_p]:my-2 [&_pre]:overflow-auto [&_pre]:rounded-md [&_pre]:bg-content2 [&_pre]:p-3">
+            <ScrollShadow className="min-h-0 flex-1">
+              {mode === "edit" ? (
+                <textarea
+                  className="h-full min-h-full w-full resize-none bg-transparent p-4 font-mono text-sm outline-none"
+                  disabled={!selectedPath || isSaving}
+                  spellCheck={false}
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value)}
+                />
+              ) : (
+                <div className="prose prose-sm max-w-none p-4 text-foreground [&_code]:rounded [&_code]:bg-content2 [&_code]:px-1 [&_h1]:text-xl [&_h2]:text-lg [&_li]:my-1 [&_p]:my-2 [&_pre]:overflow-auto [&_pre]:rounded-md [&_pre]:bg-content2 [&_pre]:p-3">
                   <ReactMarkdown>{draft || " "}</ReactMarkdown>
                 </div>
-              </div>
-            )}
+              )}
+            </ScrollShadow>
           </div>
         </div>
       </div>
