@@ -1,8 +1,9 @@
 "use client";
 
-import type { ChangeEvent, FormEvent } from "react";
+import type { FormEvent } from "react";
 import type { Agent, AgentSkill, PrivateSkill } from "@/lib/api";
 
+import { DropZone } from "@heroui-pro/react";
 import {
   Button,
   Card,
@@ -816,15 +817,14 @@ function UploadPrivateSkillDialog({ onUploaded }: { onUploaded: () => void }) {
     }
   }
 
-  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0] ?? null;
+  function handleFileSelect(fileList: FileList) {
+    const file = fileList[0] ?? null;
 
     if (file && !file.name.toLowerCase().endsWith(".zip")) {
       const message = "仅支持 .zip 归档。";
 
       setError(message);
       setSelectedFile(null);
-      event.target.value = "";
       toast.danger(message);
 
       return;
@@ -832,6 +832,13 @@ function UploadPrivateSkillDialog({ onUploaded }: { onUploaded: () => void }) {
 
     setError(null);
     setSelectedFile(file);
+  }
+
+  function clearSelectedFile() {
+    if (isUploading) return;
+
+    setError(null);
+    setSelectedFile(null);
   }
 
   async function handleUpload() {
@@ -903,25 +910,53 @@ function UploadPrivateSkillDialog({ onUploaded }: { onUploaded: () => void }) {
                   onChange={(event) => setVersion(event.target.value)}
                 />
               </TextField>
-              <label className="flex cursor-pointer flex-col gap-3 rounded-md border border-dashed border-default-300 bg-content1 p-5 text-center">
-                <AdminIcon
-                  className="text-muted mx-auto size-8"
-                  name="upload"
-                />
-                <span className="text-sm font-medium">选择 ZIP 归档</span>
-                <span className="text-muted text-xs">
-                  {selectedFile
-                    ? `${selectedFile.name} · ${formatBytes(selectedFile.size)}`
-                    : "后台会校验并保存到本地或 COS 私有库"}
-                </span>
-                <input
+              <DropZone className="min-w-0">
+                <DropZone.Area className="flex flex-col items-center justify-center gap-3 rounded-md border border-dashed border-default-300 bg-content1 p-5 text-center transition-colors hover:bg-default-50">
+                  <DropZone.Icon>
+                    <AdminIcon className="text-muted size-8" name="upload" />
+                  </DropZone.Icon>
+                  <DropZone.Label>选择或拖放 ZIP 归档</DropZone.Label>
+                  <DropZone.Description>
+                    后台会校验并保存到本地或 COS 私有库
+                  </DropZone.Description>
+                  <DropZone.Trigger
+                    className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
+                    isDisabled={isUploading}
+                  >
+                    选择文件
+                  </DropZone.Trigger>
+                </DropZone.Area>
+                <DropZone.Input
                   accept={SKILL_UPLOAD_ACCEPT}
-                  className="sr-only"
-                  disabled={isUploading}
-                  type="file"
-                  onChange={handleFileChange}
+                  multiple={false}
+                  onSelect={handleFileSelect}
                 />
-              </label>
+
+                {selectedFile ? (
+                  <DropZone.FileList>
+                    <DropZone.FileItem
+                      status={isUploading ? "uploading" : undefined}
+                    >
+                      <DropZone.FileFormatIcon color="orange" format="ZIP" />
+                      <DropZone.FileInfo>
+                        <DropZone.FileName>
+                          {selectedFile.name}
+                        </DropZone.FileName>
+                        <DropZone.FileMeta>
+                          {isUploading
+                            ? "上传中..."
+                            : formatBytes(selectedFile.size)}
+                        </DropZone.FileMeta>
+                      </DropZone.FileInfo>
+                      <DropZone.FileRemoveTrigger
+                        aria-label="移除已选 ZIP 归档"
+                        isDisabled={isUploading}
+                        onPress={clearSelectedFile}
+                      />
+                    </DropZone.FileItem>
+                  </DropZone.FileList>
+                ) : null}
+              </DropZone>
               {error ? <InlineError>{error}</InlineError> : null}
             </Modal.Body>
             <Modal.Footer>

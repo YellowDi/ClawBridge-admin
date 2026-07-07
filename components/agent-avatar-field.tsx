@@ -11,6 +11,7 @@ import {
   toast,
   useOverlayState,
 } from "@heroui/react";
+import { DropZone } from "@heroui-pro/react";
 
 import { AdminIcon } from "@/components/admin-icons";
 import { AgentFormError } from "@/components/agent-form-error";
@@ -82,6 +83,17 @@ export function AgentAvatarField({
       isUploading: false,
       progress: 0,
       selectedFile: file,
+    });
+  }
+
+  function clearSelectedFile() {
+    if (isUploading) return;
+
+    setState({
+      error: null,
+      isUploading: false,
+      progress: 0,
+      selectedFile: null,
     });
   }
 
@@ -179,41 +191,66 @@ export function AgentAvatarField({
                 <Modal.Heading>上传 Agent 头像</Modal.Heading>
               </Modal.Header>
               <Modal.Body className="-mx-1 flex min-w-0 flex-col gap-4 px-1 py-1">
-                <label className="flex min-h-40 cursor-pointer flex-col items-center justify-center gap-3 rounded-md border border-dashed border-default-300 bg-content1/60 p-5 text-center transition-colors hover:bg-default-50">
-                  <AdminIcon className="text-muted size-8" name="upload" />
-                  <span className="text-sm font-medium">选择头像图片</span>
-                  <span className="text-muted text-xs">
-                    支持 {AVATAR_ACCEPT}
-                  </span>
-                  <input
+                <DropZone className="min-w-0">
+                  <DropZone.Area className="flex min-h-40 flex-col items-center justify-center gap-3 rounded-md border border-dashed border-default-300 bg-content1/60 p-5 text-center transition-colors hover:bg-default-50">
+                    <DropZone.Icon>
+                      <AdminIcon className="text-muted size-8" name="upload" />
+                    </DropZone.Icon>
+                    <DropZone.Label>选择或拖放头像图片</DropZone.Label>
+                    <DropZone.Description>
+                      支持 {AVATAR_ACCEPT}
+                    </DropZone.Description>
+                    <DropZone.Trigger
+                      className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-accent-foreground disabled:pointer-events-none disabled:opacity-50"
+                      isDisabled={isUploading}
+                    >
+                      选择图片
+                    </DropZone.Trigger>
+                  </DropZone.Area>
+                  <DropZone.Input
                     accept={AVATAR_ACCEPT}
-                    className="sr-only"
-                    disabled={isUploading}
-                    type="file"
-                    onChange={(event) => handleFileSelect(event.target.files)}
+                    multiple={false}
+                    onSelect={handleFileSelect}
                   />
-                </label>
 
-                {selectedFile ? (
-                  <div className="rounded-md border border-default-200 bg-content1 p-3 text-sm">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="truncate">{selectedFile.name}</span>
-                      <span className="text-muted shrink-0">
-                        {isUploading
-                          ? `${progress}%`
-                          : formatBytes(selectedFile.size)}
-                      </span>
-                    </div>
-                    {isUploading ? (
-                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-default-200">
-                        <div
-                          className="h-full rounded-full bg-accent"
-                          style={{ width: `${progress}%` }}
+                  {selectedFile ? (
+                    <DropZone.FileList>
+                      <DropZone.FileItem
+                        status={isUploading ? "uploading" : undefined}
+                      >
+                        <DropZone.FileFormatIcon
+                          color="green"
+                          format={getFileFormatLabel(selectedFile.name)}
                         />
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
+                        <DropZone.FileInfo>
+                          <DropZone.FileName>
+                            {selectedFile.name}
+                          </DropZone.FileName>
+                          <DropZone.FileMeta>
+                            {isUploading
+                              ? `上传中 ${progress}%`
+                              : formatBytes(selectedFile.size)}
+                          </DropZone.FileMeta>
+                          {isUploading ? (
+                            <DropZone.FileProgress
+                              aria-label="上传进度"
+                              value={progress}
+                            >
+                              <DropZone.FileProgressTrack>
+                                <DropZone.FileProgressFill />
+                              </DropZone.FileProgressTrack>
+                            </DropZone.FileProgress>
+                          ) : null}
+                        </DropZone.FileInfo>
+                        <DropZone.FileRemoveTrigger
+                          aria-label="移除已选头像"
+                          isDisabled={isUploading}
+                          onPress={clearSelectedFile}
+                        />
+                      </DropZone.FileItem>
+                    </DropZone.FileList>
+                  ) : null}
+                </DropZone>
 
                 {error ? <AgentFormError>{error}</AgentFormError> : null}
               </Modal.Body>
@@ -269,6 +306,12 @@ function formatBytes(value: number) {
   }
 
   return `${size.toFixed(size >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+}
+
+function getFileFormatLabel(fileName: string) {
+  const extension = fileName.trim().toLowerCase().split(".").pop();
+
+  return extension ? extension.toUpperCase() : "FILE";
 }
 
 function getUploadError(error: unknown) {
