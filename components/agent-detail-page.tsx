@@ -1134,13 +1134,11 @@ function CreateAgentExportButton({
   agentRecordId: number;
   onDone: () => void;
 }) {
-  const [error, setError] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
 
   async function runExport() {
     if (isExporting) return;
 
-    setError(null);
     setIsExporting(true);
 
     try {
@@ -1148,10 +1146,7 @@ function CreateAgentExportButton({
       toast.success("Agent 版本已导出。");
       onDone();
     } catch (error) {
-      const message = getAgentActionError(error, "Agent 版本导出失败。");
-
-      setError(message);
-      toast.danger(message);
+      toast.danger(getAgentActionError(error, "Agent 版本导出失败。"));
     } finally {
       setIsExporting(false);
     }
@@ -1166,7 +1161,6 @@ function CreateAgentExportButton({
       >
         {isExporting ? "导出中..." : "导出版本"}
       </Button>
-      {error ? <span className="text-danger text-xs">{error}</span> : null}
     </>
   );
 }
