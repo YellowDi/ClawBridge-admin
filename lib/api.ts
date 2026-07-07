@@ -215,6 +215,137 @@ export interface ReqAgentUpdate {
   [property: string]: unknown;
 }
 
+export interface ReqAgentInitDev {
+  agentId?: number;
+  force?: boolean;
+  [property: string]: unknown;
+}
+
+export interface ReqAgentMarkdownRead {
+  agentId?: number;
+  paths?: string[];
+  pluginId?: string;
+  [property: string]: unknown;
+}
+
+export interface AgentMarkdownFile {
+  content?: string;
+  path?: string;
+  [property: string]: unknown;
+}
+
+export interface ResAgentMarkdownFiles {
+  agentId?: string;
+  files?: AgentMarkdownFile[];
+  workspaceName?: string;
+  [property: string]: unknown;
+}
+
+export interface ReqAgentMarkdownSave {
+  agentId?: number;
+  files?: AgentMarkdownFile[];
+  pluginId?: string;
+  [property: string]: unknown;
+}
+
+export interface ResAgentMarkdownSave {
+  agentId?: string;
+  changed?: string[];
+  workspaceName?: string;
+  [property: string]: unknown;
+}
+
+export interface ReqAgentExportCreate {
+  agentId?: number;
+  [property: string]: unknown;
+}
+
+export interface ReqAgentExportList extends ReqPagination {
+  agentId?: number;
+  [property: string]: unknown;
+}
+
+export interface ReqAgentExportDeploy {
+  exportId?: number;
+  force?: boolean;
+  targetPluginIds?: string[];
+  [property: string]: unknown;
+}
+
+export interface ReqAgentDeploymentList {
+  agentId?: number;
+  [property: string]: unknown;
+}
+
+export interface AgentExport {
+  agentCode?: string;
+  agentId?: number;
+  artifactPath?: string;
+  artifactUrl?: string;
+  createdAt?: string;
+  errorMessage?: string;
+  id?: number;
+  isDelete?: number;
+  manifestJson?: string;
+  sha256?: string;
+  sizeBytes?: number;
+  sourcePluginId?: string;
+  status?: string;
+  updatedAt?: string;
+  version?: number;
+  workspaceName?: string;
+  [property: string]: unknown;
+}
+
+export interface ResAgentExports {
+  items?: AgentExport[];
+  pagination?: Pagination;
+  [property: string]: unknown;
+}
+
+export interface AgentDeployment {
+  agentCode?: string;
+  agentId?: number;
+  createdAt?: string;
+  errorMessage?: string;
+  exportId?: number;
+  id?: number;
+  isDelete?: number;
+  remoteAgentJson?: string;
+  remoteConfigHash?: string;
+  remoteVersion?: number;
+  status?: string;
+  targetPluginId?: string;
+  updatedAt?: string;
+  version?: number;
+  workspaceName?: string;
+  [property: string]: unknown;
+}
+
+export interface ResAgentDeployments {
+  items?: AgentDeployment[];
+  [property: string]: unknown;
+}
+
+export interface ReqAgentImport {
+  agentId?: string;
+  artifactPath?: string;
+  artifactUrl?: string;
+  defaultModelid?: string;
+  description?: string;
+  displayName?: string;
+  manifestJson?: string;
+  sha256?: string;
+  sizeBytes?: number;
+  [property: string]: unknown;
+}
+
+export interface ResAgentImport {
+  agent?: Agent;
+  export?: AgentExport;
+  [property: string]: unknown;
+}
+
 export interface ResAgent {
   data?: Agent;
   [property: string]: unknown;
@@ -864,6 +995,7 @@ export interface SkillCatalogItem {
   displayName?: string;
   eligible?: boolean;
   enabled?: boolean;
+  groupName?: string;
   id?: number;
   installed?: boolean;
   readonly?: boolean;
@@ -874,6 +1006,7 @@ export interface SkillCatalogItem {
   sourceType?: string;
   tags?: string[];
   version?: string;
+  visibleName?: string;
   visibleToAgent?: boolean;
   warnings?: string[];
   [property: string]: unknown;
@@ -1295,6 +1428,88 @@ export async function updateAgent(
 export async function deleteAgent(id: number): Promise<void> {
   await requestJson<ControllerResponse | unknown>("/api/agents/delete", {
     body: JSON.stringify({ id } satisfies ReqAgentDelete),
+    method: "POST",
+  });
+}
+
+export async function initDevAgent(
+  request: ReqAgentInitDev,
+): Promise<AgentDeployment | undefined> {
+  return requestJson<AgentDeployment | undefined>("/api/agents/init-dev", {
+    body: JSON.stringify(request),
+    method: "POST",
+  });
+}
+
+export async function readAgentMarkdown(
+  request: ReqAgentMarkdownRead,
+): Promise<ResAgentMarkdownFiles> {
+  return requestJson<ResAgentMarkdownFiles>("/api/agents/markdown/read", {
+    body: JSON.stringify(request),
+    method: "POST",
+  });
+}
+
+export async function saveAgentMarkdown(
+  request: ReqAgentMarkdownSave,
+): Promise<ResAgentMarkdownSave | undefined> {
+  return requestJson<ResAgentMarkdownSave | undefined>(
+    "/api/agents/markdown/save",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+}
+
+export async function createAgentExport(
+  request: ReqAgentExportCreate,
+): Promise<AgentExport | undefined> {
+  return requestJson<AgentExport | undefined>("/api/agents/exports/create", {
+    body: JSON.stringify(request),
+    method: "POST",
+  });
+}
+
+export async function listAgentExports(
+  request: ReqAgentExportList,
+): Promise<ResAgentExports> {
+  return requestJson<ResAgentExports>("/api/agents/exports/list", {
+    body: JSON.stringify(request),
+    method: "POST",
+  });
+}
+
+export async function deployAgentExport(
+  request: ReqAgentExportDeploy,
+): Promise<ResAgentDeployments> {
+  return requestJson<ResAgentDeployments>("/api/agents/exports/deploy", {
+    body: JSON.stringify(request),
+    method: "POST",
+  });
+}
+
+export async function listAgentDeployments(
+  request: ReqAgentDeploymentList,
+): Promise<AgentDeployment[]> {
+  const response = await requestJson<ResAgentDeployments | AgentDeployment[]>(
+    "/api/agents/deployments/list",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+
+  if (Array.isArray(response)) return response;
+
+  return response.items ?? [];
+}
+
+export async function importAgent(
+  request: ReqAgentImport,
+): Promise<ResAgentImport | undefined> {
+  return requestJson<ResAgentImport | undefined>("/api/agents/import", {
+    body: JSON.stringify(request),
     method: "POST",
   });
 }

@@ -1,21 +1,38 @@
 "use client";
 
-import type { DataGridColumn } from "@heroui-pro/react";
-import type { Key } from "react";
-import type { Agent as ApiAgent, Model as ApiModel } from "@/lib/api";
+import type { FormEvent, Key } from "react";
+import type {
+  Agent as ApiAgent,
+  AgentDeployment,
+  Model as ApiModel,
+  ReqAgentImport,
+} from "@/lib/api";
 
-import { Avatar, Chip, SearchField, Tabs } from "@heroui/react";
-import { DataGrid } from "@heroui-pro/react";
+import {
+  Avatar,
+  Button,
+  Card,
+  Chip,
+  Input,
+  Label,
+  Modal,
+  SearchField,
+  Tabs,
+  TextField,
+  toast,
+  useOverlayState,
+} from "@heroui/react";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { AdminIcon } from "@/components/admin-icons";
 import { AdminPage, StatGrid } from "@/components/admin-page-kit";
 import {
   CreateAgentDialog,
   DeleteAgentDialog,
   EditAgentDialog,
 } from "@/components/agent-dialog";
-import { KnowledgeAvailabilityDialog } from "@/components/knowledge-availability-dialog";
-import { listAgents, listModels } from "@/lib/api";
+import { importAgent, initDevAgent, listAgents, listModels } from "@/lib/api";
 
 type AgentFilter = "all" | "disabled" | "enabled";
 type AgentStatus = "停用" | "启用";
@@ -64,104 +81,6 @@ const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("zh-CN", {
   year: "numeric",
 });
 
-const AGENT_BASE_COLUMNS: DataGridColumn<AdminAgent>[] = [
-  {
-    allowsSorting: true,
-    cell: (item) => (
-      <div className="flex min-w-0 items-center gap-3">
-        <Avatar className="size-8 shrink-0">
-          {item.avatarUrl ? (
-            <Avatar.Image
-              alt={`${item.displayLabel} 头像`}
-              src={item.avatarUrl}
-            />
-          ) : null}
-          <Avatar.Fallback>
-            {getAgentInitials(item.displayLabel)}
-          </Avatar.Fallback>
-        </Avatar>
-        <div className="flex min-w-0 flex-col">
-          <span className="truncate text-xs font-medium">
-            {item.displayLabel}
-          </span>
-          <span className="text-muted truncate text-xs">{item.agentId}</span>
-        </div>
-      </div>
-    ),
-    header: "Agent",
-    headerClassName: "whitespace-nowrap",
-    id: "displayLabel",
-    isRowHeader: true,
-    minWidth: 200,
-    width: 220,
-  },
-  {
-    cell: (item) => (
-      <div className="flex min-w-0 flex-col">
-        <span className="truncate text-xs font-medium">
-          {item.defaultModelLabel}
-        </span>
-        {item.defaultModelid && item.defaultModelid !== "-" ? (
-          <span className="text-muted truncate text-xs">
-            {item.defaultModelid}
-          </span>
-        ) : null}
-      </div>
-    ),
-    allowsSorting: true,
-    header: "默认模型",
-    headerClassName: "whitespace-nowrap",
-    id: "defaultModelLabel",
-    width: 180,
-  },
-  {
-    cell: (item) => (
-      <span className="text-muted line-clamp-2 text-xs">
-        {item.capabilityModelSummary || "-"}
-      </span>
-    ),
-    header: "能力模型",
-    headerClassName: "whitespace-nowrap",
-    id: "capabilityModelSummary",
-    width: 240,
-  },
-  {
-    cell: (item) => (
-      <span className="text-muted text-xs">{formatAgentLevels(item)}</span>
-    ),
-    header: "默认配置",
-    headerClassName: "whitespace-nowrap",
-    id: "levels",
-    width: 200,
-  },
-  {
-    cellClassName: "whitespace-nowrap",
-    cell: (item) => (
-      <Chip
-        className="whitespace-nowrap"
-        color={AGENT_STATUS_COLOR[item.status]}
-        size="sm"
-        variant="soft"
-      >
-        {item.status}
-      </Chip>
-    ),
-    header: "状态",
-    headerClassName: "whitespace-nowrap",
-    id: "status",
-    width: 88,
-  },
-  {
-    accessorKey: "updatedAt",
-    align: "end",
-    cellClassName: "whitespace-nowrap",
-    header: "更新时间",
-    headerClassName: "whitespace-nowrap",
-    id: "updatedAt",
-    width: 140,
-  },
-];
-
 export function AgentsPage() {
   const isMountedRef = useRef(false);
   const [loadState, setLoadState] = useState<AgentsLoadState>({
@@ -171,6 +90,7 @@ export function AgentsPage() {
   });
   const [agentFilter, setAgentFilter] = useState<AgentFilter>("all");
   const [agentModelOptions, setAgentModelOptions] = useState<ApiModel[]>([]);
+  const [createdAgent, setCreatedAgent] = useState<AdminAgent | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const { agents, error, isLoading } = loadState;
 
@@ -182,7 +102,7 @@ export function AgentsPage() {
     }));
 
     try {
-      const response = await listAgents();
+      const response = await listAgents({ pageSize: 500 });
 
       if (isMountedRef.current) {
         setLoadState({
@@ -232,47 +152,6 @@ export function AgentsPage() {
     [agentFilter, agents, searchQuery],
   );
   const refreshAgents = useCallback(() => void loadAgents(), [loadAgents]);
-  const agentColumns = useMemo<DataGridColumn<AdminAgent>[]>(
-    () => [
-      ...AGENT_BASE_COLUMNS,
-      {
-        align: "end",
-        cell: (item) => {
-          if (item.agentRecordId == null) {
-            return <span className="text-muted text-xs">-</span>;
-          }
-
-          const agent = toEditableAgentSummary(item, item.agentRecordId);
-
-          return (
-            <div className="flex items-center justify-end gap-2">
-              <KnowledgeAvailabilityDialog
-                selectedKnowledgeBaseIds={item.knowledgeBaseIds}
-                subjectId={agent.id}
-                subjectLabel={agent.displayName || agent.agentId}
-                subjectType="agent"
-                onSaved={refreshAgents}
-              />
-              <EditAgentDialog
-                agent={agent}
-                modelOptions={agentModelOptions}
-                onUpdated={refreshAgents}
-              />
-              <DeleteAgentDialog agent={agent} onDeleted={refreshAgents} />
-            </div>
-          );
-        },
-        cellClassName: "w-[256px] min-w-[256px] max-w-[256px] pl-4 pr-4",
-        header: "操作",
-        headerClassName:
-          "w-[256px] min-w-[256px] max-w-[256px] whitespace-nowrap pl-4 pr-4",
-        id: "actions",
-        pinned: "end",
-        width: 256,
-      },
-    ],
-    [agentModelOptions, refreshAgents],
-  );
   const agentStats = useMemo(() => getAgentStats(agents), [agents]);
   const emptyState = getAgentsEmptyState({
     error,
@@ -280,14 +159,25 @@ export function AgentsPage() {
     isLoading,
   });
 
-  return (
-    <AdminPage
-      actions={
+  const actions = useMemo(
+    () => (
+      <>
+        <ImportAgentDialog onImported={refreshAgents} />
         <CreateAgentDialog
           modelOptions={agentModelOptions}
-          onCreated={() => void loadAgents()}
+          onCreated={(agent) => {
+            void loadAgents();
+            if (agent?.id != null) setCreatedAgent(toAdminAgent(agent, 0));
+          }}
         />
-      }
+      </>
+    ),
+    [agentModelOptions, loadAgents, refreshAgents],
+  );
+
+  return (
+    <AdminPage
+      actions={actions}
       description="维护 Agent 标识、默认模型、推理配置和启用状态。"
       eyebrow="Agent Studio"
       title="Agent 编排"
@@ -319,7 +209,7 @@ export function AgentsPage() {
         ]}
       />
 
-      <section className="flex min-w-0 flex-col gap-3">
+      <section className="flex min-w-0 flex-col gap-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <Tabs
             selectedKey={agentFilter}
@@ -342,34 +232,651 @@ export function AgentsPage() {
               </Tabs.List>
             </Tabs.ListContainer>
           </Tabs>
-          <SearchField
-            aria-label="搜索 Agent"
-            className="w-full sm:w-[260px]"
-            value={searchQuery}
-            onChange={setSearchQuery}
-          >
-            <SearchField.Group>
-              <SearchField.SearchIcon />
-              <SearchField.Input placeholder="搜索 Agent 或模型" />
-              <SearchField.ClearButton />
-            </SearchField.Group>
-          </SearchField>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+            <SearchField
+              aria-label="搜索 Agent"
+              className="w-full sm:w-[280px]"
+              value={searchQuery}
+              variant="secondary"
+              onChange={setSearchQuery}
+            >
+              <SearchField.Group>
+                <SearchField.SearchIcon />
+                <SearchField.Input placeholder="搜索 Agent、模型或说明" />
+                <SearchField.ClearButton />
+              </SearchField.Group>
+            </SearchField>
+            <Button
+              isDisabled={isLoading}
+              size="sm"
+              variant="secondary"
+              onPress={refreshAgents}
+            >
+              <AdminIcon className="size-4" name="refresh" />
+              刷新
+            </Button>
+          </div>
         </div>
-        <DataGrid
-          aria-label="Agent 列表"
-          className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
-          columns={agentColumns}
-          contentClassName="min-w-[1180px]"
-          data={filteredAgents}
-          defaultSortDescriptor={{
-            column: "displayLabel",
-            direction: "ascending",
-          }}
-          getRowId={(item) => item.id}
-          renderEmptyState={() => emptyState}
-        />
+
+        {error ? (
+          <InlineError action={refreshAgents}>{error}</InlineError>
+        ) : null}
+
+        {isLoading ? (
+          <AgentGridSkeleton />
+        ) : filteredAgents.length > 0 ? (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {filteredAgents.map((agent) => (
+              <AgentCard
+                key={agent.id}
+                agent={agent}
+                modelOptions={agentModelOptions}
+                onChanged={refreshAgents}
+              />
+            ))}
+          </div>
+        ) : (
+          <EmptyState>{emptyState}</EmptyState>
+        )}
       </section>
+
+      <CreatedAgentInitPrompt
+        agent={createdAgent}
+        onClose={() => setCreatedAgent(null)}
+        onDone={refreshAgents}
+      />
     </AdminPage>
+  );
+}
+
+function AgentCard({
+  agent,
+  modelOptions,
+  onChanged,
+}: {
+  agent: AdminAgent;
+  modelOptions: ApiModel[];
+  onChanged: () => void;
+}) {
+  const router = useRouter();
+  const editableAgent =
+    agent.agentRecordId == null
+      ? null
+      : toEditableAgentSummary(agent, agent.agentRecordId);
+
+  return (
+    <Card className="h-full">
+      <Card.Header>
+        <div className="flex w-full min-w-0 items-start justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <Avatar className="size-10 shrink-0">
+              {agent.avatarUrl ? (
+                <Avatar.Image
+                  alt={`${agent.displayLabel} 头像`}
+                  src={agent.avatarUrl}
+                />
+              ) : null}
+              <Avatar.Fallback>
+                {getAgentInitials(agent.displayLabel)}
+              </Avatar.Fallback>
+            </Avatar>
+            <div className="min-w-0">
+              <Card.Title className="truncate text-base">
+                {agent.displayLabel}
+              </Card.Title>
+              <Card.Description className="truncate text-xs">
+                {agent.agentId}
+              </Card.Description>
+            </div>
+          </div>
+          <Chip
+            className="shrink-0 whitespace-nowrap"
+            color={AGENT_STATUS_COLOR[agent.status]}
+            size="sm"
+            variant="soft"
+          >
+            {agent.status}
+          </Chip>
+        </div>
+      </Card.Header>
+      <Card.Content className="flex h-full flex-col gap-4">
+        <p className="text-muted line-clamp-3 min-h-14 text-sm">
+          {agent.description || "暂无说明"}
+        </p>
+
+        <dl className="grid grid-cols-2 gap-3 text-xs">
+          <AgentMeta label="默认模型" value={agent.defaultModelLabel} />
+          <AgentMeta
+            label="知识库"
+            value={`${agent.knowledgeBaseIds.length} 个`}
+          />
+          <AgentMeta
+            label="能力模型"
+            value={agent.capabilityModelSummary || "-"}
+          />
+          <AgentMeta label="更新时间" value={agent.updatedAt} />
+        </dl>
+
+        <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-default-200 pt-4">
+          <Button
+            isDisabled={agent.agentRecordId == null}
+            size="sm"
+            onPress={() => router.push(`/agents/${agent.agentRecordId}`)}
+          >
+            详情
+          </Button>
+          <AgentInitDevButton
+            agentRecordId={agent.agentRecordId}
+            onDone={onChanged}
+          />
+          {editableAgent ? (
+            <>
+              <EditAgentDialog
+                agent={editableAgent}
+                modelOptions={modelOptions}
+                onUpdated={onChanged}
+              />
+              <DeleteAgentDialog agent={editableAgent} onDeleted={onChanged} />
+            </>
+          ) : null}
+        </div>
+      </Card.Content>
+    </Card>
+  );
+}
+
+function AgentInitDevButton({
+  agentRecordId,
+  onDone,
+}: {
+  agentRecordId: number | null;
+  onDone: () => void;
+}) {
+  const modal = useOverlayState();
+  const [conflict, setConflict] = useState<AgentDeployment | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState(false);
+
+  async function runInit(force: boolean) {
+    if (agentRecordId == null || isInitializing) return;
+
+    setError(null);
+    setIsInitializing(true);
+
+    try {
+      const deployment = await initDevAgent({ agentId: agentRecordId, force });
+
+      if (deployment?.status === "conflict" && !force) {
+        setConflict(deployment);
+        modal.open();
+      } else if (deployment?.status === "failed") {
+        setError(deployment.errorMessage || "初始化到 dev OpenClaw 失败。");
+      } else {
+        toast.success("Agent 已初始化到 dev OpenClaw。");
+        modal.close();
+        setConflict(null);
+        onDone();
+      }
+    } catch (error) {
+      setError(getAgentActionError(error, "初始化到 dev OpenClaw 失败。"));
+    } finally {
+      setIsInitializing(false);
+    }
+  }
+
+  return (
+    <>
+      <Button
+        isDisabled={agentRecordId == null || isInitializing}
+        size="sm"
+        variant="secondary"
+        onPress={() => void runInit(false)}
+      >
+        {isInitializing ? "初始化中..." : "初始化到 dev"}
+      </Button>
+      {error ? <span className="text-danger text-xs">{error}</span> : null}
+      <ConflictDialog
+        conflict={conflict}
+        isBusy={isInitializing}
+        state={modal}
+        onCancel={() => {
+          modal.close();
+          setConflict(null);
+        }}
+        onForce={() => void runInit(true)}
+      />
+    </>
+  );
+}
+
+function CreatedAgentInitPrompt({
+  agent,
+  onClose,
+  onDone,
+}: {
+  agent: AdminAgent | null;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const modal = useOverlayState();
+  const [conflict, setConflict] = useState<AgentDeployment | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState(false);
+
+  useEffect(() => {
+    if (agent) modal.open();
+  }, [agent, modal]);
+
+  async function runInit(force: boolean) {
+    if (!agent?.agentRecordId || isInitializing) return;
+
+    setError(null);
+    setIsInitializing(true);
+
+    try {
+      const deployment = await initDevAgent({
+        agentId: agent.agentRecordId,
+        force,
+      });
+
+      if (deployment?.status === "conflict" && !force) {
+        setConflict(deployment);
+      } else if (deployment?.status === "failed") {
+        setError(deployment.errorMessage || "初始化到 dev OpenClaw 失败。");
+      } else {
+        toast.success("Agent 已初始化到 dev OpenClaw。");
+        close();
+        onDone();
+      }
+    } catch (error) {
+      setError(getAgentActionError(error, "初始化到 dev OpenClaw 失败。"));
+    } finally {
+      setIsInitializing(false);
+    }
+  }
+
+  function close() {
+    modal.close();
+    setConflict(null);
+    setError(null);
+    onClose();
+  }
+
+  if (!agent) return null;
+
+  return (
+    <Modal state={modal}>
+      <Modal.Backdrop
+        isDismissable={!isInitializing}
+        isKeyboardDismissDisabled={isInitializing}
+      >
+        <Modal.Container placement="center" scroll="inside" size="md">
+          <Modal.Dialog>
+            <Modal.Header>
+              <Modal.Heading>初始化到 dev OpenClaw</Modal.Heading>
+            </Modal.Header>
+            <Modal.Body className="flex min-w-0 flex-col gap-4">
+              <p className="text-muted text-sm">
+                Agent「{agent.displayLabel}」已在后台创建。需要现在创建 dev
+                工作区并写入默认 Markdown 吗？
+              </p>
+              {conflict ? <RemoteAgentJson deployment={conflict} /> : null}
+              {error ? <InlineError>{error}</InlineError> : null}
+            </Modal.Body>
+            <Modal.Footer>
+              <Button
+                isDisabled={isInitializing}
+                type="button"
+                variant="tertiary"
+                onPress={close}
+              >
+                暂不初始化
+              </Button>
+              {conflict ? (
+                <Button
+                  isDisabled={isInitializing}
+                  type="button"
+                  variant="danger-soft"
+                  onPress={() => void runInit(true)}
+                >
+                  {isInitializing ? "覆盖中..." : "强制覆盖"}
+                </Button>
+              ) : (
+                <Button
+                  isDisabled={isInitializing}
+                  type="button"
+                  onPress={() => void runInit(false)}
+                >
+                  {isInitializing ? "初始化中..." : "初始化到 dev OpenClaw"}
+                </Button>
+              )}
+            </Modal.Footer>
+          </Modal.Dialog>
+        </Modal.Container>
+      </Modal.Backdrop>
+    </Modal>
+  );
+}
+
+function ConflictDialog({
+  conflict,
+  isBusy,
+  onCancel,
+  onForce,
+  state,
+}: {
+  conflict: AgentDeployment | null;
+  isBusy: boolean;
+  onCancel: () => void;
+  onForce: () => void;
+  state: ReturnType<typeof useOverlayState>;
+}) {
+  return (
+    <Modal state={state}>
+      <Modal.Backdrop
+        isDismissable={!isBusy}
+        isKeyboardDismissDisabled={isBusy}
+      >
+        <Modal.Container placement="center" scroll="inside" size="md">
+          <Modal.Dialog>
+            <Modal.Header>
+              <Modal.Heading>dev OpenClaw 已存在同名 Agent</Modal.Heading>
+            </Modal.Header>
+            <Modal.Body className="flex min-w-0 flex-col gap-4">
+              <p className="text-muted text-sm">
+                强制覆盖会更新 dev OpenClaw 中的同名 Agent 配置。
+              </p>
+              {conflict ? <RemoteAgentJson deployment={conflict} /> : null}
+            </Modal.Body>
+            <Modal.Footer>
+              <Button
+                isDisabled={isBusy}
+                type="button"
+                variant="tertiary"
+                onPress={onCancel}
+              >
+                取消
+              </Button>
+              <Button
+                isDisabled={isBusy}
+                type="button"
+                variant="danger-soft"
+                onPress={onForce}
+              >
+                {isBusy ? "覆盖中..." : "强制覆盖"}
+              </Button>
+            </Modal.Footer>
+          </Modal.Dialog>
+        </Modal.Container>
+      </Modal.Backdrop>
+    </Modal>
+  );
+}
+
+function ImportAgentDialog({ onImported }: { onImported: () => void }) {
+  const router = useRouter();
+  const modal = useOverlayState({
+    onOpenChange(isOpen) {
+      if (isOpen) reset();
+    },
+  });
+  const [error, setError] = useState<string | null>(null);
+  const [form, setForm] = useState<ReqAgentImport>({});
+  const [isImporting, setIsImporting] = useState(false);
+
+  function reset() {
+    setError(null);
+    setForm({});
+    setIsImporting(false);
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (isImporting) return;
+
+    const request = normalizeImportRequest(form);
+
+    if (!request.agentId) {
+      setError("请输入 Agent ID。");
+
+      return;
+    }
+
+    if (!request.artifactUrl && !request.artifactPath) {
+      setError("artifactUrl 和 artifactPath 至少填写一个。");
+
+      return;
+    }
+
+    setError(null);
+    setIsImporting(true);
+
+    try {
+      const result = await importAgent(request);
+
+      toast.success("Agent 已导入。");
+      modal.close();
+      onImported();
+
+      if (result?.agent?.id != null) {
+        router.push(`/agents/${result.agent.id}`);
+      }
+    } catch (error) {
+      setError(getAgentActionError(error, "导入 Agent 失败。"));
+      setIsImporting(false);
+    }
+  }
+
+  function updateForm(patch: Partial<ReqAgentImport>) {
+    setForm((current) => ({ ...current, ...patch }));
+  }
+
+  return (
+    <Modal state={modal}>
+      <Modal.Trigger>
+        <Button size="sm" variant="secondary">
+          <AdminIcon className="size-4" name="upload" />
+          导入 Agent
+        </Button>
+      </Modal.Trigger>
+      <Modal.Backdrop
+        isDismissable={!isImporting}
+        isKeyboardDismissDisabled={isImporting}
+      >
+        <Modal.Container placement="center" scroll="inside" size="lg">
+          <Modal.Dialog>
+            <form className="min-w-0" onSubmit={handleSubmit}>
+              <Modal.Header>
+                <Modal.Heading>导入 Agent</Modal.Heading>
+              </Modal.Header>
+              <Modal.Body className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
+                <ImportTextField
+                  isDisabled={isImporting}
+                  label="Agent ID"
+                  value={form.agentId}
+                  onChange={(agentId) => updateForm({ agentId })}
+                />
+                <ImportTextField
+                  isDisabled={isImporting}
+                  label="展示名称"
+                  value={form.displayName}
+                  onChange={(displayName) => updateForm({ displayName })}
+                />
+                <ImportTextField
+                  isDisabled={isImporting}
+                  label="默认模型"
+                  value={form.defaultModelid}
+                  onChange={(defaultModelid) => updateForm({ defaultModelid })}
+                />
+                <ImportTextField
+                  isDisabled={isImporting}
+                  label="SHA256"
+                  value={form.sha256}
+                  onChange={(sha256) => updateForm({ sha256 })}
+                />
+                <ImportTextField
+                  isDisabled={isImporting}
+                  label="artifactUrl"
+                  value={form.artifactUrl}
+                  onChange={(artifactUrl) => updateForm({ artifactUrl })}
+                />
+                <ImportTextField
+                  isDisabled={isImporting}
+                  label="artifactPath"
+                  value={form.artifactPath}
+                  onChange={(artifactPath) => updateForm({ artifactPath })}
+                />
+                <ImportTextField
+                  isDisabled={isImporting}
+                  label="sizeBytes"
+                  value={form.sizeBytes == null ? "" : String(form.sizeBytes)}
+                  onChange={(sizeBytes) =>
+                    updateForm({ sizeBytes: Number(sizeBytes) || undefined })
+                  }
+                />
+                <ImportTextField
+                  isDisabled={isImporting}
+                  label="说明"
+                  value={form.description}
+                  onChange={(description) => updateForm({ description })}
+                />
+                <div className="sm:col-span-2">
+                  <ImportTextField
+                    isDisabled={isImporting}
+                    label="manifestJson"
+                    value={form.manifestJson}
+                    onChange={(manifestJson) => updateForm({ manifestJson })}
+                  />
+                </div>
+                {error ? (
+                  <div className="sm:col-span-2">
+                    <InlineError>{error}</InlineError>
+                  </div>
+                ) : null}
+              </Modal.Body>
+              <Modal.Footer>
+                <Button
+                  isDisabled={isImporting}
+                  type="button"
+                  variant="tertiary"
+                  onPress={modal.close}
+                >
+                  取消
+                </Button>
+                <Button isDisabled={isImporting} type="submit">
+                  {isImporting ? "导入中..." : "导入"}
+                </Button>
+              </Modal.Footer>
+            </form>
+          </Modal.Dialog>
+        </Modal.Container>
+      </Modal.Backdrop>
+    </Modal>
+  );
+}
+
+function ImportTextField({
+  isDisabled,
+  label,
+  onChange,
+  value,
+}: {
+  isDisabled: boolean;
+  label: string;
+  onChange: (value: string) => void;
+  value?: string;
+}) {
+  return (
+    <TextField fullWidth isDisabled={isDisabled} variant="secondary">
+      <Label>{label}</Label>
+      <Input
+        fullWidth
+        value={value ?? ""}
+        variant="secondary"
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </TextField>
+  );
+}
+
+function AgentMeta({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-muted">{label}</dt>
+      <dd className="text-foreground truncate font-medium" title={value}>
+        {value}
+      </dd>
+    </div>
+  );
+}
+
+function RemoteAgentJson({ deployment }: { deployment: AgentDeployment }) {
+  return (
+    <div className="min-w-0 rounded-md border border-default-200 bg-content2 p-3">
+      <div className="text-muted mb-2 flex flex-wrap gap-2 text-xs">
+        <span>{deployment.targetPluginId || "dev OpenClaw"}</span>
+        <span>{deployment.status || "conflict"}</span>
+      </div>
+      <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words text-xs">
+        {formatJson(deployment.remoteAgentJson)}
+      </pre>
+    </div>
+  );
+}
+
+function InlineError({
+  action,
+  children,
+}: {
+  action?: () => void;
+  children: string;
+}) {
+  return (
+    <div className="flex flex-col gap-3 rounded-md border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700 sm:flex-row sm:items-center sm:justify-between">
+      <span>{children}</span>
+      {action ? (
+        <Button size="sm" variant="danger-soft" onPress={action}>
+          重试
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+function EmptyState({ children }: { children: string }) {
+  return (
+    <div className="flex min-h-72 flex-col items-center justify-center rounded-md border border-dashed border-default-300 px-6 py-12 text-center">
+      <AdminIcon className="text-muted size-9" name="agent" />
+      <h2 className="text-foreground mt-4 text-base font-semibold">
+        没有 Agent
+      </h2>
+      <p className="text-muted mt-2 max-w-md text-sm">{children}</p>
+    </div>
+  );
+}
+
+function AgentGridSkeleton() {
+  return (
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+      {Array.from({ length: 6 }).map((_, index) => (
+        <Card key={index}>
+          <Card.Content className="flex flex-col gap-4 p-5">
+            <div className="flex items-center gap-3">
+              <div className="bg-default-200 size-10 animate-pulse rounded-full" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <div className="bg-default-200 h-4 w-2/3 animate-pulse rounded" />
+                <div className="bg-default-100 h-3 w-1/2 animate-pulse rounded" />
+              </div>
+            </div>
+            <div className="bg-default-100 h-14 animate-pulse rounded" />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-default-100 h-10 animate-pulse rounded" />
+              <div className="bg-default-100 h-10 animate-pulse rounded" />
+            </div>
+          </Card.Content>
+        </Card>
+      ))}
+    </div>
   );
 }
 
@@ -562,18 +1069,6 @@ function getAgentInitials(value: string) {
   return normalized.slice(0, 2).toUpperCase();
 }
 
-function formatAgentLevels(
-  agent: Pick<AdminAgent, "reasoningLevel" | "thinkingLevel" | "verboseLevel">,
-) {
-  const levels = [
-    agent.reasoningLevel ? `reasoning: ${agent.reasoningLevel}` : null,
-    agent.thinkingLevel ? `thinking: ${agent.thinkingLevel}` : null,
-    agent.verboseLevel ? `verbose: ${agent.verboseLevel}` : null,
-  ].filter(Boolean);
-
-  return levels.length ? levels.join(" / ") : "-";
-}
-
 function toAgentFilter(key: Key): AgentFilter {
   if (key === "enabled" || key === "disabled") return key;
 
@@ -610,7 +1105,34 @@ function getAgentsEmptyState({
   return "暂无 Agent 数据。";
 }
 
-function getAgentListError(error: unknown) {
+function normalizeImportRequest(form: ReqAgentImport): ReqAgentImport {
+  return {
+    agentId: form.agentId?.trim() || undefined,
+    artifactPath: form.artifactPath?.trim() || undefined,
+    artifactUrl: form.artifactUrl?.trim() || undefined,
+    defaultModelid: form.defaultModelid?.trim() || undefined,
+    description: form.description?.trim() || undefined,
+    displayName: form.displayName?.trim() || undefined,
+    manifestJson: form.manifestJson?.trim() || undefined,
+    sha256: form.sha256?.trim() || undefined,
+    sizeBytes:
+      typeof form.sizeBytes === "number" && Number.isFinite(form.sizeBytes)
+        ? form.sizeBytes
+        : undefined,
+  };
+}
+
+function formatJson(value?: string) {
+  if (!value) return "无远端配置。";
+
+  try {
+    return JSON.stringify(JSON.parse(value), null, 2);
+  } catch {
+    return value;
+  }
+}
+
+function getAgentActionError(error: unknown, fallback: string) {
   if (
     error instanceof Error &&
     error.message.trim() &&
@@ -619,5 +1141,9 @@ function getAgentListError(error: unknown) {
     return error.message;
   }
 
-  return "Agent 列表加载失败。";
+  return fallback;
+}
+
+function getAgentListError(error: unknown) {
+  return getAgentActionError(error, "Agent 列表加载失败。");
 }

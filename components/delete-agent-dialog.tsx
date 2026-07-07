@@ -89,7 +89,9 @@ export function DeleteAgentDialog({
               <p className="text-muted text-sm">
                 {"确认删除 Agent「"}
                 <span className="break-all">{agentName}</span>
-                {"」？删除后该 Agent 将无法继续被授权或使用。"}
+                {
+                  "」？删除后 admin 后台会隐藏该 Agent，并会尝试彻底删除 dev 和已分发 OpenClaw 实例上的 Agent 配置与工作区。"
+                }
               </p>
               {error ? <AgentFormError>{error}</AgentFormError> : null}
             </Modal.Body>

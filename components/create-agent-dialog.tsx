@@ -3,6 +3,7 @@
 import type { FormEvent } from "react";
 import type { AgentForm } from "@/components/agent-form-types";
 import type { AgentDialogProps } from "@/components/agent-dialog-types";
+import type { Agent } from "@/lib/api";
 
 import { Button, Modal, useOverlayState } from "@heroui/react";
 import { useState } from "react";
@@ -27,7 +28,7 @@ type CreateAgentState = {
 export function CreateAgentDialog({
   modelOptions = EMPTY_MODEL_OPTIONS,
   onCreated,
-}: AgentDialogProps & { onCreated: () => void }) {
+}: AgentDialogProps & { onCreated: (agent?: Agent) => void }) {
   const [state, setState] = useState<CreateAgentState>({
     error: null,
     form: DEFAULT_AGENT_FORM,
@@ -83,14 +84,15 @@ export function CreateAgentDialog({
     }));
 
     try {
-      await createAgent(request);
+      const agent = await createAgent(request);
+
       modal.close();
       setState({
         error: null,
         form: DEFAULT_AGENT_FORM,
         isCreating: false,
       });
-      onCreated();
+      onCreated(agent);
     } catch (error) {
       setState((current) => ({
         ...current,
