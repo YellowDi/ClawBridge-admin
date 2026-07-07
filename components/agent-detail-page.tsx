@@ -7,11 +7,8 @@ import type {
   AgentDeployment,
   AgentExport,
   AgentMarkdownFile,
-  AgentSkill,
   Model,
   OpenClawRPCInstance,
-  PrivateSkill,
-  SkillCatalogItem,
 } from "@/lib/api";
 
 import {
@@ -25,7 +22,6 @@ import {
   Label,
   ListBox,
   Modal,
-  SearchField,
   Select,
   Tabs,
   TextField,
@@ -42,19 +38,15 @@ import { AdminPage, SectionCard } from "@/components/admin-page-kit";
 import { DeleteAgentDialog, EditAgentDialog } from "@/components/agent-dialog";
 import { KnowledgeAvailabilityDialog } from "@/components/knowledge-availability-dialog";
 import {
-  applyAgentSkill,
   createAgentExport,
   deployAgentExport,
   getAgentDetail,
   initDevAgent,
   listAgentDeployments,
   listAgentExports,
-  listAgentSkills,
   listModels,
   listOpenClawRPCInstances,
-  listSkillCatalog,
   readAgentMarkdown,
-  removeAgentSkill,
   saveAgentMarkdown,
 } from "@/lib/api";
 
@@ -67,7 +59,7 @@ type DetailState = {
   models: Model[];
 };
 
-type DetailTab = "knowledge" | "markdown" | "skills" | "versions";
+type DetailTab = "knowledge" | "markdown" | "versions";
 
 const EMPTY_AGENT_EXPORTS: AgentExport[] = [];
 const EMPTY_DEPLOYMENTS: AgentDeployment[] = [];
@@ -214,7 +206,7 @@ export function AgentDetailPage({ agentRecordId }: { agentRecordId: number }) {
   return (
     <AdminPage
       actions={actions}
-      description="编辑 Agent 配置、工作区 Markdown、Skill、知识库和版本分发。"
+      description="编辑 Agent 配置、工作区 Markdown、知识库和版本分发。"
       eyebrow="Agent Detail"
       navigation={navigation}
       title={agentLabel}
@@ -236,7 +228,6 @@ export function AgentDetailPage({ agentRecordId }: { agentRecordId: number }) {
           {tab === "markdown" ? (
             <AgentMarkdownPanel agentRecordId={agentRecordId} />
           ) : null}
-          {tab === "skills" ? <AgentSkillsPanel agent={agent} /> : null}
           {tab === "knowledge" ? (
             <AgentKnowledgePanel
               agent={agent}
@@ -272,10 +263,6 @@ function AgentDetailTabs({
         <Tabs.List aria-label="Agent 详情页签" className="w-auto">
           <Tabs.Tab className="whitespace-nowrap" id="markdown">
             Markdown
-            <Tabs.Indicator />
-          </Tabs.Tab>
-          <Tabs.Tab className="whitespace-nowrap" id="skills">
-            Skills
             <Tabs.Indicator />
           </Tabs.Tab>
           <Tabs.Tab className="whitespace-nowrap" id="knowledge">
@@ -486,7 +473,7 @@ function AgentMarkdownPanel({ agentRecordId }: { agentRecordId: number }) {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [mode, setMode] = useState<"edit" | "preview">("edit");
+  const [mode, setMode] = useState<"edit" | "preview">("preview");
   const [newPath, setNewPath] = useState("");
   const pluginId = pluginKey === "__dev" ? "" : pluginKey;
   const selectedFile = files.find((file) => file.path === selectedPath);
@@ -507,11 +494,13 @@ function AgentMarkdownPanel({ agentRecordId }: { agentRecordId: number }) {
       setFiles(nextFiles);
       setSelectedPath(nextFiles[0]?.path ?? "");
       setDraft(nextFiles[0]?.content ?? "");
+      setMode("preview");
     } catch (error) {
       setError(getAgentActionError(error, "Markdown 文件加载失败。"));
       setFiles([]);
       setSelectedPath("");
       setDraft("");
+      setMode("preview");
     } finally {
       setIsLoading(false);
     }
@@ -526,6 +515,7 @@ function AgentMarkdownPanel({ agentRecordId }: { agentRecordId: number }) {
 
     setSelectedPath(file?.path ?? "");
     setDraft(file?.content ?? "");
+    setMode("preview");
   }
 
   async function saveCurrentFile() {
@@ -551,6 +541,7 @@ function AgentMarkdownPanel({ agentRecordId }: { agentRecordId: number }) {
           file.path === selectedPath ? { ...file, content: draft } : file,
         ),
       );
+      setMode("preview");
       toast.success("Markdown 已保存。");
     } catch (error) {
       setError(getAgentActionError(error, "Markdown 保存失败。"));
@@ -578,6 +569,7 @@ function AgentMarkdownPanel({ agentRecordId }: { agentRecordId: number }) {
     setFiles((current) => [...current, { content: "", path }]);
     setSelectedPath(path);
     setDraft("");
+    setMode("preview");
     setNewPath("");
     setError(null);
   }
@@ -689,29 +681,46 @@ function AgentMarkdownPanel({ agentRecordId }: { agentRecordId: number }) {
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant={mode === "edit" ? "secondary" : "tertiary"}
-                  onPress={() => setMode("edit")}
-                >
-                  编辑
-                </Button>
-                <Button
-                  size="sm"
-                  variant={mode === "preview" ? "secondary" : "tertiary"}
-                  onPress={() => setMode("preview")}
-                >
-                  预览
-                </Button>
-                <Button
-                  isDisabled={
-                    !selectedPath || isSaving || isLoading || !isDirty
-                  }
-                  size="sm"
-                  onPress={() => void saveCurrentFile()}
-                >
-                  {isSaving ? "保存中..." : "保存"}
-                </Button>
+                {mode === "preview" ? (
+                  <>
+                    <Button
+                      isDisabled={!selectedPath || isSaving || isLoading}
+                      size="sm"
+                      onPress={() => setMode("edit")}
+                    >
+                      编辑
+                    </Button>
+                    {isDirty ? (
+                      <Button
+                        isDisabled={!selectedPath || isSaving || isLoading}
+                        size="sm"
+                        onPress={() => void saveCurrentFile()}
+                      >
+                        {isSaving ? "保存中..." : "保存"}
+                      </Button>
+                    ) : null}
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      isDisabled={isSaving}
+                      size="sm"
+                      variant="secondary"
+                      onPress={() => setMode("preview")}
+                    >
+                      预览
+                    </Button>
+                    <Button
+                      isDisabled={
+                        !selectedPath || isSaving || isLoading || !isDirty
+                      }
+                      size="sm"
+                      onPress={() => void saveCurrentFile()}
+                    >
+                      {isSaving ? "保存中..." : "保存"}
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
             {mode === "edit" ? (
@@ -730,264 +739,6 @@ function AgentMarkdownPanel({ agentRecordId }: { agentRecordId: number }) {
               </div>
             )}
           </div>
-        </div>
-      </div>
-    </SectionCard>
-  );
-}
-
-function AgentSkillsPanel({ agent }: { agent: Agent }) {
-  const [instances, setInstances] = useState<OpenClawRPCInstance[]>([]);
-  const [pluginId, setPluginId] = useState("");
-  const [items, setItems] = useState<SkillAssignmentItem[]>([]);
-  const [initialKeys, setInitialKeys] = useState<string[]>([]);
-  const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
-  const [search, setSearch] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const agentCode = agent.agentId?.trim() ?? "";
-
-  const loadSkills = useCallback(async () => {
-    setError(null);
-    setIsLoading(true);
-
-    try {
-      const instanceList = await listOpenClawRPCInstances();
-      const nextPluginId =
-        pluginId ||
-        instanceList.find((instance) => instance.pluginId)?.pluginId ||
-        "";
-
-      setInstances(instanceList);
-      setPluginId(nextPluginId);
-
-      if (!nextPluginId) {
-        setItems([]);
-        setInitialKeys([]);
-        setSelectedKeys([]);
-        setError("当前没有可用的 OpenClaw RPC 实例。");
-
-        return;
-      }
-
-      const [catalog, current] = await Promise.all([
-        listSkillCatalog({
-          agentId: agentCode,
-          page: 1,
-          pageSize: 500,
-          pluginId: nextPluginId,
-        }),
-        listAgentSkills({ agentId: agentCode, pluginId: nextPluginId }),
-      ]);
-      const assignedKeys = getAssignedSkillKeys(current.items ?? []);
-      const mergedItems = mergeSkillItems(
-        catalog.systemItems ?? [],
-        catalog.privateItems ?? [],
-      );
-
-      setItems(mergedItems);
-      setInitialKeys(assignedKeys);
-      setSelectedKeys(assignedKeys);
-    } catch (error) {
-      setError(getAgentActionError(error, "Skill 分配状态加载失败。"));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [agentCode, pluginId]);
-
-  useEffect(() => {
-    void loadSkills();
-  }, [loadSkills]);
-
-  const filteredItems = useMemo(() => {
-    const query = search.trim().toLowerCase();
-
-    if (!query) return items;
-
-    return items.filter((item) =>
-      [
-        item.displayName,
-        item.key,
-        item.source,
-        item.groupName,
-        item.description,
-      ]
-        .filter(Boolean)
-        .some((value) => value.toLowerCase().includes(query)),
-    );
-  }, [items, search]);
-  const addedKeys = selectedKeys.filter((key) => !initialKeys.includes(key));
-  const removedKeys = initialKeys.filter((key) => !selectedKeys.includes(key));
-  const hasChanges = addedKeys.length > 0 || removedKeys.length > 0;
-
-  async function saveSkills() {
-    if (!pluginId || !agentCode || isSaving) return;
-
-    setError(null);
-    setIsSaving(true);
-
-    try {
-      for (const key of addedKeys) {
-        const item = items.find((candidate) => candidate.key === key);
-
-        if (!item) continue;
-
-        await applyAgentSkill({
-          agentId: agentCode,
-          dryRun: false,
-          pluginId,
-          privateSkillId: item.source === "private" ? item.id : undefined,
-          skillKey: item.key,
-          source: item.source,
-          version: item.version,
-        });
-      }
-
-      for (const key of removedKeys) {
-        await removeAgentSkill({
-          agentId: agentCode,
-          dryRun: false,
-          pluginId,
-          skillKey: key,
-        });
-      }
-
-      toast.success(
-        `Skill 分配已更新，新增 ${addedKeys.length} 个，移除 ${removedKeys.length} 个。`,
-      );
-      await loadSkills();
-    } catch (error) {
-      setError(getAgentActionError(error, "Skill 分配保存失败。"));
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  return (
-    <SectionCard
-      action={
-        <Button
-          isDisabled={isLoading}
-          size="sm"
-          variant="secondary"
-          onPress={() => void loadSkills()}
-        >
-          <AdminIcon className="size-4" name="refresh" />
-          刷新
-        </Button>
-      }
-      description="选择目标 OpenClaw 实例后，调整当前 Agent 可见的 Skill。"
-      title="Skill 分配"
-    >
-      <div className="flex flex-col gap-4">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-[260px_minmax(0,1fr)_auto] md:items-end">
-          <Select
-            fullWidth
-            isDisabled={isSaving}
-            selectedKey={pluginId}
-            variant="secondary"
-            onSelectionChange={(key) => setPluginId(String(key))}
-          >
-            <Label>OpenClaw 实例</Label>
-            <Select.Trigger>
-              <Select.Value />
-              <Select.Indicator />
-            </Select.Trigger>
-            <Select.Popover>
-              <ListBox>
-                {instances.map((instance) =>
-                  instance.pluginId ? (
-                    <ListBox.Item
-                      key={instance.pluginId}
-                      id={instance.pluginId}
-                      textValue={instance.pluginId}
-                    >
-                      {instance.pluginId}
-                    </ListBox.Item>
-                  ) : null,
-                )}
-              </ListBox>
-            </Select.Popover>
-          </Select>
-          <SearchField
-            fullWidth
-            aria-label="搜索 Skill"
-            value={search}
-            variant="secondary"
-            onChange={setSearch}
-          >
-            <SearchField.Group>
-              <SearchField.SearchIcon />
-              <SearchField.Input placeholder="搜索 Skill 名称、来源或分组" />
-              <SearchField.ClearButton />
-            </SearchField.Group>
-          </SearchField>
-          <Button
-            isDisabled={!hasChanges || isSaving || isLoading || !pluginId}
-            onPress={() => void saveSkills()}
-          >
-            {isSaving ? "保存中..." : "保存分配"}
-          </Button>
-        </div>
-
-        {error ? <InlineError>{error}</InlineError> : null}
-
-        <div className="grid max-h-[560px] gap-2 overflow-auto pr-1">
-          {isLoading ? (
-            <p className="text-muted text-sm">正在加载 Skill...</p>
-          ) : null}
-          {!isLoading && filteredItems.length === 0 ? (
-            <p className="text-muted text-sm">没有可分配的 Skill。</p>
-          ) : null}
-          {filteredItems.map((item) => {
-            const selected = selectedKeys.includes(item.key);
-
-            return (
-              <Checkbox
-                key={`${item.source}:${item.key}`}
-                className="w-full rounded-md border border-default-200 p-3"
-                isDisabled={isSaving || item.readonly === true}
-                isSelected={selected}
-                onChange={(isSelected) =>
-                  setSelectedKeys((current) =>
-                    toggleString(current, item.key, isSelected),
-                  )
-                }
-              >
-                <Checkbox.Control>
-                  <Checkbox.Indicator />
-                </Checkbox.Control>
-                <Checkbox.Content className="min-w-0">
-                  <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                      <span className="block truncate text-sm font-medium">
-                        {item.displayName}
-                      </span>
-                      <span className="text-muted block truncate text-xs">
-                        {item.key}
-                      </span>
-                    </div>
-                    <div className="flex shrink-0 flex-wrap gap-2">
-                      <Chip size="sm" variant="soft">
-                        {item.source}
-                      </Chip>
-                      {item.version ? (
-                        <Chip size="sm" variant="soft">
-                          {item.version}
-                        </Chip>
-                      ) : null}
-                    </div>
-                  </div>
-                  {item.description ? (
-                    <p className="text-muted mt-2 line-clamp-2 text-xs">
-                      {item.description}
-                    </p>
-                  ) : null}
-                </Checkbox.Content>
-              </Checkbox>
-            );
-          })}
         </div>
       </div>
     </SectionCard>
@@ -1442,90 +1193,6 @@ function DeploymentRow({ item }: { item: AgentDeployment }) {
   );
 }
 
-type SkillAssignmentItem = {
-  description: string;
-  displayName: string;
-  groupName: string;
-  id?: number;
-  key: string;
-  readonly?: boolean;
-  source: string;
-  version?: string;
-};
-
-function mergeSkillItems(
-  systemItems: SkillCatalogItem[],
-  privateItems: PrivateSkill[],
-) {
-  const items = [
-    ...systemItems.map((item) => toSkillAssignmentItem(item, "system")),
-    ...privateItems.map((item) => toPrivateSkillAssignmentItem(item)),
-  ].filter((item): item is SkillAssignmentItem => Boolean(item));
-  const seen = new Set<string>();
-
-  return items.filter((item) => {
-    const key = `${item.source}:${item.key}`;
-
-    if (seen.has(key)) return false;
-    seen.add(key);
-
-    return true;
-  });
-}
-
-function toSkillAssignmentItem(
-  item: SkillCatalogItem,
-  fallbackSource: string,
-): SkillAssignmentItem | null {
-  const key = item.skillKey?.trim() || item.slug?.trim() || "";
-
-  if (!key) return null;
-
-  return {
-    description: item.description?.trim() ?? "",
-    displayName: item.visibleName?.trim() || item.displayName?.trim() || key,
-    groupName: item.groupName?.trim() ?? "",
-    id: item.id,
-    key,
-    readonly: item.readonly,
-    source: item.source?.trim() || fallbackSource,
-    version: item.version?.trim() || undefined,
-  };
-}
-
-function toPrivateSkillAssignmentItem(
-  item: PrivateSkill,
-): SkillAssignmentItem | null {
-  const key = item.slug?.trim() ?? "";
-
-  if (!key) return null;
-
-  return {
-    description: item.description?.trim() ?? "",
-    displayName: item.visibleName?.trim() || item.displayName?.trim() || key,
-    groupName: item.groupName?.trim() ?? "",
-    id: item.id,
-    key,
-    readonly: false,
-    source: "private",
-    version: item.version?.trim() || undefined,
-  };
-}
-
-function getAssignedSkillKeys(items: AgentSkill[]) {
-  return Array.from(
-    new Set(
-      items.flatMap((item) =>
-        item.visibleToAgent === true
-          ? [item.skillKey?.trim(), item.name?.trim()].filter(
-              (value): value is string => Boolean(value),
-            )
-          : [],
-      ),
-    ),
-  );
-}
-
 function DetailMeta({ label, value }: { label: string; value: string }) {
   return (
     <div className="min-w-0">
@@ -1598,12 +1265,7 @@ function DetailSkeleton() {
 }
 
 function toDetailTab(key: Key): DetailTab {
-  if (
-    key === "knowledge" ||
-    key === "markdown" ||
-    key === "skills" ||
-    key === "versions"
-  ) {
+  if (key === "knowledge" || key === "markdown" || key === "versions") {
     return key;
   }
 
