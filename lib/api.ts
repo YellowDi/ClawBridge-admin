@@ -955,6 +955,14 @@ export interface ResSkillCatalog {
   [property: string]: unknown;
 }
 
+export interface ReqPrivateSkillList extends ReqPagination {}
+
+export interface ResPrivateSkills {
+  items?: PrivateSkill[];
+  pagination?: Pagination;
+  [property: string]: unknown;
+}
+
 export interface ReqAgentSkillList {
   agentId?: string;
   pluginId?: string;
@@ -1660,6 +1668,15 @@ export async function listSkillCatalog(
   request: ReqSkillCatalogList = {},
 ): Promise<ResSkillCatalog> {
   return requestJson<ResSkillCatalog>("/api/openclaw/skills/catalog/list", {
+    body: JSON.stringify(request),
+    method: "POST",
+  });
+}
+
+export async function listPrivateSkills(
+  request: ReqPrivateSkillList = {},
+): Promise<ResPrivateSkills> {
+  return requestJson<ResPrivateSkills>("/api/openclaw/skills/private/list", {
     body: JSON.stringify(request),
     method: "POST",
   });
