@@ -5,6 +5,7 @@ import type { FormEvent, ReactNode } from "react";
 import {
   Button,
   Checkbox,
+  CheckboxGroup,
   Chip,
   Description,
   FieldError,
@@ -14,10 +15,12 @@ import {
   ListBox,
   Modal,
   Select,
+  Separator,
   TextField,
   Tooltip,
   toast,
 } from "@heroui/react";
+import { ActionBar } from "@heroui-pro/react";
 import { useCallback, useEffect, useReducer, useState } from "react";
 
 import { AdminIcon } from "@/components/admin-icons";
@@ -552,16 +555,6 @@ export function ModelConfigurationPage() {
     dispatch({ capability, selected, type: "capabilityToggled" });
   }
 
-  function toggleSelectedModel(modelId: number, selected: boolean) {
-    setSelectedModelIds((current) =>
-      selected
-        ? current.includes(modelId)
-          ? current
-          : [...current, modelId]
-        : current.filter((id) => id !== modelId),
-    );
-  }
-
   async function openSyncDialog() {
     if (selectedModelIds.length === 0) {
       toast.danger("请先选择要同步的模型。");
@@ -684,7 +677,8 @@ export function ModelConfigurationPage() {
         onCreate={() => openCreateProviderDialog()}
         onEdit={openEditProviderDialog}
         onReload={() => void loadModelConfigurations()}
-        onSelectModel={toggleSelectedModel}
+        onSelectedModelIdsChange={setSelectedModelIds}
+        onSelectionClear={() => setSelectedModelIds([])}
         onSync={() => void openSyncDialog()}
       />
 
@@ -731,7 +725,8 @@ function ModelConfigurationGrid({
   onCreate,
   onEdit,
   onReload,
-  onSelectModel,
+  onSelectedModelIdsChange,
+  onSelectionClear,
   onSync,
   selectedModelIds,
 }: {
@@ -741,123 +736,186 @@ function ModelConfigurationGrid({
   onCreate: () => void;
   onEdit: (modelConfiguration: ModelConfiguration) => void;
   onReload: () => void;
-  onSelectModel: (modelId: number, selected: boolean) => void;
+  onSelectedModelIdsChange: (modelIds: number[]) => void;
+  onSelectionClear: () => void;
   onSync: () => void;
   selectedModelIds: number[];
 }) {
+  const selectedModelKeys = selectedModelIds.map(String);
+
   return (
     <>
-      <div className="bg-surface flex flex-wrap items-center justify-between gap-3 rounded-3xl px-4 py-3">
-        <div className="min-w-0">
-          <Typography type="body-sm" weight="medium">
-            已选择 {selectedModelIds.length} 个模型
-          </Typography>
-          <Typography className="block truncate" color="muted" type="body-xs">
-            先预演 OpenClaw 配置变更，确认后再正式写入。
-          </Typography>
-        </div>
-        <Button
-          isDisabled={selectedModelIds.length === 0 || isLoadingModels}
-          type="button"
-          onPress={onSync}
-        >
-          <AdminIcon className="size-4" name="model" />
-          同步到 OpenClaw
-        </Button>
-      </div>
       <div className="grid gap-3 md:grid-cols-3">
         <button
-          className="border-border bg-surface cursor-[var(--cursor-interactive)] hover:bg-surface-hover disabled:text-muted flex min-h-28 items-center gap-3 rounded-3xl border border-dashed px-3 text-left disabled:cursor-not-allowed disabled:opacity-70"
+          className="border-border bg-surface cursor-[var(--cursor-interactive)] hover:bg-surface-hover disabled:text-muted flex h-36 flex-col items-center justify-center gap-3 rounded-3xl border border-dashed px-4 py-4 text-center disabled:cursor-not-allowed disabled:opacity-70"
           disabled={isLoadingModels}
           type="button"
           onClick={onCreate}
         >
           <AdminIcon
-            className="text-muted-foreground size-4 shrink-0"
+            className="text-muted-foreground size-8 shrink-0"
             name="plus"
           />
           <Typography className="truncate" type="body-sm" weight="medium">
             添加模型
           </Typography>
         </button>
-        {modelConfigurations.map((modelConfiguration) => (
-          <div
-            key={modelConfiguration.id}
-            className="bg-surface flex min-h-28 min-w-0 items-center justify-between gap-3 rounded-3xl px-3 py-3"
-          >
-            <div className="flex min-w-0 items-center gap-3">
-              {modelConfiguration.recordId !== undefined ? (
-                <Checkbox
-                  aria-label={`选择 ${modelConfiguration.name}`}
-                  isSelected={selectedModelIds.includes(
-                    modelConfiguration.recordId,
-                  )}
-                  onChange={(selected) =>
-                    onSelectModel(modelConfiguration.recordId!, selected)
-                  }
-                >
-                  <Checkbox.Content>
-                    <Checkbox.Control>
-                      <Checkbox.Indicator />
-                    </Checkbox.Control>
-                  </Checkbox.Content>
-                </Checkbox>
-              ) : null}
-              <ModelProviderLogo
-                label={modelProviderLabel(modelConfiguration.provider_type)}
-                providerType={modelConfiguration.provider_type}
-              />
-              <div className="flex min-w-0 flex-col gap-1">
-                <Typography className="truncate" type="body-sm" weight="medium">
-                  {modelConfiguration.name}
-                </Typography>
-                <Typography className="truncate" color="muted" type="body-xs">
-                  {modelProviderLabel(modelConfiguration.provider_type)} ·{" "}
-                  {modelConfiguration.model || "未配置模型 ID"}
-                </Typography>
-                <div className="flex flex-wrap gap-1">
-                  {modelConfiguration.capabilities.length === 0 ? (
-                    <Chip size="sm" variant="soft">
-                      兼容模式
-                    </Chip>
-                  ) : null}
-                  {modelConfiguration.capabilities
-                    .slice(0, 2)
-                    .map((capability) => (
-                      <Chip key={capability} size="sm" variant="soft">
-                        {modelCapabilityLabel(capability)}
+        <CheckboxGroup
+          className="contents"
+          name="model_selection"
+          value={selectedModelKeys}
+          variant="secondary"
+          onChange={(values) =>
+            onSelectedModelIdsChange(
+              values
+                .map((value) => Number(value))
+                .filter((value) => Number.isFinite(value)),
+            )
+          }
+        >
+          {modelConfigurations.map((modelConfiguration) =>
+            modelConfiguration.recordId !== undefined ? (
+              <Checkbox
+                key={modelConfiguration.id}
+                aria-label={`选择 ${modelConfiguration.name}`}
+                className="relative !m-0 min-w-0"
+                value={String(modelConfiguration.recordId)}
+                variant="secondary"
+              >
+                <Checkbox.Content className="group/card bg-surface hover:bg-surface-hover data-[selected=true]:bg-accent/10 grid h-36 w-full cursor-[var(--cursor-interactive)] grid-cols-[56px_minmax(0,1fr)] gap-4 overflow-hidden rounded-3xl px-4 py-4 pr-14 transition-colors">
+                  <Checkbox.Control className="absolute right-3 top-3 z-10">
+                    <Checkbox.Indicator />
+                  </Checkbox.Control>
+                  <ModelProviderLogo
+                    label={modelProviderLabel(modelConfiguration.provider_type)}
+                    providerType={modelConfiguration.provider_type}
+                    size="lg"
+                  />
+                  <div className="flex min-w-0 flex-col gap-2">
+                    <div className="min-w-0">
+                      <Typography
+                        className="block truncate"
+                        type="body-sm"
+                        weight="medium"
+                      >
+                        {modelConfiguration.name}
+                      </Typography>
+                      <Typography
+                        className="block truncate"
+                        color="muted"
+                        type="body-xs"
+                      >
+                        {modelProviderLabel(modelConfiguration.provider_type)} ·{" "}
+                        {modelConfiguration.model || "未配置模型 ID"}
+                      </Typography>
+                    </div>
+                    <div className="flex max-h-12 flex-wrap gap-1 overflow-hidden pr-8">
+                      <Chip
+                        color={
+                          modelConfiguration.enabled ? "success" : "default"
+                        }
+                        size="sm"
+                        variant="soft"
+                      >
+                        {modelConfiguration.enabled ? "已启用" : "已停用"}
                       </Chip>
-                    ))}
-                  {modelConfiguration.capabilities.length > 2 ? (
-                    <Chip size="sm" variant="soft">
-                      +{modelConfiguration.capabilities.length - 2}
-                    </Chip>
-                  ) : null}
-                  <Chip
-                    color={modelConfiguration.enabled ? "success" : "default"}
+                      {modelConfiguration.capabilities.length === 0 ? (
+                        <Chip size="sm" variant="soft">
+                          兼容模式
+                        </Chip>
+                      ) : null}
+                      {modelConfiguration.capabilities
+                        .slice(0, 2)
+                        .map((capability) => (
+                          <Chip key={capability} size="sm" variant="soft">
+                            {modelCapabilityLabel(capability)}
+                          </Chip>
+                        ))}
+                      {modelConfiguration.capabilities.length > 2 ? (
+                        <Chip size="sm" variant="soft">
+                          +{modelConfiguration.capabilities.length - 2}
+                        </Chip>
+                      ) : null}
+                    </div>
+                  </div>
+                </Checkbox.Content>
+                <Tooltip>
+                  <Button
+                    isIconOnly
+                    aria-label="编辑模型配置"
+                    className="absolute bottom-3 right-3 z-10"
                     size="sm"
-                    variant="soft"
+                    type="button"
+                    variant="tertiary"
+                    onPress={() => onEdit(modelConfiguration)}
                   >
-                    {modelConfiguration.enabled ? "已启用" : "已停用"}
-                  </Chip>
+                    <AdminIcon className="size-4" name="edit" />
+                  </Button>
+                  <Tooltip.Content>编辑模型配置</Tooltip.Content>
+                </Tooltip>
+              </Checkbox>
+            ) : (
+              <div
+                key={modelConfiguration.id}
+                className="bg-surface flex h-36 min-w-0 items-center gap-4 overflow-hidden rounded-3xl px-4 py-4"
+              >
+                <ModelProviderLogo
+                  label={modelProviderLabel(modelConfiguration.provider_type)}
+                  providerType={modelConfiguration.provider_type}
+                  size="lg"
+                />
+                <div className="flex min-w-0 flex-col gap-1">
+                  <Typography
+                    className="block truncate"
+                    type="body-sm"
+                    weight="medium"
+                  >
+                    {modelConfiguration.name}
+                  </Typography>
+                  <Typography className="truncate" color="muted" type="body-xs">
+                    {modelProviderLabel(modelConfiguration.provider_type)} ·{" "}
+                    {modelConfiguration.model || "未配置模型 ID"}
+                  </Typography>
                 </div>
               </div>
-            </div>
-            <Tooltip>
-              <Button
-                isIconOnly
-                aria-label="编辑模型配置"
-                size="sm"
-                variant="tertiary"
-                onPress={() => onEdit(modelConfiguration)}
-              >
-                <AdminIcon className="size-4" name="edit" />
-              </Button>
-              <Tooltip.Content>编辑模型配置</Tooltip.Content>
-            </Tooltip>
-          </div>
-        ))}
+            ),
+          )}
+        </CheckboxGroup>
       </div>
+
+      <ActionBar aria-label="模型批量操作" isOpen={selectedModelIds.length > 0}>
+        <ActionBar.Prefix>
+          <Chip className="shrink-0 tabular-nums" size="sm">
+            已选 {selectedModelIds.length}
+          </Chip>
+        </ActionBar.Prefix>
+        <Separator orientation="vertical" />
+        <ActionBar.Content>
+          <Button
+            aria-label="同步到 OpenClaw"
+            isDisabled={isLoadingModels}
+            size="sm"
+            type="button"
+            variant="ghost"
+            onPress={onSync}
+          >
+            <AdminIcon className="size-4" name="model" />
+            <span className="action-bar__label">同步到 OpenClaw</span>
+          </Button>
+        </ActionBar.Content>
+        <Separator orientation="vertical" />
+        <ActionBar.Suffix>
+          <Button
+            aria-label="清除选择"
+            size="sm"
+            type="button"
+            variant="ghost"
+            onPress={onSelectionClear}
+          >
+            清除选择
+          </Button>
+        </ActionBar.Suffix>
+      </ActionBar>
 
       {isLoadingModels ? (
         <div className="bg-surface text-muted rounded-3xl px-4 py-3 text-sm">
@@ -976,6 +1034,7 @@ function ModelSyncDialog({
             </Select>
             <Checkbox
               isSelected={state.syncProviderCatalog}
+              variant="secondary"
               onChange={(syncProviderCatalog) =>
                 onStateChange((current) => ({
                   ...current,
@@ -1396,6 +1455,7 @@ function ModelCapabilityFields({
           <Checkbox
             key={definition.id}
             isSelected={selectedCapabilities.includes(definition.id)}
+            variant="secondary"
             onChange={(selected) => onCapabilityToggle(definition.id, selected)}
           >
             <Checkbox.Content>
@@ -1435,6 +1495,7 @@ function OpenClawConfigurationFields({
         </Typography>
         <Checkbox
           isSelected={form.openClawSyncProviderCatalog}
+          variant="secondary"
           onChange={(openClawSyncProviderCatalog) =>
             onFormChange({ openClawSyncProviderCatalog })
           }
@@ -1533,6 +1594,7 @@ function OpenClawConfigurationFields({
         </div>
         <Checkbox
           isSelected={form.openClawReasoning}
+          variant="secondary"
           onChange={(openClawReasoning) => onFormChange({ openClawReasoning })}
         >
           <Checkbox.Content>

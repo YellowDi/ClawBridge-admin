@@ -14,6 +14,11 @@ const sizeClasses = {
     image: "size-5",
     text: "text-sm",
   },
+  lg: {
+    chip: "size-14 rounded-2xl",
+    image: "size-8",
+    text: "text-lg",
+  },
 };
 
 const modelProviderLogos: Record<string, string> = {
