@@ -36,7 +36,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AdminIcon } from "@/components/admin-icons";
 import { AdminPage, SectionCard, StatGrid } from "@/components/admin-page-kit";
-import { EditAgentDialog } from "@/components/agent-dialog";
+import { DeleteAgentDialog, EditAgentDialog } from "@/components/agent-dialog";
 import { KnowledgeAvailabilityDialog } from "@/components/knowledge-availability-dialog";
 import {
   applyAgentSkill,
@@ -189,11 +189,17 @@ export function AgentDetailPage({ agentRecordId }: { agentRecordId: number }) {
             返回列表
           </Button>
           {editableAgent ? (
-            <EditAgentDialog
-              agent={editableAgent}
-              modelOptions={models}
-              onUpdated={() => void loadDetail()}
-            />
+            <>
+              <EditAgentDialog
+                agent={editableAgent}
+                modelOptions={models}
+                onUpdated={() => void loadDetail()}
+              />
+              <DeleteAgentDialog
+                agent={editableAgent}
+                onDeleted={() => router.push("/agents")}
+              />
+            </>
           ) : null}
           <InitDevAgentButton
             agentRecordId={agentRecordId}

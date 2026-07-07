@@ -22,16 +22,13 @@ import {
   toast,
   useOverlayState,
 } from "@heroui/react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AdminIcon } from "@/components/admin-icons";
 import { AdminPage, StatGrid } from "@/components/admin-page-kit";
-import {
-  CreateAgentDialog,
-  DeleteAgentDialog,
-  EditAgentDialog,
-} from "@/components/agent-dialog";
+import { CreateAgentDialog } from "@/components/agent-dialog";
 import { importAgent, initDevAgent, listAgents, listModels } from "@/lib/api";
 
 type AgentFilter = "all" | "disabled" | "enabled";
@@ -267,12 +264,7 @@ export function AgentsPage() {
         ) : filteredAgents.length > 0 ? (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {filteredAgents.map((agent) => (
-              <AgentCard
-                key={agent.id}
-                agent={agent}
-                modelOptions={agentModelOptions}
-                onChanged={refreshAgents}
-              />
+              <AgentCard key={agent.id} agent={agent} />
             ))}
           </div>
         ) : (
@@ -289,23 +281,9 @@ export function AgentsPage() {
   );
 }
 
-function AgentCard({
-  agent,
-  modelOptions,
-  onChanged,
-}: {
-  agent: AdminAgent;
-  modelOptions: ApiModel[];
-  onChanged: () => void;
-}) {
-  const router = useRouter();
-  const editableAgent =
-    agent.agentRecordId == null
-      ? null
-      : toEditableAgentSummary(agent, agent.agentRecordId);
-
-  return (
-    <Card className="h-full">
+function AgentCard({ agent }: { agent: AdminAgent }) {
+  const content = (
+    <Card className="h-full transition-colors hover:border-accent/60">
       <Card.Header>
         <div className="flex w-full min-w-0 items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
@@ -356,96 +334,19 @@ function AgentCard({
           />
           <AgentMeta label="更新时间" value={agent.updatedAt} />
         </dl>
-
-        <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-default-200 pt-4">
-          <Button
-            isDisabled={agent.agentRecordId == null}
-            size="sm"
-            onPress={() => router.push(`/agents/${agent.agentRecordId}`)}
-          >
-            详情
-          </Button>
-          <AgentInitDevButton
-            agentRecordId={agent.agentRecordId}
-            onDone={onChanged}
-          />
-          {editableAgent ? (
-            <>
-              <EditAgentDialog
-                agent={editableAgent}
-                modelOptions={modelOptions}
-                onUpdated={onChanged}
-              />
-              <DeleteAgentDialog agent={editableAgent} onDeleted={onChanged} />
-            </>
-          ) : null}
-        </div>
       </Card.Content>
     </Card>
   );
-}
 
-function AgentInitDevButton({
-  agentRecordId,
-  onDone,
-}: {
-  agentRecordId: number | null;
-  onDone: () => void;
-}) {
-  const modal = useOverlayState();
-  const [conflict, setConflict] = useState<AgentDeployment | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isInitializing, setIsInitializing] = useState(false);
-
-  async function runInit(force: boolean) {
-    if (agentRecordId == null || isInitializing) return;
-
-    setError(null);
-    setIsInitializing(true);
-
-    try {
-      const deployment = await initDevAgent({ agentId: agentRecordId, force });
-
-      if (deployment?.status === "conflict" && !force) {
-        setConflict(deployment);
-        modal.open();
-      } else if (deployment?.status === "failed") {
-        setError(deployment.errorMessage || "初始化到 dev OpenClaw 失败。");
-      } else {
-        toast.success("Agent 已初始化到 dev OpenClaw。");
-        modal.close();
-        setConflict(null);
-        onDone();
-      }
-    } catch (error) {
-      setError(getAgentActionError(error, "初始化到 dev OpenClaw 失败。"));
-    } finally {
-      setIsInitializing(false);
-    }
-  }
+  if (agent.agentRecordId == null) return content;
 
   return (
-    <>
-      <Button
-        isDisabled={agentRecordId == null || isInitializing}
-        size="sm"
-        variant="secondary"
-        onPress={() => void runInit(false)}
-      >
-        {isInitializing ? "初始化中..." : "初始化到 dev"}
-      </Button>
-      {error ? <span className="text-danger text-xs">{error}</span> : null}
-      <ConflictDialog
-        conflict={conflict}
-        isBusy={isInitializing}
-        state={modal}
-        onCancel={() => {
-          modal.close();
-          setConflict(null);
-        }}
-        onForce={() => void runInit(true)}
-      />
-    </>
+    <Link
+      className="block h-full rounded-md no-underline outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      href={`/agents/${agent.agentRecordId}`}
+    >
+      {content}
+    </Link>
   );
 }
 
@@ -550,61 +451,6 @@ function CreatedAgentInitPrompt({
                   {isInitializing ? "初始化中..." : "初始化到 dev OpenClaw"}
                 </Button>
               )}
-            </Modal.Footer>
-          </Modal.Dialog>
-        </Modal.Container>
-      </Modal.Backdrop>
-    </Modal>
-  );
-}
-
-function ConflictDialog({
-  conflict,
-  isBusy,
-  onCancel,
-  onForce,
-  state,
-}: {
-  conflict: AgentDeployment | null;
-  isBusy: boolean;
-  onCancel: () => void;
-  onForce: () => void;
-  state: ReturnType<typeof useOverlayState>;
-}) {
-  return (
-    <Modal state={state}>
-      <Modal.Backdrop
-        isDismissable={!isBusy}
-        isKeyboardDismissDisabled={isBusy}
-      >
-        <Modal.Container placement="center" scroll="inside" size="md">
-          <Modal.Dialog>
-            <Modal.Header>
-              <Modal.Heading>dev OpenClaw 已存在同名 Agent</Modal.Heading>
-            </Modal.Header>
-            <Modal.Body className="flex min-w-0 flex-col gap-4">
-              <p className="text-muted text-sm">
-                强制覆盖会更新 dev OpenClaw 中的同名 Agent 配置。
-              </p>
-              {conflict ? <RemoteAgentJson deployment={conflict} /> : null}
-            </Modal.Body>
-            <Modal.Footer>
-              <Button
-                isDisabled={isBusy}
-                type="button"
-                variant="tertiary"
-                onPress={onCancel}
-              >
-                取消
-              </Button>
-              <Button
-                isDisabled={isBusy}
-                type="button"
-                variant="danger-soft"
-                onPress={onForce}
-              >
-                {isBusy ? "覆盖中..." : "强制覆盖"}
-              </Button>
             </Modal.Footer>
           </Modal.Dialog>
         </Modal.Container>
@@ -923,26 +769,6 @@ function toAdminAgent(agent: ApiAgent, index: number): AdminAgent {
     thinkingLevel: agent.thinkingLevel?.trim() ?? "",
     updatedAt: formatDateTime(agent.updatedAt),
     verboseLevel: agent.verboseLevel?.trim() ?? "",
-  };
-}
-
-function toEditableAgentSummary(agent: AdminAgent, id: number) {
-  return {
-    agentId: agent.agentId,
-    avatarUrl: agent.avatarUrl,
-    defaultImageGenerationModelid: agent.defaultImageGenerationModelid,
-    defaultImageModelid: agent.defaultImageModelid,
-    defaultMusicGenerationModelid: agent.defaultMusicGenerationModelid,
-    defaultModelid: agent.defaultModelid === "-" ? "" : agent.defaultModelid,
-    defaultPdfModelid: agent.defaultPdfModelid,
-    defaultVideoGenerationModelid: agent.defaultVideoGenerationModelid,
-    description: agent.description,
-    displayName: agent.displayName,
-    enabled: agent.enabled,
-    id,
-    reasoningLevel: agent.reasoningLevel,
-    thinkingLevel: agent.thinkingLevel,
-    verboseLevel: agent.verboseLevel,
   };
 }
 
