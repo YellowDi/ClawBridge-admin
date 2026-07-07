@@ -5,7 +5,7 @@ import type { AgentForm } from "@/components/agent-form-types";
 import type { AgentDialogProps } from "@/components/agent-dialog-types";
 import type { Agent } from "@/lib/api";
 
-import { Button, Modal, useOverlayState } from "@heroui/react";
+import { Button, Modal, toast, useOverlayState } from "@heroui/react";
 import { useState } from "react";
 
 import { AdminIcon } from "@/components/admin-icons";
@@ -69,10 +69,13 @@ export function CreateAgentDialog({
     const request = toCreateAgentRequest(form);
 
     if (!request.agentId) {
+      const message = "请输入 Agent ID。";
+
       setState((current) => ({
         ...current,
-        error: "请输入 Agent ID。",
+        error: message,
       }));
+      toast.danger(message);
 
       return;
     }
@@ -93,12 +96,16 @@ export function CreateAgentDialog({
         isCreating: false,
       });
       onCreated(agent);
+      toast.success("Agent 已创建。");
     } catch (error) {
+      const message = getAgentActionError(error, "创建 Agent 失败。");
+
       setState((current) => ({
         ...current,
-        error: getAgentActionError(error, "创建 Agent 失败。"),
+        error: message,
         isCreating: false,
       }));
+      toast.danger(message);
     }
   }
 

@@ -2,7 +2,7 @@
 
 import type { FormEvent } from "react";
 
-import { Button, InputGroup, Label, TextField } from "@heroui/react";
+import { Button, InputGroup, Label, TextField, toast } from "@heroui/react";
 import { useState } from "react";
 
 import { AdminIcon } from "@/components/admin-icons";
@@ -22,7 +22,10 @@ export function LoginPage() {
     const normalizedUsername = username.trim();
 
     if (!normalizedUsername || !password) {
-      setError("请输入用户名和密码。");
+      const message = "请输入用户名和密码。";
+
+      setError(message);
+      toast.danger(message);
 
       return;
     }
@@ -33,9 +36,11 @@ export function LoginPage() {
     try {
       await login(normalizedUsername, password);
     } catch (error) {
-      setError(
-        error instanceof Error ? error.message : "登录失败，请稍后重试。",
-      );
+      const message =
+        error instanceof Error ? error.message : "登录失败，请稍后重试。";
+
+      setError(message);
+      toast.danger(message);
     } finally {
       setIsSubmitting(false);
     }

@@ -4,7 +4,7 @@ import type { DataGridColumn } from "@heroui-pro/react";
 import type { KnowledgeBase } from "@/lib/api";
 
 import { DataGrid } from "@heroui-pro/react";
-import { Button, Chip } from "@heroui/react";
+import { Button, Chip, toast } from "@heroui/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AdminPage, StatGrid } from "@/components/admin-page-kit";
@@ -174,11 +174,14 @@ export function KnowledgeBasesPage() {
       }
     } catch (error) {
       if (isMountedRef.current && loadRequestRef.current === requestId) {
+        const message = getKnowledgeError(error, "知识库列表加载失败。");
+
         setLoadState({
-          error: getKnowledgeError(error, "知识库列表加载失败。"),
+          error: message,
           isLoading: false,
           rows: [],
         });
+        toast.danger(message);
       }
     }
   }, []);
@@ -209,11 +212,15 @@ export function KnowledgeBasesPage() {
         if (isMountedRef.current) {
           setRetryingId(null);
           void loadKnowledgeBases();
+          toast.success("知识库重试已提交。");
         }
       } catch (error) {
         if (isMountedRef.current) {
-          setActionError(getKnowledgeError(error, "知识库重试失败。"));
+          const message = getKnowledgeError(error, "知识库重试失败。");
+
+          setActionError(message);
           setRetryingId(null);
+          toast.danger(message);
         }
       }
     },

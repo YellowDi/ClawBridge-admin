@@ -17,6 +17,7 @@ import {
   Modal,
   Select,
   TextField,
+  toast,
   useOverlayState,
 } from "@heroui/react";
 import { useEffect, useRef, useState } from "react";
@@ -161,11 +162,14 @@ export function UserAuthorizationPanel({
     } catch (error) {
       if (loadRequestRef.current !== requestId) return;
 
+      const message = getAccessError(error, "用户授权加载失败。");
+
       setState((current) => ({
         ...current,
-        error: getAccessError(error, "用户授权加载失败。"),
+        error: message,
         isLoading: false,
       }));
+      toast.danger(message);
     }
   }
 
@@ -191,12 +195,16 @@ export function UserAuthorizationPanel({
         selectedAgentIds: getRecordIds(userAgents),
         selectedModelIds: getRecordIds(userModels),
       }));
+      toast.success("用户授权已保存。");
     } catch (error) {
+      const message = getAccessError(error, "保存授权失败。");
+
       setState((current) => ({
         ...current,
-        error: getAccessError(error, "保存授权失败。"),
+        error: message,
         isSaving: false,
       }));
+      toast.danger(message);
     }
   }
 
@@ -347,12 +355,15 @@ export function UserBalancePanel({
     } catch (error) {
       if (loadRequestRef.current !== requestId) return;
 
+      const message = getAccessError(error, "用户余额加载失败。");
+
       setState((current) => ({
         ...current,
-        error: getAccessError(error, "用户余额加载失败。"),
+        error: message,
         isLoading: false,
         isSaving: false,
       }));
+      toast.danger(message);
     }
   }
 
@@ -360,7 +371,10 @@ export function UserBalancePanel({
     const amount = form.amount.trim();
 
     if (!amount) {
-      setState((current) => ({ ...current, error: "请输入调整金额。" }));
+      const message = "请输入调整金额。";
+
+      setState((current) => ({ ...current, error: message }));
+      toast.danger(message);
 
       return;
     }
@@ -378,12 +392,16 @@ export function UserBalancePanel({
       });
       setForm(DEFAULT_BALANCE_FORM);
       await loadBalance();
+      toast.success("用户余额已调整。");
     } catch (error) {
+      const message = getAccessError(error, "调整余额失败。");
+
       setState((current) => ({
         ...current,
-        error: getAccessError(error, "调整余额失败。"),
+        error: message,
         isSaving: false,
       }));
+      toast.danger(message);
     }
   }
 

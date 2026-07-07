@@ -105,14 +105,17 @@ export function AgentDetailPage({ agentRecordId }: { agentRecordId: number }) {
       if (!isMountedRef.current) return;
 
       if (!agentDetail) {
+        const message = "Agent 不存在或已删除。";
+
         setState({
           agent: null,
           deployments: EMPTY_DEPLOYMENTS,
-          error: "Agent 不存在或已删除。",
+          error: message,
           exports: EMPTY_AGENT_EXPORTS,
           isLoading: false,
           models: modelList,
         });
+        toast.danger(message);
 
         return;
       }
@@ -128,11 +131,14 @@ export function AgentDetailPage({ agentRecordId }: { agentRecordId: number }) {
     } catch (error) {
       if (!isMountedRef.current) return;
 
+      const message = getAgentActionError(error, "Agent 详情加载失败。");
+
       setState((current) => ({
         ...current,
-        error: getAgentActionError(error, "Agent 详情加载失败。"),
+        error: message,
         isLoading: false,
       }));
+      toast.danger(message);
     }
   }, [agentRecordId]);
 
@@ -496,11 +502,14 @@ function AgentMarkdownPanel({ agentRecordId }: { agentRecordId: number }) {
       setDraft(nextFiles[0]?.content ?? "");
       setMode("preview");
     } catch (error) {
-      setError(getAgentActionError(error, "Markdown 文件加载失败。"));
+      const message = getAgentActionError(error, "Markdown 文件加载失败。");
+
+      setError(message);
       setFiles([]);
       setSelectedPath("");
       setDraft("");
       setMode("preview");
+      toast.danger(message);
     } finally {
       setIsLoading(false);
     }
@@ -523,6 +532,7 @@ function AgentMarkdownPanel({ agentRecordId }: { agentRecordId: number }) {
 
     if (pathError) {
       setError(pathError);
+      toast.danger(pathError);
 
       return;
     }
@@ -544,7 +554,10 @@ function AgentMarkdownPanel({ agentRecordId }: { agentRecordId: number }) {
       setMode("preview");
       toast.success("Markdown 已保存。");
     } catch (error) {
-      setError(getAgentActionError(error, "Markdown 保存失败。"));
+      const message = getAgentActionError(error, "Markdown 保存失败。");
+
+      setError(message);
+      toast.danger(message);
     } finally {
       setIsSaving(false);
     }
@@ -556,12 +569,16 @@ function AgentMarkdownPanel({ agentRecordId }: { agentRecordId: number }) {
 
     if (pathError) {
       setError(pathError);
+      toast.danger(pathError);
 
       return;
     }
 
     if (files.some((file) => file.path === path)) {
-      setError("该 Markdown 文件已存在。");
+      const message = "该 Markdown 文件已存在。";
+
+      setError(message);
+      toast.danger(message);
 
       return;
     }
@@ -815,7 +832,12 @@ function AgentVersionsPanel({
   useEffect(() => {
     void listOpenClawRPCInstances()
       .then(setInstances)
-      .catch(() => setInstances([]));
+      .catch((error: unknown) => {
+        setInstances([]);
+        toast.warning(
+          getAgentActionError(error, "OpenClaw RPC 实例加载失败。"),
+        );
+      });
   }, []);
 
   useEffect(() => {
@@ -848,7 +870,10 @@ function AgentVersionsPanel({
       }
       onChanged();
     } catch (error) {
-      setError(getAgentActionError(error, "Agent 版本分发失败。"));
+      const message = getAgentActionError(error, "Agent 版本分发失败。");
+
+      setError(message);
+      toast.danger(message);
     } finally {
       setIsDeploying(false);
     }
@@ -1027,8 +1052,13 @@ function InitDevAgentButton({
       if (deployment?.status === "conflict" && !force) {
         setConflict(deployment);
         modal.open();
+        toast.info("dev OpenClaw 已存在冲突，请确认后强制覆盖。");
       } else if (deployment?.status === "failed") {
-        setError(deployment.errorMessage || "初始化到 dev OpenClaw 失败。");
+        const message =
+          deployment.errorMessage || "初始化到 dev OpenClaw 失败。";
+
+        setError(message);
+        toast.danger(message);
       } else {
         toast.success("Agent 已初始化到 dev OpenClaw。");
         modal.close();
@@ -1036,7 +1066,13 @@ function InitDevAgentButton({
         onDone();
       }
     } catch (error) {
-      setError(getAgentActionError(error, "初始化到 dev OpenClaw 失败。"));
+      const message = getAgentActionError(
+        error,
+        "初始化到 dev OpenClaw 失败。",
+      );
+
+      setError(message);
+      toast.danger(message);
     } finally {
       setIsInitializing(false);
     }
@@ -1111,7 +1147,10 @@ function CreateAgentExportButton({
       toast.success("Agent 版本已导出。");
       onDone();
     } catch (error) {
-      setError(getAgentActionError(error, "Agent 版本导出失败。"));
+      const message = getAgentActionError(error, "Agent 版本导出失败。");
+
+      setError(message);
+      toast.danger(message);
     } finally {
       setIsExporting(false);
     }

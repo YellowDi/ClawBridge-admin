@@ -110,11 +110,14 @@ export function AgentsPage() {
       }
     } catch (error) {
       if (isMountedRef.current) {
+        const message = getAgentListError(error);
+
         setLoadState({
           agents: [],
-          error: getAgentListError(error),
+          error: message,
           isLoading: false,
         });
+        toast.danger(message);
       }
     }
   }, []);
@@ -126,9 +129,10 @@ export function AgentsPage() {
       if (isMountedRef.current) {
         setAgentModelOptions(response);
       }
-    } catch {
+    } catch (error) {
       if (isMountedRef.current) {
         setAgentModelOptions([]);
+        toast.warning(getAgentActionError(error, "Agent 模型选项加载失败。"));
       }
     }
   }, []);
@@ -382,15 +386,26 @@ function CreatedAgentInitPrompt({
 
       if (deployment?.status === "conflict" && !force) {
         setConflict(deployment);
+        toast.info("dev OpenClaw 已存在冲突，请确认后强制覆盖。");
       } else if (deployment?.status === "failed") {
-        setError(deployment.errorMessage || "初始化到 dev OpenClaw 失败。");
+        const message =
+          deployment.errorMessage || "初始化到 dev OpenClaw 失败。";
+
+        setError(message);
+        toast.danger(message);
       } else {
         toast.success("Agent 已初始化到 dev OpenClaw。");
         close();
         onDone();
       }
     } catch (error) {
-      setError(getAgentActionError(error, "初始化到 dev OpenClaw 失败。"));
+      const message = getAgentActionError(
+        error,
+        "初始化到 dev OpenClaw 失败。",
+      );
+
+      setError(message);
+      toast.danger(message);
     } finally {
       setIsInitializing(false);
     }
@@ -483,13 +498,19 @@ function ImportAgentDialog({ onImported }: { onImported: () => void }) {
     const request = normalizeImportRequest(form);
 
     if (!request.agentId) {
-      setError("请输入 Agent ID。");
+      const message = "请输入 Agent ID。";
+
+      setError(message);
+      toast.danger(message);
 
       return;
     }
 
     if (!request.artifactUrl && !request.artifactPath) {
-      setError("artifactUrl 和 artifactPath 至少填写一个。");
+      const message = "artifactUrl 和 artifactPath 至少填写一个。";
+
+      setError(message);
+      toast.danger(message);
 
       return;
     }
@@ -508,7 +529,10 @@ function ImportAgentDialog({ onImported }: { onImported: () => void }) {
         router.push(`/agents/${result.agent.id}`);
       }
     } catch (error) {
-      setError(getAgentActionError(error, "导入 Agent 失败。"));
+      const message = getAgentActionError(error, "导入 Agent 失败。");
+
+      setError(message);
+      toast.danger(message);
       setIsImporting(false);
     }
   }

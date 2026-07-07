@@ -12,6 +12,7 @@ import {
   SearchField,
   Tabs,
   Tooltip,
+  toast,
   useOverlayState,
 } from "@heroui/react";
 import { DataGrid } from "@heroui-pro/react";
@@ -172,11 +173,14 @@ export function UsersPage() {
       }
     } catch (error) {
       if (isMountedRef.current) {
+        const message = getUserListError(error);
+
         setLoadState({
-          error: getUserListError(error),
+          error: message,
           isLoading: false,
           users: [],
         });
+        toast.danger(message);
       }
     }
   }, []);

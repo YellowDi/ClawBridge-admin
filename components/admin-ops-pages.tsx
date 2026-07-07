@@ -90,11 +90,14 @@ export function SettingsPage() {
       }
     } catch (error) {
       if (isMountedRef.current) {
+        const message = getOpsError(error, "OpenClaw 配置资源加载失败。");
+
         setState((current) => ({
           ...current,
-          error: getOpsError(error, "OpenClaw 配置资源加载失败。"),
+          error: message,
           isLoading: false,
         }));
+        toast.danger(message);
       }
     }
   }, []);

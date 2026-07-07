@@ -118,12 +118,15 @@ export function AdminSkillsPage() {
       } catch (error) {
         if (!isMountedRef.current || requestRef.current !== requestId) return;
 
+        const message = getSkillError(error, "私有 Skill 加载失败。");
+
         setState((current) => ({
           ...current,
-          error: getSkillError(error, "私有 Skill 加载失败。"),
+          error: message,
           isLoading: false,
           items: [],
         }));
+        toast.danger(message);
       }
     },
     [],
@@ -372,8 +375,9 @@ function EditPrivateSkillDialog({
       const response = await listPrivateSkillGroups();
 
       setGroups(response.groups?.filter(Boolean) ?? []);
-    } catch {
+    } catch (error) {
       setGroups([]);
+      toast.warning(getSkillError(error, "Skill 分组加载失败。"));
     }
   }
 
@@ -396,8 +400,11 @@ function EditPrivateSkillDialog({
       modal.close();
       onUpdated();
     } catch (error) {
-      setError(getSkillError(error, "私有 Skill 更新失败。"));
+      const message = getSkillError(error, "私有 Skill 更新失败。");
+
+      setError(message);
       setIsSaving(false);
+      toast.danger(message);
     }
   }
 
@@ -525,11 +532,14 @@ function AssignSkillDialog({ skill }: { skill: PrivateSkill }) {
 
   async function loadAssignments() {
     if (!canAssign) {
+      const message = "该 Skill 缺少分配所需的 ID 或 slug。";
+
       setState((current) => ({
         ...current,
-        error: "该 Skill 缺少分配所需的 ID 或 slug。",
+        error: message,
         isLoading: false,
       }));
+      toast.danger(message);
 
       return;
     }
@@ -550,13 +560,16 @@ function AssignSkillDialog({ skill }: { skill: PrivateSkill }) {
       const assignableAgents = agents.filter((agent) => agent.agentId?.trim());
 
       if (!pluginId) {
+        const message = "当前没有可用的 OpenClaw RPC 实例。";
+
         setState((current) => ({
           ...current,
           agents: assignableAgents,
-          error: "当前没有可用的 OpenClaw RPC 实例。",
+          error: message,
           isLoading: false,
           pluginId: "",
         }));
+        toast.danger(message);
 
         return;
       }
@@ -593,12 +606,18 @@ function AssignSkillDialog({ skill }: { skill: PrivateSkill }) {
         pluginId,
         selectedAgentIds: initialAgentIds,
       });
+      if (results.some((result) => result.failed)) {
+        toast.warning("部分 Agent 状态读取失败，已禁用对应选项。");
+      }
     } catch (error) {
+      const message = getSkillError(error, "Skill 分配状态加载失败。");
+
       setState((current) => ({
         ...current,
-        error: getSkillError(error, "Skill 分配状态加载失败。"),
+        error: message,
         isLoading: false,
       }));
+      toast.danger(message);
     }
   }
 
@@ -634,11 +653,14 @@ function AssignSkillDialog({ skill }: { skill: PrivateSkill }) {
       );
       modal.close();
     } catch (error) {
+      const message = getSkillError(error, "Skill 分配保存失败。");
+
       setState((current) => ({
         ...current,
-        error: getSkillError(error, "Skill 分配保存失败。"),
+        error: message,
         isSaving: false,
       }));
+      toast.danger(message);
     }
   }
 
@@ -788,8 +810,9 @@ function UploadPrivateSkillDialog({ onUploaded }: { onUploaded: () => void }) {
       const response = await listPrivateSkillGroups();
 
       setGroups(response.groups?.filter(Boolean) ?? []);
-    } catch {
+    } catch (error) {
       setGroups([]);
+      toast.warning(getSkillError(error, "Skill 分组加载失败。"));
     }
   }
 
@@ -797,9 +820,12 @@ function UploadPrivateSkillDialog({ onUploaded }: { onUploaded: () => void }) {
     const file = event.target.files?.[0] ?? null;
 
     if (file && !file.name.toLowerCase().endsWith(".zip")) {
-      setError("仅支持 .zip 归档。");
+      const message = "仅支持 .zip 归档。";
+
+      setError(message);
       setSelectedFile(null);
       event.target.value = "";
+      toast.danger(message);
 
       return;
     }
@@ -820,8 +846,11 @@ function UploadPrivateSkillDialog({ onUploaded }: { onUploaded: () => void }) {
       modal.close();
       onUploaded();
     } catch (error) {
-      setError(getSkillError(error, "私有 Skill 上传失败。"));
+      const message = getSkillError(error, "私有 Skill 上传失败。");
+
+      setError(message);
       setIsUploading(false);
+      toast.danger(message);
     }
   }
 

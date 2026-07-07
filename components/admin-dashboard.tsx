@@ -4,7 +4,7 @@ import type { DataGridColumn } from "@heroui-pro/react";
 import type { AdminIconName } from "@/components/admin-icons";
 import type { Agent, Model, User } from "@/lib/api";
 
-import { Button, Card, Chip } from "@heroui/react";
+import { Button, Card, Chip, toast } from "@heroui/react";
 import { DataGrid } from "@heroui-pro/react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -180,14 +180,21 @@ export function AdminDashboard() {
 
     if (!isMountedRef.current) return;
 
+    const agentsError = getSettledError(agentsResult, "Agent 数据加载失败。");
+    const modelsError = getSettledError(modelsResult, "模型数据加载失败。");
+    const usersError = getSettledError(usersResult, "用户数据加载失败。");
+
     setLoadState({
       agents: getSettledData(agentsResult),
-      agentsError: getSettledError(agentsResult, "Agent 数据加载失败。"),
+      agentsError,
       isLoading: false,
       models: getSettledData(modelsResult),
-      modelsError: getSettledError(modelsResult, "模型数据加载失败。"),
+      modelsError,
       users: getSettledData(usersResult),
-      usersError: getSettledError(usersResult, "用户数据加载失败。"),
+      usersError,
+    });
+    [usersError, modelsError, agentsError].forEach((message) => {
+      if (message) toast.danger(message);
     });
   }, []);
 

@@ -3,7 +3,7 @@
 import type { FormEvent } from "react";
 import type { KnowledgeForm } from "@/components/knowledge-form-types";
 
-import { Button, Modal, useOverlayState } from "@heroui/react";
+import { Button, Modal, toast, useOverlayState } from "@heroui/react";
 import { useState } from "react";
 
 import { AdminIcon } from "@/components/admin-icons";
@@ -120,12 +120,15 @@ export function CreateKnowledgeBaseDialog({
     const file = files[0] ?? null;
 
     if (file && !isAllowedKnowledgeFile(file)) {
+      const message = `仅支持 ${KNOWLEDGE_UPLOAD_ACCEPT_TEXT} 格式。`;
+
       setState((current) => ({
         ...current,
         selectedFile: null,
-        uploadError: `仅支持 ${KNOWLEDGE_UPLOAD_ACCEPT_TEXT} 格式。`,
+        uploadError: message,
         uploadProgress: 0,
       }));
+      toast.danger(message);
 
       return;
     }
@@ -179,12 +182,16 @@ export function CreateKnowledgeBaseDialog({
         uploadProgress: 100,
       }));
       uploadModal.close();
+      toast.success("文件已上传并填入 URL。");
     } catch (error) {
+      const message = getKnowledgeError(error, "文件上传失败。");
+
       setState((current) => ({
         ...current,
         isUploading: false,
-        uploadError: getKnowledgeError(error, "文件上传失败。"),
+        uploadError: message,
       }));
+      toast.danger(message);
     }
   }
 
@@ -200,10 +207,13 @@ export function CreateKnowledgeBaseDialog({
     };
 
     if (!request.name || !request.url) {
+      const message = "请输入名称和 URL。";
+
       setState((current) => ({
         ...current,
-        error: "请输入名称和 URL。",
+        error: message,
       }));
+      toast.danger(message);
 
       return;
     }
@@ -219,12 +229,16 @@ export function CreateKnowledgeBaseDialog({
       modal.close();
       resetDialogState();
       onCreated();
+      toast.success("知识库已创建。");
     } catch (error) {
+      const message = getKnowledgeError(error, "知识库创建失败。");
+
       setState((current) => ({
         ...current,
-        error: getKnowledgeError(error, "知识库创建失败。"),
+        error: message,
         isCreating: false,
       }));
+      toast.danger(message);
     }
   }
 

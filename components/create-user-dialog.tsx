@@ -11,6 +11,7 @@ import {
   Modal,
   Select,
   TextField,
+  toast,
   useOverlayState,
 } from "@heroui/react";
 import { useEffect, useRef, useState } from "react";
@@ -101,10 +102,13 @@ export function CreateUserDialog({ onCreated }: { onCreated: () => void }) {
     const username = form.username.trim();
 
     if (!username || !form.password) {
+      const message = "请输入用户名和密码。";
+
       setState((current) => ({
         ...current,
-        error: "请输入用户名和密码。",
+        error: message,
       }));
+      toast.danger(message);
 
       return;
     }
@@ -129,12 +133,16 @@ export function CreateUserDialog({ onCreated }: { onCreated: () => void }) {
         isCreating: false,
       });
       onCreated();
+      toast.success("用户已创建。");
     } catch (error) {
+      const message = getUserActionError(error, "创建用户失败。");
+
       setState((current) => ({
         ...current,
-        error: getUserActionError(error, "创建用户失败。"),
+        error: message,
         isCreating: false,
       }));
+      toast.danger(message);
     }
   }
 
@@ -285,12 +293,15 @@ export function UserEditPanel({
       .catch((error: unknown) => {
         if (loadRequestRef.current !== requestId) return;
 
+        const message = getUserActionError(error, "用户详情加载失败。");
+
         setState((current) => ({
           ...current,
-          error: getUserActionError(error, "用户详情加载失败。"),
+          error: message,
           isLoading: false,
           loadedUserId: null,
         }));
+        toast.danger(message);
       });
   }
 
@@ -318,10 +329,13 @@ export function UserEditPanel({
     const username = form.username.trim();
 
     if (!username) {
+      const message = "请输入用户名。";
+
       setState((current) => ({
         ...current,
-        error: "请输入用户名。",
+        error: message,
       }));
+      toast.danger(message);
 
       return;
     }
@@ -354,12 +368,16 @@ export function UserEditPanel({
         loadedUserId: null,
       });
       onUpdated();
+      toast.success("用户已更新。");
     } catch (error) {
+      const message = getUserActionError(error, "更新用户失败。");
+
       setState((current) => ({
         ...current,
-        error: getUserActionError(error, "更新用户失败。"),
+        error: message,
         isSaving: false,
       }));
+      toast.danger(message);
     }
   }
 
@@ -443,11 +461,15 @@ export function DeleteUserDialog({
         isDeleting: false,
       });
       onDeleted();
+      toast.success("用户已删除。");
     } catch (error) {
+      const message = getUserActionError(error, "删除用户失败。");
+
       setState({
-        error: getUserActionError(error, "删除用户失败。"),
+        error: message,
         isDeleting: false,
       });
+      toast.danger(message);
     }
   }
 

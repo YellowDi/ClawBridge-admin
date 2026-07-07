@@ -7,7 +7,7 @@ import type {
   EditableAgentSummary,
 } from "@/components/agent-dialog-types";
 
-import { Button, Modal, useOverlayState } from "@heroui/react";
+import { Button, Modal, toast, useOverlayState } from "@heroui/react";
 import { useRef, useState } from "react";
 
 import { AgentFormError } from "@/components/agent-form-error";
@@ -86,12 +86,15 @@ export function EditAgentDialog({
       .catch((error: unknown) => {
         if (loadRequestRef.current !== requestId) return;
 
+        const message = getAgentActionError(error, "Agent 详情加载失败。");
+
         setState((current) => ({
           ...current,
-          error: getAgentActionError(error, "Agent 详情加载失败。"),
+          error: message,
           isLoading: false,
           loadedAgentId: null,
         }));
+        toast.danger(message);
       });
   }
 
@@ -119,10 +122,13 @@ export function EditAgentDialog({
     const request = toUpdateAgentRequest(form, loadedAgentId);
 
     if (!request.agentId) {
+      const message = "请输入 Agent ID。";
+
       setState((current) => ({
         ...current,
-        error: "请输入 Agent ID。",
+        error: message,
       }));
+      toast.danger(message);
 
       return;
     }
@@ -144,12 +150,16 @@ export function EditAgentDialog({
         loadedAgentId: null,
       });
       onUpdated();
+      toast.success("Agent 已更新。");
     } catch (error) {
+      const message = getAgentActionError(error, "更新 Agent 失败。");
+
       setState((current) => ({
         ...current,
-        error: getAgentActionError(error, "更新 Agent 失败。"),
+        error: message,
         isSaving: false,
       }));
+      toast.danger(message);
     }
   }
 

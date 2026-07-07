@@ -8,6 +8,7 @@ import {
   Label,
   Modal,
   TextField,
+  toast,
   useOverlayState,
 } from "@heroui/react";
 
@@ -63,12 +64,15 @@ export function AgentAvatarField({
     const file = fileList?.[0] ?? null;
 
     if (file && !isAllowedAvatarFile(file)) {
+      const message = `仅支持 ${AVATAR_ACCEPT} 格式。`;
+
       setState({
-        error: `仅支持 ${AVATAR_ACCEPT} 格式。`,
+        error: message,
         isUploading: false,
         progress: 0,
         selectedFile: null,
       });
+      toast.danger(message);
 
       return;
     }
@@ -110,12 +114,16 @@ export function AgentAvatarField({
         selectedFile: null,
       });
       modal.close();
+      toast.success("Agent 头像已上传。");
     } catch (uploadError) {
+      const message = getUploadError(uploadError);
+
       setState((current) => ({
         ...current,
-        error: getUploadError(uploadError),
+        error: message,
         isUploading: false,
       }));
+      toast.danger(message);
     }
   }
 

@@ -17,6 +17,7 @@ import {
   Modal,
   SearchField,
   Tabs,
+  toast,
   useOverlayState,
 } from "@heroui/react";
 import { DataGrid } from "@heroui-pro/react";
@@ -248,10 +249,13 @@ export function UsagePage() {
       }
     } catch (error) {
       if (isMountedRef.current) {
+        const message = getPageError(error, "用量统计加载失败。");
+
         setLoadState({
-          error: getPageError(error, "用量统计加载失败。"),
+          error: message,
           isLoading: false,
         });
+        toast.danger(message);
       }
     }
   }, []);
@@ -388,11 +392,14 @@ export function ConversationsPage() {
       }
     } catch (error) {
       if (isMountedRef.current) {
+        const message = getPageError(error, "会话列表加载失败。");
+
         setLoadState({
           conversations: [],
-          error: getPageError(error, "会话列表加载失败。"),
+          error: message,
           isLoading: false,
         });
+        toast.danger(message);
       }
     }
   }, [filter]);
@@ -419,15 +426,25 @@ export function ConversationsPage() {
     async (conversation: BridgeConversation) => {
       const conversationId = conversation.conversationId?.trim();
 
-      if (!conversationId) return;
+      if (!conversationId) {
+        toast.danger("会话缺少 ID，无法操作。");
 
-      if (conversation.isArchived === 2) {
-        await unarchiveConversation(conversationId);
-      } else {
-        await archiveConversation(conversationId);
+        return;
       }
 
-      refresh();
+      try {
+        if (conversation.isArchived === 2) {
+          await unarchiveConversation(conversationId);
+          toast.success("会话已取消归档。");
+        } else {
+          await archiveConversation(conversationId);
+          toast.success("会话已归档。");
+        }
+
+        refresh();
+      } catch (error) {
+        toast.danger(getPageError(error, "会话归档操作失败。"));
+      }
     },
     [refresh],
   );
@@ -694,11 +711,14 @@ function ConversationDetailDialog({
     } catch (error) {
       if (loadRequestRef.current !== requestId) return;
 
+      const message = getPageError(error, "会话详情加载失败。");
+
       setState({
-        error: getPageError(error, "会话详情加载失败。"),
+        error: message,
         isLoading: false,
         messages: [],
       });
+      toast.danger(message);
     }
   }
 

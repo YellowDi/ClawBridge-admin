@@ -199,11 +199,14 @@ export function AdminMCPPage() {
       }
     } catch (error) {
       if (isMountedRef.current) {
+        const message = getMCPActionError(error, "MCP 配置库加载失败。");
+
         setServersState({
-          error: getMCPActionError(error, "MCP 配置库加载失败。"),
+          error: message,
           isLoading: false,
           items: [],
         });
+        toast.danger(message);
       }
     }
   }, []);
@@ -232,11 +235,14 @@ export function AdminMCPPage() {
       }
     } catch (error) {
       if (isMountedRef.current) {
+        const message = getMCPActionError(error, "OpenClaw RPC 实例加载失败。");
+
         setInstancesState({
-          error: getMCPActionError(error, "OpenClaw RPC 实例加载失败。"),
+          error: message,
           isLoading: false,
           items: [],
         });
+        toast.danger(message);
       }
     }
   }, []);
@@ -270,11 +276,14 @@ export function AdminMCPPage() {
       }
     } catch (error) {
       if (isMountedRef.current) {
+        const message = getMCPActionError(error, "OpenClaw 配置快照加载失败。");
+
         setSnapshotState({
-          error: getMCPActionError(error, "OpenClaw 配置快照加载失败。"),
+          error: message,
           isLoading: false,
           value: undefined,
         });
+        toast.danger(message);
       }
     }
   }, []);
@@ -799,11 +808,14 @@ function MCPServerDialog({
         isLoadingDetail: false,
       }));
     } catch (error) {
+      const message = getMCPActionError(error, "MCP 配置详情加载失败。");
+
       setState((current) => ({
         ...current,
-        error: getMCPActionError(error, "MCP 配置详情加载失败。"),
+        error: message,
         isLoadingDetail: false,
       }));
+      toast.danger(message);
     }
   }
 
@@ -847,11 +859,14 @@ function MCPServerDialog({
       toast.success(isEditing ? "MCP 配置已更新。" : "MCP 配置已创建。");
       onSaved();
     } catch (error) {
+      const message = getMCPActionError(error, "MCP 配置保存失败。");
+
       setState((current) => ({
         ...current,
-        error: getMCPActionError(error, "MCP 配置保存失败。"),
+        error: message,
         isSaving: false,
       }));
+      toast.danger(message);
     }
   }
 
@@ -1527,7 +1542,10 @@ function DeleteMCPServerDialog({
 
   async function handleDelete() {
     if (typeof serverId !== "number") {
-      setError("MCP 配置缺少记录 ID，无法删除。");
+      const message = "MCP 配置缺少记录 ID，无法删除。";
+
+      setError(message);
+      toast.danger(message);
 
       return;
     }
@@ -1542,8 +1560,11 @@ function DeleteMCPServerDialog({
       toast.success("MCP 配置已删除。");
       onDeleted();
     } catch (error) {
-      setError(getMCPActionError(error, "MCP 配置删除失败。"));
+      const message = getMCPActionError(error, "MCP 配置删除失败。");
+
+      setError(message);
       setIsDeleting(false);
+      toast.danger(message);
     }
   }
 

@@ -2,7 +2,7 @@
 
 import type { KnowledgeBase } from "@/lib/api";
 
-import { Button, Checkbox, Modal, useOverlayState } from "@heroui/react";
+import { Button, Checkbox, Modal, toast, useOverlayState } from "@heroui/react";
 import { useEffect, useRef, useState } from "react";
 
 import {
@@ -132,12 +132,15 @@ export function KnowledgeAvailabilityPanel({
     } catch (error) {
       if (loadRequestRef.current !== requestId) return;
 
+      const message = getKnowledgeAvailabilityError(error, "知识库加载失败。");
+
       setState((current) => ({
         ...current,
-        error: getKnowledgeAvailabilityError(error, "知识库加载失败。"),
+        error: message,
         isLoading: false,
         isSaving: false,
       }));
+      toast.danger(message);
     }
   }
 
@@ -167,12 +170,19 @@ export function KnowledgeAvailabilityPanel({
       setState((current) => ({ ...current, isSaving: false }));
       onClose();
       onSaved?.();
+      toast.success("可用知识库已保存。");
     } catch (error) {
+      const message = getKnowledgeAvailabilityError(
+        error,
+        "可用知识库保存失败。",
+      );
+
       setState((current) => ({
         ...current,
-        error: getKnowledgeAvailabilityError(error, "可用知识库保存失败。"),
+        error: message,
         isSaving: false,
       }));
+      toast.danger(message);
     }
   }
 

@@ -2,7 +2,7 @@
 
 import type { EditableAgentSummary } from "@/components/agent-dialog-types";
 
-import { Button, Modal, useOverlayState } from "@heroui/react";
+import { Button, Modal, toast, useOverlayState } from "@heroui/react";
 import { useEffect, useState } from "react";
 
 import { AgentFormError } from "@/components/agent-form-error";
@@ -67,11 +67,15 @@ export function DeleteAgentDialog({
         isDeleting: false,
       });
       onDeleted();
+      toast.success("Agent 已删除。");
     } catch (error) {
+      const message = getAgentActionError(error, "删除 Agent 失败。");
+
       setState({
-        error: getAgentActionError(error, "删除 Agent 失败。"),
+        error: message,
         isDeleting: false,
       });
+      toast.danger(message);
     }
   }
 
