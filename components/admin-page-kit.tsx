@@ -15,26 +15,20 @@ export type StatusTone =
 export function AdminPage({
   actions,
   children,
-  navbarCenter,
 }: {
   actions?: ReactNode;
   children: ReactNode;
   description: string;
   eyebrow?: string;
-  navbarCenter?: ReactNode;
   title: string;
 }) {
   const pageActions = useAdminPageActions();
 
   useEffect(() => {
     pageActions?.setActions(actions ?? null);
-    pageActions?.setCenter(navbarCenter ?? null);
 
-    return () => {
-      pageActions?.setActions(null);
-      pageActions?.setCenter(null);
-    };
-  }, [actions, navbarCenter, pageActions]);
+    return () => pageActions?.setActions(null);
+  }, [actions, pageActions]);
 
   return <div className="flex w-full flex-col gap-6">{children}</div>;
 }

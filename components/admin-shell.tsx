@@ -27,7 +27,6 @@ type NavGroup = {
 
 type AdminPageActionsContextValue = {
   setActions: (actions: ReactNode) => void;
-  setCenter: (center: ReactNode) => void;
 };
 
 const AdminPageActionsContext =
@@ -81,10 +80,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [pageActions, setPageActions] = useState<ReactNode>(null);
-  const [pageCenter, setPageCenter] = useState<ReactNode>(null);
   const navigate = useCallback((href: string) => router.push(href), [router]);
   const pageActionsContext = useMemo(
-    () => ({ setActions: setPageActions, setCenter: setPageCenter }),
+    () => ({ setActions: setPageActions }),
     [],
   );
 
@@ -98,10 +96,8 @@ export function AdminShell({ children }: { children: ReactNode }) {
     return matched?.label ?? siteConfig.name;
   }, [pathname]);
   const navbar = useMemo(
-    () => (
-      <AdminNavbar actions={pageActions} center={pageCenter} title={title} />
-    ),
-    [pageActions, pageCenter, title],
+    () => <AdminNavbar actions={pageActions} title={title} />,
+    [pageActions, title],
   );
   const sidebar = useMemo(
     () => <AdminSidebar pathname={pathname} />,
@@ -128,11 +124,9 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
 function AdminNavbar({
   actions,
-  center,
   title,
 }: {
   actions: ReactNode;
-  center: ReactNode;
   title: string;
 }) {
   return (
@@ -143,10 +137,6 @@ function AdminNavbar({
         <h1 className="text-foreground truncate text-xl font-semibold">
           {title}
         </h1>
-        <Navbar.Spacer />
-        {center ? (
-          <div className="flex min-w-0 flex-1 justify-center">{center}</div>
-        ) : null}
         <Navbar.Spacer />
         {actions ? (
           <div className="flex items-center gap-2">{actions}</div>

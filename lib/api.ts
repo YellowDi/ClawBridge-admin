@@ -883,6 +883,7 @@ export interface PrivateSkill {
   createdAt?: string;
   description?: string;
   displayName?: string;
+  groupName?: string;
   id?: number;
   objectKey?: string;
   sha256?: string;
@@ -892,6 +893,7 @@ export interface PrivateSkill {
   tags?: string[];
   updatedAt?: string;
   version?: string;
+  visibleName?: string;
   [property: string]: unknown;
 }
 
@@ -955,11 +957,26 @@ export interface ResSkillCatalog {
   [property: string]: unknown;
 }
 
-export interface ReqPrivateSkillList extends ReqPagination {}
+export interface ReqPrivateSkillList extends ReqPagination {
+  query?: string;
+}
 
 export interface ResPrivateSkills {
   items?: PrivateSkill[];
   pagination?: Pagination;
+  [property: string]: unknown;
+}
+
+export interface ResPrivateSkillGroups {
+  groups?: string[];
+  [property: string]: unknown;
+}
+
+export interface ReqPrivateSkillUpdate {
+  description?: string;
+  groupName?: string;
+  id: number;
+  visibleName?: string;
   [property: string]: unknown;
 }
 
@@ -1682,6 +1699,15 @@ export async function listPrivateSkills(
   });
 }
 
+export async function listPrivateSkillGroups(): Promise<ResPrivateSkillGroups> {
+  return requestJson<ResPrivateSkillGroups>(
+    "/api/openclaw/skills/private/groups",
+    {
+      method: "POST",
+    },
+  );
+}
+
 export async function listAgentSkills(
   request: ReqAgentSkillList,
 ): Promise<ResAgentSkills> {
@@ -1742,11 +1768,15 @@ export async function removeAgentSkill(
 export async function uploadPrivateSkill(
   file: File,
   version?: string,
+  groupName?: string,
+  visibleName?: string,
 ): Promise<PrivateSkill | undefined> {
   const formData = new FormData();
 
   formData.set("file", file);
   if (version?.trim()) formData.set("version", version.trim());
+  if (groupName?.trim()) formData.set("groupName", groupName.trim());
+  if (visibleName?.trim()) formData.set("visibleName", visibleName.trim());
 
   return requestJson<PrivateSkill | undefined>(
     "/api/openclaw/skills/private/upload",
@@ -1755,6 +1785,15 @@ export async function uploadPrivateSkill(
       method: "POST",
     },
   );
+}
+
+export async function updatePrivateSkill(
+  request: ReqPrivateSkillUpdate,
+): Promise<PrivateSkill> {
+  return requestJson<PrivateSkill>("/api/openclaw/skills/private/update", {
+    body: JSON.stringify(request),
+    method: "POST",
+  });
 }
 
 export async function deletePrivateSkill(id: number): Promise<PrivateSkill> {
