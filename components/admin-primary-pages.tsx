@@ -35,6 +35,7 @@ type AdminUser = {
   accountId: string;
   accountNature: string;
   accountType: string;
+  adminSeatLimit: number;
   billingMode: string;
   createdAt: string;
   displayName: string;
@@ -125,13 +126,20 @@ const USER_BASE_COLUMNS: DataGridColumn<AdminUser>[] = [
     width: 96,
   },
   {
-    cell: (item) =>
-      item.parentUserId > 0 ? "-" : `${item.usedSeats}/${item.seatLimit}`,
+    cell: (item) => (item.parentUserId > 0 ? "-" : item.adminSeatLimit),
     cellClassName: "whitespace-nowrap tabular-nums",
-    header: "席位",
+    header: "管理员席位",
     headerClassName: "whitespace-nowrap",
-    id: "seats",
-    width: 88,
+    id: "adminSeatLimit",
+    width: 104,
+  },
+  {
+    cell: (item) => (item.parentUserId > 0 ? "-" : item.seatLimit),
+    cellClassName: "whitespace-nowrap tabular-nums",
+    header: "当前生效席位",
+    headerClassName: "whitespace-nowrap",
+    id: "seatLimit",
+    width: 120,
   },
   {
     cell: (item) => (
@@ -417,12 +425,15 @@ function toAdminUser(
   const accountType = user.accountType ?? (parentUserId > 0 ? "sub" : "main");
   const accountNature = user.accountNature ?? "personal";
   const billingMode = user.billingMode ?? "metered";
+  const adminSeatLimit =
+    accountNature === "team" ? (user.adminSeatLimit ?? 0) : 0;
   const seatLimit = accountNature === "team" ? (user.seatLimit ?? 0) : 0;
 
   return {
     accountId: user.id == null ? "-" : String(user.id),
     accountNature,
     accountType,
+    adminSeatLimit,
     billingMode,
     createdAt: formatDateTime(user.createdAt),
     displayName: user.displayName?.trim() ?? "",
@@ -448,6 +459,7 @@ function toEditableUserSummary(user: AdminUser, id: number) {
   return {
     accountNature: user.accountNature,
     accountType: user.accountType,
+    adminSeatLimit: user.adminSeatLimit,
     billingMode: user.billingMode,
     displayName: user.displayName,
     enabled: user.enabled,

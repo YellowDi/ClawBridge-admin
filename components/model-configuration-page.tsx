@@ -1178,16 +1178,19 @@ function ModelConfigurationDialog({
   return (
     <Modal.Backdrop isOpen={isOpen} onOpenChange={onOpenChange}>
       <Modal.Container placement="auto" scroll="inside" size="lg">
-        <Modal.Dialog>
+        <Modal.Dialog className="flex max-h-[calc(100dvh-5rem)] flex-col overflow-hidden">
           <Modal.CloseTrigger />
-          <Form onSubmit={onSubmit}>
-            <Modal.Header>
+          <Form
+            className="flex min-h-0 min-w-0 flex-1 flex-col"
+            onSubmit={onSubmit}
+          >
+            <Modal.Header className="shrink-0">
               <Modal.Heading>{providerDialogTitle}</Modal.Heading>
               <Typography color="muted" type="body-sm">
                 配置模型服务和可用能力。
               </Typography>
             </Modal.Header>
-            <Modal.Body>
+            <Modal.Body className="min-h-0 flex-1 overflow-y-auto">
               <ModelConfigurationFields
                 form={form}
                 modelPlaceholder={modelPlaceholder}
@@ -1197,7 +1200,7 @@ function ModelConfigurationDialog({
                 onProviderChange={onProviderChange}
               />
             </Modal.Body>
-            <Modal.Footer>
+            <Modal.Footer className="shrink-0">
               <ModelConfigurationDialogFooter
                 editingModelConfiguration={editingModelConfiguration}
                 isDeletingProvider={isDeletingProvider}

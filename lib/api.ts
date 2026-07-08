@@ -42,12 +42,12 @@ export interface ResUsers {
 
 export interface ReqUserCreate {
   accountNature?: "personal" | "team" | (string & {});
+  adminSeatLimit?: number;
   displayName?: string;
   enabled?: boolean;
   isAdmin?: boolean;
   parentUserId?: number;
   password?: string;
-  seatLimit?: number;
   username?: string;
   [property: string]: unknown;
 }
@@ -59,12 +59,12 @@ export interface ReqUserDetail {
 
 export interface ReqUserUpdate {
   accountNature?: "personal" | "team" | (string & {});
+  adminSeatLimit?: number;
   displayName?: string;
   enabled?: boolean;
   id?: number;
   isAdmin?: boolean;
   password?: string;
-  seatLimit?: number;
   username?: string;
   [property: string]: unknown;
 }
@@ -92,6 +92,7 @@ export interface HealthStatus {
 export interface User {
   accountNature?: "personal" | "team" | (string & {});
   accountType?: "main" | "sub" | (string & {});
+  adminSeatLimit?: number;
   billingMode?: "metered" | "subscription" | (string & {});
   createdAt?: string;
   displayName?: string;

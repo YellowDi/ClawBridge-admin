@@ -28,12 +28,12 @@ import {
 type UserForm = {
   accountNature: "personal" | "team";
   accountType: "main" | "sub";
+  adminSeatLimit: string;
   displayName: string;
   enabled: boolean;
   isAdmin: boolean;
   parentUserId: string;
   password: string;
-  seatLimit: string;
   username: string;
 };
 
@@ -61,6 +61,7 @@ type DeleteUserState = {
 export type EditableUserSummary = {
   accountNature?: string;
   accountType?: string;
+  adminSeatLimit?: number;
   billingMode?: string;
   displayName?: string;
   enabled: boolean;
@@ -77,12 +78,12 @@ type UserDeleteDialogState = ReturnType<typeof useOverlayState>;
 const DEFAULT_USER_FORM: UserForm = {
   accountNature: "personal",
   accountType: "main",
+  adminSeatLimit: "0",
   displayName: "",
   enabled: true,
   isAdmin: false,
   parentUserId: "",
   password: "",
-  seatLimit: "0",
   username: "",
 };
 
@@ -208,13 +209,13 @@ export function CreateUserDialog({ onCreated }: { onCreated: () => void }) {
       }
     }
 
-    let seatLimit = 0;
+    let adminSeatLimit = 0;
 
     if (!isSubAccount && form.accountNature === "team") {
       try {
-        seatLimit = parseSeatLimit(form.seatLimit);
+        adminSeatLimit = parseAdminSeatLimit(form.adminSeatLimit);
       } catch (error) {
-        const message = getUserActionError(error, "席位数量无效。");
+        const message = getUserActionError(error, "管理员席位无效。");
 
         setState((current) => ({
           ...current,
@@ -240,8 +241,8 @@ export function CreateUserDialog({ onCreated }: { onCreated: () => void }) {
           ? { isAdmin: false, parentUserId }
           : {
               accountNature: form.accountNature,
+              adminSeatLimit,
               isAdmin: form.isAdmin,
-              seatLimit,
             }),
         password: form.password,
         username,
@@ -467,7 +468,7 @@ export function UserEditPanel({
       return;
     }
 
-    let seatLimit = 0;
+    let adminSeatLimit = 0;
 
     if (!isSubAccount) {
       const usedSeats = user.usedSeats ?? 0;
@@ -486,21 +487,9 @@ export function UserEditPanel({
 
       if (form.accountNature === "team") {
         try {
-          seatLimit = parseSeatLimit(form.seatLimit);
+          adminSeatLimit = parseAdminSeatLimit(form.adminSeatLimit);
         } catch (error) {
-          const message = getUserActionError(error, "席位数量无效。");
-
-          setState((current) => ({
-            ...current,
-            error: message,
-          }));
-          toast.danger(message);
-
-          return;
-        }
-
-        if (seatLimit < usedSeats) {
-          const message = "席位数量不能小于已有子账号数量。";
+          const message = getUserActionError(error, "管理员席位无效。");
 
           setState((current) => ({
             ...current,
@@ -522,12 +511,12 @@ export function UserEditPanel({
     try {
       await updateUser({
         accountNature: isSubAccount ? undefined : form.accountNature,
+        adminSeatLimit: isSubAccount ? undefined : adminSeatLimit,
         displayName,
         enabled: form.enabled,
         id: loadedUserId,
         isAdmin: isSubAccount ? false : form.isAdmin,
         password: form.password,
-        seatLimit: isSubAccount ? undefined : seatLimit,
         username,
       });
       onClose();
@@ -571,7 +560,6 @@ export function UserEditPanel({
           parentCandidates={[]}
           passwordAutoComplete="new-password"
           passwordPlaceholder="留空则不修改密码"
-          usedSeats={user.usedSeats ?? 0}
           onChange={updateForm}
         />
         {error ? <UserFormError>{error}</UserFormError> : null}
@@ -711,7 +699,6 @@ function UserFormFields({
   passwordAutoComplete,
   passwordPlaceholder,
   parentCandidates,
-  usedSeats = 0,
 }: {
   form: UserForm;
   isDisabled: boolean;
@@ -721,7 +708,6 @@ function UserFormFields({
   passwordAutoComplete: string;
   passwordPlaceholder?: string;
   parentCandidates: User[];
-  usedSeats?: number;
 }) {
   const isSubAccount = isSubAccountForm(form);
   const isTeam = form.accountNature === "team";
@@ -909,7 +895,8 @@ function UserFormFields({
 
             onChange({
               accountNature,
-              seatLimit: accountNature === "personal" ? "0" : form.seatLimit,
+              adminSeatLimit:
+                accountNature === "personal" ? "0" : form.adminSeatLimit,
             });
           }}
         >
@@ -938,14 +925,16 @@ function UserFormFields({
           isDisabled={isDisabled || !isTeam}
           variant="secondary"
         >
-          <Label>席位数量</Label>
+          <Label>管理员席位</Label>
           <Input
             fullWidth
             inputMode="numeric"
-            min={usedSeats}
+            min={0}
             type="number"
-            value={isTeam ? form.seatLimit : "0"}
-            onChange={(event) => onChange({ seatLimit: event.target.value })}
+            value={isTeam ? form.adminSeatLimit : "0"}
+            onChange={(event) =>
+              onChange({ adminSeatLimit: event.target.value })
+            }
           />
         </TextField>
       ) : null}
@@ -973,15 +962,13 @@ function toUserForm(
   return {
     accountNature,
     accountType,
+    adminSeatLimit:
+      accountNature === "team" ? String(user.adminSeatLimit ?? 0) : "0",
     displayName: user.displayName?.trim() ?? "",
     enabled: user.enabled !== false,
     isAdmin: user.isAdmin === true,
     parentUserId: user.parentUserId ? String(user.parentUserId) : "",
     password: "",
-    seatLimit:
-      accountNature === "team"
-        ? String(user.seatLimit ?? user.usedSeats ?? 0)
-        : "0",
     username: user.username?.trim() ?? "",
   };
 }
@@ -1026,14 +1013,14 @@ function getUsedSeatCount(parent: User, users: User[]) {
   ).length;
 }
 
-function parseSeatLimit(value: string) {
-  const seatLimit = Number(value.trim() || "0");
+function parseAdminSeatLimit(value: string) {
+  const adminSeatLimit = Number(value.trim() || "0");
 
-  if (!Number.isInteger(seatLimit) || seatLimit < 0) {
-    throw new Error("席位数量必须是大于等于 0 的整数。");
+  if (!Number.isInteger(adminSeatLimit) || adminSeatLimit < 0) {
+    throw new Error("管理员席位必须是大于等于 0 的整数。");
   }
 
-  return seatLimit;
+  return adminSeatLimit;
 }
 
 function toAccountType(key: Key | null): UserForm["accountType"] {
