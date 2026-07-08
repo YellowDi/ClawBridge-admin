@@ -70,7 +70,7 @@ expectType<Promise<UserSubscriptionView | undefined>>(
   getCurrentSubscription({ userId: 1 }),
 );
 expectType<Promise<UserSubscriptionView | undefined>>(
-  grantUserSubscription({ planId: 1, userId: 1 }),
+  grantUserSubscription({ grantDays: 30, planId: 1, userId: 1 }),
 );
 expectType<Promise<SubscriptionTransaction[]>>(
   listSubscriptionTransactions({ page: 1, pageSize: 20, userId: 1 }),

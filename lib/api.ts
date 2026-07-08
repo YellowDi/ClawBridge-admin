@@ -650,6 +650,7 @@ export interface ResSubscriptionPlans {
 }
 
 export interface ReqSubscriptionGrant {
+  grantDays?: number;
   planId?: number;
   userId?: number;
   [property: string]: unknown;
@@ -667,7 +668,10 @@ export interface AdminUserSubscription {
   expiresAt?: string;
   id?: number;
   isDelete?: number;
+  originalPriceAmount?: string;
+  paidPriceAmount?: string;
   planId?: number;
+  source?: string;
   startsAt?: string;
   status?: string;
   updatedAt?: string;

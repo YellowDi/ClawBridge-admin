@@ -11,13 +11,15 @@ import type {
 import {
   Button,
   Chip,
+  Input,
   Label,
   ListBox,
   ProgressBar,
   Select,
+  TextField,
   toast,
 } from "@heroui/react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   getCurrentSubscription,
@@ -35,6 +37,8 @@ type UserSubscriptionState = {
   transactions: SubscriptionTransaction[];
 };
 
+const DEFAULT_GRANT_DAYS = "30";
+
 export function UserSubscriptionPanel({
   isActive,
   onChanged,
@@ -47,6 +51,7 @@ export function UserSubscriptionPanel({
   user: EditableUserSummary;
 }) {
   const loadRequestRef = useRef(0);
+  const [grantDays, setGrantDays] = useState(DEFAULT_GRANT_DAYS);
   const [selectedPlanId, setSelectedPlanId] = useState("");
   const [state, setState] = useState<UserSubscriptionState>({
     error: null,
@@ -59,21 +64,7 @@ export function UserSubscriptionPanel({
   const isBusy = state.isLoading || state.isGranting;
   const enabledPlans = state.plans.filter((plan) => plan.enabled !== false);
 
-  useEffect(() => {
-    if (!isActive) {
-      loadRequestRef.current += 1;
-
-      return;
-    }
-
-    void loadSubscription();
-
-    return () => {
-      loadRequestRef.current += 1;
-    };
-  }, [isActive, user.id]);
-
-  async function loadSubscription() {
+  const loadSubscription = useCallback(async () => {
     const requestId = loadRequestRef.current + 1;
 
     loadRequestRef.current = requestId;
@@ -112,10 +103,25 @@ export function UserSubscriptionPanel({
       }));
       toast.danger(message);
     }
-  }
+  }, [user.id]);
+
+  useEffect(() => {
+    if (!isActive) {
+      loadRequestRef.current += 1;
+
+      return;
+    }
+
+    void loadSubscription();
+
+    return () => {
+      loadRequestRef.current += 1;
+    };
+  }, [isActive, loadSubscription]);
 
   async function grantSubscription() {
     const planId = Number(selectedPlanId);
+    const normalizedGrantDays = normalizeGrantDays(grantDays);
 
     if (!Number.isInteger(planId) || planId <= 0) {
       const message = "请选择要授予的订阅套餐。";
@@ -126,10 +132,16 @@ export function UserSubscriptionPanel({
       return;
     }
 
+    if (!window.confirm(getGrantConfirmMessage(state.subscription))) return;
+
     setState((current) => ({ ...current, error: null, isGranting: true }));
 
     try {
-      await grantUserSubscription({ planId, userId: user.id });
+      await grantUserSubscription({
+        grantDays: normalizedGrantDays,
+        planId,
+        userId: user.id,
+      });
       await loadSubscription();
       onChanged();
       toast.success("订阅套餐已授予。");
@@ -172,9 +184,23 @@ export function UserSubscriptionPanel({
             label="订阅周期"
             value={formatSubscriptionPeriod(state.subscription)}
           />
+          <SubscriptionMetric
+            label="订阅来源"
+            value={toSubscriptionSourceLabel(
+              state.subscription?.subscription?.source,
+            )}
+          />
+          <SubscriptionMetric
+            label="原价快照"
+            value={state.subscription?.subscription?.originalPriceAmount}
+          />
+          <SubscriptionMetric
+            label="实际支付"
+            value={state.subscription?.subscription?.paidPriceAmount}
+          />
         </section>
 
-        <section className="grid grid-cols-[1fr_auto] items-end gap-3">
+        <section className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_120px_auto] sm:items-end">
           <Select
             fullWidth
             isDisabled={isBusy || enabledPlans.length === 0}
@@ -209,6 +235,17 @@ export function UserSubscriptionPanel({
               </ListBox>
             </Select.Popover>
           </Select>
+          <TextField fullWidth isDisabled={isBusy} variant="secondary">
+            <Label>授予天数</Label>
+            <Input
+              inputMode="numeric"
+              min={1}
+              step={1}
+              type="number"
+              value={grantDays}
+              onChange={(event) => setGrantDays(event.target.value)}
+            />
+          </TextField>
           <Button isDisabled={isBusy} onPress={() => void grantSubscription()}>
             {state.isGranting ? "授予中..." : "授予"}
           </Button>
@@ -382,6 +419,12 @@ function toBillingModeLabel(value?: string) {
   return value === "subscription" ? "订阅" : "按量";
 }
 
+function toSubscriptionSourceLabel(value?: string) {
+  if (value === "grant") return "管理员授予";
+
+  return value;
+}
+
 function toTransactionTypeLabel(value?: string) {
   const labels: Record<string, string> = {
     adjust: "调整",
@@ -392,6 +435,24 @@ function toTransactionTypeLabel(value?: string) {
   };
 
   return value ? (labels[value] ?? value) : "-";
+}
+
+function normalizeGrantDays(value: string) {
+  const days = Math.trunc(Number(value));
+
+  return Number.isFinite(days) && days > 0 ? days : 30;
+}
+
+function getGrantConfirmMessage(subscription?: UserSubscriptionView) {
+  const lines = [
+    "授予会直接替换用户当前订阅，并重置订阅钱包额度。该操作不会扣除用户余额。",
+  ];
+
+  if (subscription?.subscription) {
+    lines.push("该用户已有订阅，继续授予将失效旧订阅并创建新订阅。");
+  }
+
+  return lines.join("\n\n");
 }
 
 function formatDateTime(value?: string) {
