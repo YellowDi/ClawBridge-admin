@@ -189,6 +189,7 @@ function AdminSidebar({ pathname }: { pathname: string }) {
 function SidebarContents({ pathname }: { pathname: string }) {
   const { logout, session } = useAuth();
   const username = session?.user?.username ?? siteConfig.name;
+  const avatarUrl = session?.user?.avatarUrl?.trim() ?? "";
 
   return (
     <>
@@ -226,6 +227,9 @@ function SidebarContents({ pathname }: { pathname: string }) {
       <Sidebar.Footer>
         <div className="flex items-center gap-3 px-2 py-2">
           <Avatar className="size-8">
+            {avatarUrl ? (
+              <Avatar.Image alt={`${username} 头像`} src={avatarUrl} />
+            ) : null}
             <Avatar.Fallback>{getUserInitials(username)}</Avatar.Fallback>
           </Avatar>
           <div className="min-w-0 flex-1" data-sidebar="label">

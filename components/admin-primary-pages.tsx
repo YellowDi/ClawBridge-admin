@@ -36,6 +36,7 @@ type AdminUser = {
   accountNature: string;
   accountType: string;
   adminSeatLimit: number;
+  avatarUrl: string;
   billingMode: string;
   createdAt: string;
   displayName: string;
@@ -82,6 +83,9 @@ const USER_BASE_COLUMNS: DataGridColumn<AdminUser>[] = [
     cell: (item) => (
       <div className="flex items-center gap-3">
         <Avatar className="size-8">
+          {item.avatarUrl ? (
+            <Avatar.Image alt={`${item.username} 头像`} src={item.avatarUrl} />
+          ) : null}
           <Avatar.Fallback>{getUserInitials(item.username)}</Avatar.Fallback>
         </Avatar>
         <div className="flex min-w-0 flex-col">
@@ -434,6 +438,7 @@ function toAdminUser(
     accountNature,
     accountType,
     adminSeatLimit,
+    avatarUrl: user.avatarUrl?.trim() ?? "",
     billingMode,
     createdAt: formatDateTime(user.createdAt),
     displayName: user.displayName?.trim() ?? "",

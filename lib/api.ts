@@ -96,6 +96,7 @@ export interface User {
   billingMode?: "metered" | "subscription" | (string & {});
   createdAt?: string;
   displayName?: string;
+  avatarUrl?: string;
   enabled?: boolean;
   id?: number;
   isAdmin?: boolean;
