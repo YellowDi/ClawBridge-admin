@@ -12,8 +12,14 @@ import {
   UserAuthorizationPanel,
   UserBalancePanel,
 } from "@/components/user-access-dialog";
+import { UserSubscriptionPanel } from "@/components/user-subscription-panel";
 
-type UserSettingsTab = "access" | "balance" | "edit" | "knowledge";
+type UserSettingsTab =
+  | "access"
+  | "balance"
+  | "edit"
+  | "knowledge"
+  | "subscription";
 
 export function UserSettingsDialog({
   onUpdated,
@@ -52,7 +58,7 @@ export function UserSettingsDialog({
                   <Tabs.ListContainer className="w-full">
                     <Tabs.List
                       aria-label="用户设置"
-                      className="grid w-full grid-cols-4"
+                      className="grid w-full grid-cols-5"
                     >
                       <Tabs.Tab
                         className="justify-center whitespace-nowrap"
@@ -80,6 +86,13 @@ export function UserSettingsDialog({
                         id="balance"
                       >
                         余额
+                        <Tabs.Indicator />
+                      </Tabs.Tab>
+                      <Tabs.Tab
+                        className="justify-center whitespace-nowrap"
+                        id="subscription"
+                      >
+                        订阅
                         <Tabs.Indicator />
                       </Tabs.Tab>
                     </Tabs.List>
@@ -120,6 +133,14 @@ export function UserSettingsDialog({
                 onClose={() => modal.close()}
               />
             ) : null}
+            {activeTab === "subscription" ? (
+              <UserSubscriptionPanel
+                isActive={modal.isOpen}
+                user={user}
+                onChanged={onUpdated}
+                onClose={() => modal.close()}
+              />
+            ) : null}
           </Modal.Dialog>
         </Modal.Container>
       </Modal.Backdrop>
@@ -132,7 +153,8 @@ function toSettingsTab(key: Key): UserSettingsTab {
     key === "access" ||
     key === "balance" ||
     key === "edit" ||
-    key === "knowledge"
+    key === "knowledge" ||
+    key === "subscription"
   ) {
     return key;
   }

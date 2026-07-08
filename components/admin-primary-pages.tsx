@@ -33,13 +33,20 @@ type UserFilter = "admin" | "all" | "disabled";
 type AdminUser = {
   id: string;
   accountId: string;
+  accountNature: string;
+  accountType: string;
+  billingMode: string;
   createdAt: string;
+  displayName: string;
   enabled: boolean;
   isAdmin: boolean;
   knowledgeBaseIds: number[];
+  parentUserId: number;
   role: string;
+  seatLimit: number;
   status: UserStatus;
   updatedAt: string;
+  usedSeats: number;
   userId: number | null;
   username: string;
 };
@@ -53,6 +60,11 @@ type UsersLoadState = {
 const USER_STATUS_COLOR: Record<UserStatus, "danger" | "success"> = {
   已停用: "danger",
   正常: "success",
+};
+
+const BILLING_MODE_COLOR: Record<string, "accent" | "default"> = {
+  metered: "default",
+  subscription: "accent",
 };
 
 const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("zh-CN", {
@@ -74,7 +86,7 @@ const USER_BASE_COLUMNS: DataGridColumn<AdminUser>[] = [
         <div className="flex min-w-0 flex-col">
           <span className="truncate text-xs font-medium">{item.username}</span>
           <span className="text-muted truncate text-xs">
-            ID {item.accountId}
+            {item.displayName || `ID ${item.accountId}`}
           </span>
         </div>
       </div>
@@ -87,22 +99,64 @@ const USER_BASE_COLUMNS: DataGridColumn<AdminUser>[] = [
     width: 240,
   },
   {
-    accessorKey: "accountId",
+    cell: (item) => (
+      <div className="flex min-w-0 flex-col">
+        <span className="truncate text-xs font-medium">
+          {toAccountTypeLabel(item)}
+        </span>
+        <span className="text-muted truncate text-xs">
+          {item.parentUserId > 0 ? `主账号 ${item.parentUserId}` : "主账号"}
+        </span>
+      </div>
+    ),
+    allowsSorting: true,
+    header: "账号类型",
+    headerClassName: "whitespace-nowrap",
+    id: "accountType",
+    width: 130,
+  },
+  {
+    cell: (item) => toAccountNatureLabel(item.accountNature),
     allowsSorting: true,
     cellClassName: "whitespace-nowrap",
-    header: "ID",
+    header: "账号性质",
     headerClassName: "whitespace-nowrap",
-    id: "accountId",
+    id: "accountNature",
     width: 96,
   },
   {
-    accessorKey: "role",
-    allowsSorting: true,
-    cellClassName: "whitespace-nowrap",
-    header: "角色",
+    cell: (item) =>
+      item.parentUserId > 0 ? "-" : `${item.usedSeats}/${item.seatLimit}`,
+    cellClassName: "whitespace-nowrap tabular-nums",
+    header: "席位",
     headerClassName: "whitespace-nowrap",
-    id: "role",
+    id: "seats",
+    width: 88,
+  },
+  {
+    cell: (item) => (
+      <Chip
+        className="whitespace-nowrap"
+        color={BILLING_MODE_COLOR[item.billingMode] ?? "default"}
+        size="sm"
+        variant="soft"
+      >
+        {toBillingModeLabel(item.billingMode)}
+      </Chip>
+    ),
+    cellClassName: "whitespace-nowrap",
+    header: "计费模式",
+    headerClassName: "whitespace-nowrap",
+    id: "billingMode",
     width: 96,
+  },
+  {
+    cell: (item) => (item.isAdmin ? "是" : "否"),
+    cellClassName: "whitespace-nowrap",
+    header: "管理员",
+    headerClassName: "whitespace-nowrap",
+    id: "isAdmin",
+    width: 88,
   },
   {
     cellClassName: "whitespace-nowrap",
@@ -120,26 +174,6 @@ const USER_BASE_COLUMNS: DataGridColumn<AdminUser>[] = [
     headerClassName: "whitespace-nowrap",
     id: "status",
     width: 88,
-  },
-  {
-    accessorKey: "createdAt",
-    align: "end",
-    allowsSorting: true,
-    cellClassName: "whitespace-nowrap",
-    header: "创建时间",
-    headerClassName: "whitespace-nowrap",
-    id: "createdAt",
-    width: 140,
-  },
-  {
-    accessorKey: "updatedAt",
-    align: "end",
-    allowsSorting: true,
-    cellClassName: "whitespace-nowrap",
-    header: "更新时间",
-    headerClassName: "whitespace-nowrap",
-    id: "updatedAt",
-    width: 140,
   },
 ];
 
@@ -168,7 +202,9 @@ export function UsersPage() {
         setLoadState({
           error: null,
           isLoading: false,
-          users: response.map(toAdminUser),
+          users: response.map((user, index) =>
+            toAdminUser(user, index, response),
+          ),
         });
       }
     } catch (error) {
@@ -259,15 +295,15 @@ export function UsersPage() {
           },
           {
             helper: "拥有全部模型权限",
-            label: "管理员",
+            label: "团队账号",
             tone: "accent",
-            value: formatCount(userStats.admin, isLoading),
+            value: formatCount(userStats.team, isLoading),
           },
           {
-            helper: "不可登录账号",
-            label: "已停用",
-            tone: "danger",
-            value: formatCount(userStats.disabled, isLoading),
+            helper: "当前使用套餐额度",
+            label: "订阅账号",
+            tone: "warning",
+            value: formatCount(userStats.subscription, isLoading),
           },
         ]}
       />
@@ -303,7 +339,7 @@ export function UsersPage() {
           >
             <SearchField.Group>
               <SearchField.SearchIcon />
-              <SearchField.Input placeholder="搜索用户名、ID 或角色" />
+              <SearchField.Input placeholder="搜索用户名、展示名或账号类型" />
               <SearchField.ClearButton />
             </SearchField.Group>
           </SearchField>
@@ -312,7 +348,7 @@ export function UsersPage() {
           aria-label="用户列表"
           className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
           columns={userColumns}
-          contentClassName="min-w-[1020px]"
+          contentClassName="min-w-[1080px]"
           data={filteredUsers}
           defaultSortDescriptor={{
             column: "username",
@@ -371,12 +407,25 @@ function UserRowActions({
   );
 }
 
-function toAdminUser(user: ApiUser, index: number): AdminUser {
+function toAdminUser(
+  user: ApiUser,
+  index: number,
+  users: ApiUser[],
+): AdminUser {
   const username = user.username?.trim() || `用户 ${user.id ?? index + 1}`;
+  const parentUserId = user.parentUserId ?? 0;
+  const accountType = user.accountType ?? (parentUserId > 0 ? "sub" : "main");
+  const accountNature = user.accountNature ?? "personal";
+  const billingMode = user.billingMode ?? "metered";
+  const seatLimit = accountNature === "team" ? (user.seatLimit ?? 0) : 0;
 
   return {
     accountId: user.id == null ? "-" : String(user.id),
+    accountNature,
+    accountType,
+    billingMode,
     createdAt: formatDateTime(user.createdAt),
+    displayName: user.displayName?.trim() ?? "",
     enabled: user.enabled !== false,
     id:
       user.id == null
@@ -384,9 +433,12 @@ function toAdminUser(user: ApiUser, index: number): AdminUser {
         : String(user.id),
     isAdmin: user.isAdmin === true,
     knowledgeBaseIds: getKnowledgeBaseIds(user.knowledgeBases),
+    parentUserId,
     role: user.isAdmin ? "管理员" : "普通用户",
+    seatLimit,
     status: user.enabled === false ? "已停用" : "正常",
     updatedAt: formatDateTime(user.updatedAt),
+    usedSeats: getUsedSeatCount(user, users),
     userId: user.id ?? null,
     username,
   };
@@ -394,9 +446,16 @@ function toAdminUser(user: ApiUser, index: number): AdminUser {
 
 function toEditableUserSummary(user: AdminUser, id: number) {
   return {
+    accountNature: user.accountNature,
+    accountType: user.accountType,
+    billingMode: user.billingMode,
+    displayName: user.displayName,
     enabled: user.enabled,
     id,
     isAdmin: user.isAdmin,
+    parentUserId: user.parentUserId,
+    seatLimit: user.seatLimit,
+    usedSeats: user.usedSeats,
     username: user.username,
   };
 }
@@ -430,6 +489,9 @@ function getUserStats(users: AdminUser[]) {
     admin: users.filter((user) => user.role === "管理员").length,
     disabled: users.filter((user) => user.status === "已停用").length,
     enabled: users.filter((user) => user.status === "正常").length,
+    subscription: users.filter((user) => user.billingMode === "subscription")
+      .length,
+    team: users.filter((user) => user.accountNature === "team").length,
     total: users.length,
   };
 }
@@ -462,9 +524,16 @@ function filterUsers(
     if (userFilter === "disabled" && user.status !== "已停用") return false;
     if (!normalizedQuery) return true;
 
-    return [user.username, user.accountId, user.role, user.status].some(
-      (value) => value.toLowerCase().includes(normalizedQuery),
-    );
+    return [
+      user.username,
+      user.displayName,
+      user.accountId,
+      user.role,
+      user.status,
+      toAccountTypeLabel(user),
+      toAccountNatureLabel(user.accountNature),
+      toBillingModeLabel(user.billingMode),
+    ].some((value) => value.toLowerCase().includes(normalizedQuery));
   });
 }
 
@@ -476,6 +545,32 @@ function toUserFilter(key: Key): UserFilter {
 
 function formatCount(value: number, isLoading: boolean) {
   return isLoading ? "-" : String(value);
+}
+
+function getUsedSeatCount(user: ApiUser, users: ApiUser[]) {
+  const id = user.id;
+
+  if (id == null) return 0;
+
+  return users.filter(
+    (item) => item.parentUserId === id && item.accountType === "sub",
+  ).length;
+}
+
+function toAccountTypeLabel(
+  user: Pick<AdminUser, "accountType" | "parentUserId">,
+) {
+  return user.accountType === "sub" && user.parentUserId > 0
+    ? "子账号"
+    : "主账号";
+}
+
+function toAccountNatureLabel(value: string) {
+  return value === "team" ? "团队" : "个人";
+}
+
+function toBillingModeLabel(value: string) {
+  return value === "subscription" ? "订阅" : "按量";
 }
 
 function getUsersEmptyState({

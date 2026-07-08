@@ -41,9 +41,13 @@ export interface ResUsers {
 }
 
 export interface ReqUserCreate {
+  accountNature?: "personal" | "team" | (string & {});
+  displayName?: string;
   enabled?: boolean;
   isAdmin?: boolean;
+  parentUserId?: number;
   password?: string;
+  seatLimit?: number;
   username?: string;
   [property: string]: unknown;
 }
@@ -54,10 +58,13 @@ export interface ReqUserDetail {
 }
 
 export interface ReqUserUpdate {
+  accountNature?: "personal" | "team" | (string & {});
+  displayName?: string;
   enabled?: boolean;
   id?: number;
   isAdmin?: boolean;
   password?: string;
+  seatLimit?: number;
   username?: string;
   [property: string]: unknown;
 }
@@ -83,13 +90,19 @@ export interface HealthStatus {
 }
 
 export interface User {
+  accountNature?: "personal" | "team" | (string & {});
+  accountType?: "main" | "sub" | (string & {});
+  billingMode?: "metered" | "subscription" | (string & {});
   createdAt?: string;
+  displayName?: string;
   enabled?: boolean;
   id?: number;
   isAdmin?: boolean;
   isDelete?: number;
   knowledgeBases?: KnowledgeBase[];
+  parentUserId?: number;
   password?: string;
+  seatLimit?: number;
   updatedAt?: string;
   username?: string;
   [property: string]: unknown;
@@ -561,6 +574,180 @@ export interface UserBalanceTransaction {
 export interface UserBalanceAdjustResult {
   balance?: UserBalance;
   transaction?: UserBalanceTransaction;
+  [property: string]: unknown;
+}
+
+export interface SubscriptionPlanWindow {
+  enabled?: boolean;
+  id?: number;
+  planId?: number;
+  quotaAmount?: string;
+  sortOrder?: number;
+  windowHours?: number;
+  [property: string]: unknown;
+}
+
+export interface SubscriptionPlan {
+  createdAt?: string;
+  description?: string;
+  enabled?: boolean;
+  id?: number;
+  isDelete?: number;
+  monthlyPriceAmount?: string;
+  name?: string;
+  remark?: string;
+  seatLimit?: number;
+  updatedAt?: string;
+  windows?: SubscriptionPlanWindow[];
+  [property: string]: unknown;
+}
+
+export interface ReqSubscriptionPlanWindow {
+  enabled?: boolean;
+  id?: number;
+  quotaAmount?: string;
+  sortOrder?: number;
+  windowHours?: number;
+  [property: string]: unknown;
+}
+
+export interface ReqSubscriptionPlanList extends ReqPagination {
+  enabled?: boolean;
+  [property: string]: unknown;
+}
+
+export interface ReqSubscriptionPlanCreate {
+  description?: string;
+  enabled?: boolean;
+  monthlyPriceAmount?: string;
+  name?: string;
+  remark?: string;
+  seatLimit?: number;
+  windows?: ReqSubscriptionPlanWindow[];
+  [property: string]: unknown;
+}
+
+export interface ReqSubscriptionPlanDetail {
+  id?: number;
+  [property: string]: unknown;
+}
+
+export interface ReqSubscriptionPlanUpdate
+  extends ReqSubscriptionPlanCreate,
+    ReqSubscriptionPlanDetail {}
+
+export interface ResSubscriptionPlan {
+  data?: SubscriptionPlan;
+  [property: string]: unknown;
+}
+
+export interface ResSubscriptionPlans {
+  data?: SubscriptionPlan[];
+  items?: SubscriptionPlan[];
+  pagination?: Pagination;
+  [property: string]: unknown;
+}
+
+export interface ReqSubscriptionGrant {
+  planId?: number;
+  userId?: number;
+  [property: string]: unknown;
+}
+
+export interface ReqCurrentSubscription {
+  userId?: number;
+  [property: string]: unknown;
+}
+
+export interface AdminUserSubscription {
+  autoRenew?: boolean;
+  billingUserId?: number;
+  createdAt?: string;
+  expiresAt?: string;
+  id?: number;
+  isDelete?: number;
+  planId?: number;
+  startsAt?: string;
+  status?: string;
+  updatedAt?: string;
+  userId?: number;
+  [property: string]: unknown;
+}
+
+export interface AdminSubscriptionWallet {
+  createdAt?: string;
+  id?: number;
+  isDelete?: number;
+  periodEnd?: string;
+  periodStart?: string;
+  planId?: number;
+  status?: string;
+  subscriptionId?: number;
+  updatedAt?: string;
+  userId?: number;
+  [property: string]: unknown;
+}
+
+export interface SubscriptionWalletWindow {
+  createdAt?: string;
+  id?: number;
+  isExceeded?: boolean;
+  isDelete?: number;
+  lastResetAt?: string;
+  nextResetAt?: string;
+  overageAmount?: string;
+  planWindowId?: number;
+  quotaAmount?: string;
+  remainingAmount?: string;
+  remainingPercent?: string;
+  usedAmount?: string;
+  usedPercent?: string;
+  updatedAt?: string;
+  walletId?: number;
+  windowHours?: number;
+  [property: string]: unknown;
+}
+
+export interface UserSubscriptionView {
+  balanceTransaction?: UserBalanceTransaction;
+  billingMode?: "metered" | "subscription" | (string & {});
+  plan?: SubscriptionPlan;
+  subscription?: AdminUserSubscription;
+  wallet?: AdminSubscriptionWallet;
+  windows?: SubscriptionWalletWindow[];
+  [property: string]: unknown;
+}
+
+export interface ReqSubscriptionTransactionsList extends ReqPagination {
+  userId?: number;
+  [property: string]: unknown;
+}
+
+export interface SubscriptionTransaction {
+  amount?: string;
+  billingUserId?: number;
+  createdAt?: string;
+  description?: string;
+  id?: number;
+  isDelete?: number;
+  metadataJson?: string;
+  planId?: number;
+  subscriptionId?: number;
+  tokenUsageId?: number | string;
+  type?: "grant" | "purchase" | "usage" | "reset" | "adjust" | (string & {});
+  updatedAt?: string;
+  userId?: number;
+  usedAfter?: string;
+  usedBefore?: string;
+  walletId?: number;
+  walletWindowId?: number;
+  [property: string]: unknown;
+}
+
+export interface ResSubscriptionTransactions {
+  data?: SubscriptionTransaction[];
+  items?: SubscriptionTransaction[];
+  pagination?: Pagination;
   [property: string]: unknown;
 }
 
@@ -1730,6 +1917,119 @@ export async function adjustUserBalance(
       method: "POST",
     },
   );
+}
+
+export async function listSubscriptionPlans(
+  request: ReqSubscriptionPlanList = {},
+): Promise<SubscriptionPlan[]> {
+  const response = await requestJson<ResSubscriptionPlans | SubscriptionPlan[]>(
+    "/api/subscriptions/plans/list",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+
+  if (Array.isArray(response)) return response;
+
+  return response.data ?? response.items ?? [];
+}
+
+export async function createSubscriptionPlan(
+  request: ReqSubscriptionPlanCreate,
+): Promise<SubscriptionPlan | undefined> {
+  const response = await requestJson<
+    ResSubscriptionPlan | SubscriptionPlan | undefined
+  >("/api/subscriptions/plans/create", {
+    body: JSON.stringify(request),
+    method: "POST",
+  });
+
+  if (!response) return undefined;
+  if ("data" in response) return (response as ResSubscriptionPlan).data;
+
+  return response;
+}
+
+export async function getSubscriptionPlanDetail(
+  id: number,
+): Promise<SubscriptionPlan | undefined> {
+  const response = await requestJson<
+    ResSubscriptionPlan | SubscriptionPlan | undefined
+  >("/api/subscriptions/plans/detail", {
+    body: JSON.stringify({ id } satisfies ReqSubscriptionPlanDetail),
+    method: "POST",
+  });
+
+  if (!response) return undefined;
+  if ("data" in response) return (response as ResSubscriptionPlan).data;
+
+  return response;
+}
+
+export async function updateSubscriptionPlan(
+  request: ReqSubscriptionPlanUpdate,
+): Promise<SubscriptionPlan | undefined> {
+  const response = await requestJson<
+    ResSubscriptionPlan | SubscriptionPlan | undefined
+  >("/api/subscriptions/plans/update", {
+    body: JSON.stringify(request),
+    method: "POST",
+  });
+
+  if (!response) return undefined;
+  if ("data" in response) return (response as ResSubscriptionPlan).data;
+
+  return response;
+}
+
+export async function deleteSubscriptionPlan(id: number): Promise<void> {
+  await requestJson<ControllerResponse | unknown>(
+    "/api/subscriptions/plans/delete",
+    {
+      body: JSON.stringify({ id } satisfies ReqSubscriptionPlanDetail),
+      method: "POST",
+    },
+  );
+}
+
+export async function grantUserSubscription(
+  request: ReqSubscriptionGrant,
+): Promise<UserSubscriptionView | undefined> {
+  return requestJson<UserSubscriptionView | undefined>(
+    "/api/subscriptions/grant",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+}
+
+export async function getCurrentSubscription(
+  request: ReqCurrentSubscription,
+): Promise<UserSubscriptionView | undefined> {
+  return requestJson<UserSubscriptionView | undefined>(
+    "/api/subscriptions/current",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+}
+
+export async function listSubscriptionTransactions(
+  request: ReqSubscriptionTransactionsList,
+): Promise<SubscriptionTransaction[]> {
+  const response = await requestJson<
+    ResSubscriptionTransactions | SubscriptionTransaction[]
+  >("/api/subscriptions/transactions/list", {
+    body: JSON.stringify(request),
+    method: "POST",
+  });
+
+  if (Array.isArray(response)) return response;
+
+  return response.data ?? response.items ?? [];
 }
 
 export async function listConversations(

@@ -5,27 +5,76 @@ import type {
   OpenClawConfigSnapshot,
   OpenClawMCPApplyResult,
   OpenClawRPCInstance,
+  SubscriptionPlan,
+  SubscriptionTransaction,
   TencentCosSts,
   User,
+  UserSubscriptionView,
 } from "@/lib/api";
 
 import {
   applyOpenClawMCPConfig,
   createMCPServer,
+  createSubscriptionPlan,
   deleteMCPServer,
+  deleteSubscriptionPlan,
+  getCurrentSubscription,
   getMCPServerDetail,
   getOpenClawConfigSnapshot,
+  getSubscriptionPlanDetail,
   getTencentCosSts,
+  grantUserSubscription,
   listMCPServers,
   listOpenClawRPCInstances,
+  listSubscriptionPlans,
+  listSubscriptionTransactions,
   updateMCPServer,
+  updateSubscriptionPlan,
 } from "@/lib/api";
 
 function expectType<T>(_value: T) {}
 
 expectType<KnowledgeBase[] | undefined>({} as User["knowledgeBases"]);
+expectType<"main" | "sub" | string | undefined>({} as User["accountType"]);
+expectType<"personal" | "team" | string | undefined>(
+  {} as User["accountNature"],
+);
+expectType<"metered" | "subscription" | string | undefined>(
+  {} as User["billingMode"],
+);
 expectType<KnowledgeBase[] | undefined>({} as Agent["knowledgeBases"]);
 expectType<Promise<TencentCosSts | undefined>>(getTencentCosSts());
+expectType<Promise<SubscriptionPlan[]>>(listSubscriptionPlans());
+expectType<Promise<SubscriptionPlan | undefined>>(getSubscriptionPlanDetail(1));
+expectType<Promise<SubscriptionPlan | undefined>>(
+  createSubscriptionPlan({
+    enabled: true,
+    monthlyPriceAmount: "300.0000000000",
+    name: "pro",
+    seatLimit: 3,
+    windows: [
+      {
+        enabled: true,
+        quotaAmount: "500.0000000000",
+        sortOrder: 1,
+        windowHours: 5,
+      },
+    ],
+  }),
+);
+expectType<Promise<SubscriptionPlan | undefined>>(
+  updateSubscriptionPlan({ id: 1, name: "pro" }),
+);
+expectType<Promise<void>>(deleteSubscriptionPlan(1));
+expectType<Promise<UserSubscriptionView | undefined>>(
+  getCurrentSubscription({ userId: 1 }),
+);
+expectType<Promise<UserSubscriptionView | undefined>>(
+  grantUserSubscription({ planId: 1, userId: 1 }),
+);
+expectType<Promise<SubscriptionTransaction[]>>(
+  listSubscriptionTransactions({ page: 1, pageSize: 20, userId: 1 }),
+);
 expectType<Promise<MCPServer[]>>(listMCPServers());
 expectType<Promise<OpenClawRPCInstance[]>>(listOpenClawRPCInstances());
 expectType<Promise<OpenClawConfigSnapshot | undefined>>(

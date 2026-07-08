@@ -36,6 +36,12 @@ const AdminPageActionsContext =
 const PLATFORM_ITEMS: readonly NavItem[] = [
   { href: "/", icon: "dashboard", key: "overview", label: "概览" },
   { href: "/users", icon: "users", key: "users", label: "用户" },
+  {
+    href: "/subscriptions",
+    icon: "database",
+    key: "subscriptions",
+    label: "订阅套餐",
+  },
   { href: "/models", icon: "model", key: "models", label: "模型" },
   { href: "/agents", icon: "agent", key: "agents", label: "Agent 编排" },
 ] as const;

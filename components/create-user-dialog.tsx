@@ -1,6 +1,6 @@
 "use client";
 
-import type { FormEvent } from "react";
+import type { FormEvent, Key } from "react";
 import type { User } from "@/lib/api";
 
 import {
@@ -17,12 +17,23 @@ import {
 import { useEffect, useRef, useState } from "react";
 
 import { AdminIcon } from "@/components/admin-icons";
-import { createUser, deleteUser, getUserDetail, updateUser } from "@/lib/api";
+import {
+  createUser,
+  deleteUser,
+  getUserDetail,
+  listUsers,
+  updateUser,
+} from "@/lib/api";
 
 type UserForm = {
+  accountNature: "personal" | "team";
+  accountType: "main" | "sub";
+  displayName: string;
   enabled: boolean;
   isAdmin: boolean;
+  parentUserId: string;
   password: string;
+  seatLimit: string;
   username: string;
 };
 
@@ -30,6 +41,8 @@ type CreateUserState = {
   error: string | null;
   form: UserForm;
   isCreating: boolean;
+  isLoadingParents: boolean;
+  parentCandidates: User[];
 };
 
 type EditUserState = {
@@ -46,18 +59,30 @@ type DeleteUserState = {
 };
 
 export type EditableUserSummary = {
+  accountNature?: string;
+  accountType?: string;
+  billingMode?: string;
+  displayName?: string;
   enabled: boolean;
   id: number;
   isAdmin: boolean;
+  parentUserId?: number;
+  seatLimit?: number;
+  usedSeats?: number;
   username: string;
 };
 
 type UserDeleteDialogState = ReturnType<typeof useOverlayState>;
 
 const DEFAULT_USER_FORM: UserForm = {
+  accountNature: "personal",
+  accountType: "main",
+  displayName: "",
   enabled: true,
   isAdmin: false,
+  parentUserId: "",
   password: "",
+  seatLimit: "0",
   username: "",
 };
 
@@ -66,6 +91,8 @@ export function CreateUserDialog({ onCreated }: { onCreated: () => void }) {
     error: null,
     form: DEFAULT_USER_FORM,
     isCreating: false,
+    isLoadingParents: false,
+    parentCandidates: [],
   });
   const modal = useOverlayState({
     onOpenChange(isOpen) {
@@ -75,10 +102,47 @@ export function CreateUserDialog({ onCreated }: { onCreated: () => void }) {
         error: null,
         form: DEFAULT_USER_FORM,
         isCreating: false,
+        isLoadingParents: false,
+        parentCandidates: [],
       });
     },
   });
-  const { error, form, isCreating } = state;
+  const { error, form, isCreating, isLoadingParents, parentCandidates } = state;
+
+  useEffect(() => {
+    if (!modal.isOpen) return;
+
+    let cancelled = false;
+
+    setState((current) => ({
+      ...current,
+      isLoadingParents: true,
+    }));
+
+    void listUsers({ pageSize: 500 })
+      .then((users) => {
+        if (cancelled) return;
+
+        setState((current) => ({
+          ...current,
+          isLoadingParents: false,
+          parentCandidates: users,
+        }));
+      })
+      .catch(() => {
+        if (cancelled) return;
+
+        setState((current) => ({
+          ...current,
+          isLoadingParents: false,
+          parentCandidates: [],
+        }));
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [modal.isOpen]);
 
   function closeDialog() {
     if (isCreating) return;
@@ -100,6 +164,9 @@ export function CreateUserDialog({ onCreated }: { onCreated: () => void }) {
     event.preventDefault();
 
     const username = form.username.trim();
+    const displayName = form.displayName.trim();
+    const isSubAccount = form.accountType === "sub";
+    const parentUserId = Number(form.parentUserId);
 
     if (!username || !form.password) {
       const message = "请输入用户名和密码。";
@@ -113,6 +180,52 @@ export function CreateUserDialog({ onCreated }: { onCreated: () => void }) {
       return;
     }
 
+    if (isSubAccount) {
+      const parent = parentCandidates.find((user) => user.id === parentUserId);
+
+      if (!parent) {
+        const message = "请选择所属主账号。";
+
+        setState((current) => ({
+          ...current,
+          error: message,
+        }));
+        toast.danger(message);
+
+        return;
+      }
+
+      const parentCheck = validateParentForSubAccount(parent, parentCandidates);
+
+      if (parentCheck) {
+        setState((current) => ({
+          ...current,
+          error: parentCheck,
+        }));
+        toast.danger(parentCheck);
+
+        return;
+      }
+    }
+
+    let seatLimit = 0;
+
+    if (!isSubAccount && form.accountNature === "team") {
+      try {
+        seatLimit = parseSeatLimit(form.seatLimit);
+      } catch (error) {
+        const message = getUserActionError(error, "席位数量无效。");
+
+        setState((current) => ({
+          ...current,
+          error: message,
+        }));
+        toast.danger(message);
+
+        return;
+      }
+    }
+
     setState((current) => ({
       ...current,
       error: null,
@@ -121,8 +234,15 @@ export function CreateUserDialog({ onCreated }: { onCreated: () => void }) {
 
     try {
       await createUser({
+        ...(displayName ? { displayName } : {}),
         enabled: form.enabled,
-        isAdmin: form.isAdmin,
+        ...(isSubAccount
+          ? { isAdmin: false, parentUserId }
+          : {
+              accountNature: form.accountNature,
+              isAdmin: form.isAdmin,
+              seatLimit,
+            }),
         password: form.password,
         username,
       });
@@ -131,6 +251,8 @@ export function CreateUserDialog({ onCreated }: { onCreated: () => void }) {
         error: null,
         form: DEFAULT_USER_FORM,
         isCreating: false,
+        isLoadingParents: false,
+        parentCandidates: [],
       });
       onCreated();
       toast.success("用户已创建。");
@@ -168,6 +290,9 @@ export function CreateUserDialog({ onCreated }: { onCreated: () => void }) {
                 <UserFormFields
                   form={form}
                   isDisabled={isCreating}
+                  isLoadingParents={isLoadingParents}
+                  mode="create"
+                  parentCandidates={parentCandidates}
                   passwordAutoComplete="new-password"
                   onChange={updateForm}
                 />
@@ -327,6 +452,8 @@ export function UserEditPanel({
     if (isLoading || loadedUserId == null) return;
 
     const username = form.username.trim();
+    const displayName = form.displayName.trim();
+    const isSubAccount = isSubAccountForm(form);
 
     if (!username) {
       const message = "请输入用户名。";
@@ -340,6 +467,52 @@ export function UserEditPanel({
       return;
     }
 
+    let seatLimit = 0;
+
+    if (!isSubAccount) {
+      const usedSeats = user.usedSeats ?? 0;
+
+      if (form.accountNature === "personal" && usedSeats > 0) {
+        const message = "该团队账号已有子账号，不能切换为个人账号。";
+
+        setState((current) => ({
+          ...current,
+          error: message,
+        }));
+        toast.danger(message);
+
+        return;
+      }
+
+      if (form.accountNature === "team") {
+        try {
+          seatLimit = parseSeatLimit(form.seatLimit);
+        } catch (error) {
+          const message = getUserActionError(error, "席位数量无效。");
+
+          setState((current) => ({
+            ...current,
+            error: message,
+          }));
+          toast.danger(message);
+
+          return;
+        }
+
+        if (seatLimit < usedSeats) {
+          const message = "席位数量不能小于已有子账号数量。";
+
+          setState((current) => ({
+            ...current,
+            error: message,
+          }));
+          toast.danger(message);
+
+          return;
+        }
+      }
+    }
+
     setState((current) => ({
       ...current,
       error: null,
@@ -348,10 +521,13 @@ export function UserEditPanel({
 
     try {
       await updateUser({
+        accountNature: isSubAccount ? undefined : form.accountNature,
+        displayName,
         enabled: form.enabled,
         id: loadedUserId,
-        isAdmin: form.isAdmin,
+        isAdmin: isSubAccount ? false : form.isAdmin,
         password: form.password,
+        seatLimit: isSubAccount ? undefined : seatLimit,
         username,
       });
       onClose();
@@ -360,7 +536,7 @@ export function UserEditPanel({
         form: toUserForm({
           ...user,
           enabled: form.enabled,
-          isAdmin: form.isAdmin,
+          isAdmin: isSubAccount ? false : form.isAdmin,
           username,
         }),
         isLoading: false,
@@ -390,8 +566,12 @@ export function UserEditPanel({
         <UserFormFields
           form={form}
           isDisabled={isBusy || loadedUserId == null}
+          isLoadingParents={false}
+          mode="edit"
+          parentCandidates={[]}
           passwordAutoComplete="new-password"
           passwordPlaceholder="留空则不修改密码"
+          usedSeats={user.usedSeats ?? 0}
           onChange={updateForm}
         />
         {error ? <UserFormError>{error}</UserFormError> : null}
@@ -525,18 +705,100 @@ export function DeleteUserDialog({
 function UserFormFields({
   form,
   isDisabled,
+  isLoadingParents,
+  mode,
   onChange,
   passwordAutoComplete,
   passwordPlaceholder,
+  parentCandidates,
+  usedSeats = 0,
 }: {
   form: UserForm;
   isDisabled: boolean;
+  isLoadingParents: boolean;
+  mode: "create" | "edit";
   onChange: (patch: Partial<UserForm>) => void;
   passwordAutoComplete: string;
   passwordPlaceholder?: string;
+  parentCandidates: User[];
+  usedSeats?: number;
 }) {
+  const isSubAccount = isSubAccountForm(form);
+  const isTeam = form.accountNature === "team";
+
   return (
     <>
+      <Select
+        fullWidth
+        className="min-w-0"
+        isDisabled={isDisabled || mode === "edit"}
+        selectedKey={form.accountType}
+        variant="secondary"
+        onSelectionChange={(key) => {
+          const accountType = toAccountType(key);
+
+          onChange({
+            accountType,
+            isAdmin: accountType === "sub" ? false : form.isAdmin,
+            parentUserId: accountType === "sub" ? form.parentUserId : "",
+          });
+        }}
+      >
+        <Label>账号类型</Label>
+        <Select.Trigger>
+          <Select.Value />
+          <Select.Indicator />
+        </Select.Trigger>
+        <Select.Popover>
+          <ListBox>
+            <ListBox.Item id="main" textValue="主账号">
+              主账号
+            </ListBox.Item>
+            <ListBox.Item id="sub" textValue="子账号">
+              子账号
+            </ListBox.Item>
+          </ListBox>
+        </Select.Popover>
+      </Select>
+
+      {mode === "create" && isSubAccount ? (
+        <Select
+          fullWidth
+          className="min-w-0"
+          isDisabled={isDisabled || isLoadingParents}
+          selectedKey={form.parentUserId || null}
+          variant="secondary"
+          onSelectionChange={(key) =>
+            onChange({ parentUserId: key == null ? "" : String(key) })
+          }
+        >
+          <Label>所属主账号</Label>
+          <Select.Trigger>
+            <Select.Value />
+            <Select.Indicator />
+          </Select.Trigger>
+          <Select.Popover>
+            <ListBox>
+              {parentCandidates.filter(isEligibleParentAccount).map((user) => {
+                const id = user.id;
+
+                if (id == null) return null;
+
+                return (
+                  <ListBox.Item
+                    key={id}
+                    id={String(id)}
+                    textValue={getUserName(user)}
+                  >
+                    {getUserName(user)}
+                  </ListBox.Item>
+                );
+              })}
+            </ListBox>
+          </Select.Popover>
+        </Select>
+      ) : null}
+
       <TextField
         fullWidth
         className="flex min-w-0 flex-col gap-2"
@@ -549,6 +811,20 @@ function UserFormFields({
           autoComplete="username"
           value={form.username}
           onChange={(event) => onChange({ username: event.target.value })}
+        />
+      </TextField>
+
+      <TextField
+        fullWidth
+        className="flex min-w-0 flex-col gap-2"
+        isDisabled={isDisabled}
+        variant="secondary"
+      >
+        <Label>展示名</Label>
+        <Input
+          fullWidth
+          value={form.displayName}
+          onChange={(event) => onChange({ displayName: event.target.value })}
         />
       </TextField>
 
@@ -597,8 +873,10 @@ function UserFormFields({
       <Select
         fullWidth
         className="min-w-0"
-        isDisabled={isDisabled}
-        selectedKey={form.isAdmin ? "admin" : "member"}
+        isDisabled={isDisabled || isSubAccount}
+        selectedKey={
+          isSubAccount ? "member" : form.isAdmin ? "admin" : "member"
+        }
         variant="secondary"
         onSelectionChange={(key) => onChange({ isAdmin: key === "admin" })}
       >
@@ -618,6 +896,59 @@ function UserFormFields({
           </ListBox>
         </Select.Popover>
       </Select>
+
+      {!isSubAccount ? (
+        <Select
+          fullWidth
+          className="min-w-0"
+          isDisabled={isDisabled}
+          selectedKey={form.accountNature}
+          variant="secondary"
+          onSelectionChange={(key) => {
+            const accountNature = toAccountNature(key);
+
+            onChange({
+              accountNature,
+              seatLimit: accountNature === "personal" ? "0" : form.seatLimit,
+            });
+          }}
+        >
+          <Label>账号性质</Label>
+          <Select.Trigger>
+            <Select.Value />
+            <Select.Indicator />
+          </Select.Trigger>
+          <Select.Popover>
+            <ListBox>
+              <ListBox.Item id="personal" textValue="个人">
+                个人
+              </ListBox.Item>
+              <ListBox.Item id="team" textValue="团队">
+                团队
+              </ListBox.Item>
+            </ListBox>
+          </Select.Popover>
+        </Select>
+      ) : null}
+
+      {!isSubAccount ? (
+        <TextField
+          fullWidth
+          className="flex min-w-0 flex-col gap-2"
+          isDisabled={isDisabled || !isTeam}
+          variant="secondary"
+        >
+          <Label>席位数量</Label>
+          <Input
+            fullWidth
+            inputMode="numeric"
+            min={usedSeats}
+            type="number"
+            value={isTeam ? form.seatLimit : "0"}
+            onChange={(event) => onChange({ seatLimit: event.target.value })}
+          />
+        </TextField>
+      ) : null}
     </>
   );
 }
@@ -630,24 +961,91 @@ function UserFormError({ children }: { children: string }) {
   );
 }
 
-function toUserForm(user: Pick<User, "enabled" | "isAdmin" | "username">) {
+function toUserForm(
+  user: Partial<User> & Partial<EditableUserSummary>,
+): UserForm {
+  const accountType: UserForm["accountType"] = isSubAccountUser(user)
+    ? "sub"
+    : "main";
+  const accountNature: UserForm["accountNature"] =
+    user.accountNature === "team" ? "team" : "personal";
+
   return {
+    accountNature,
+    accountType,
+    displayName: user.displayName?.trim() ?? "",
     enabled: user.enabled !== false,
     isAdmin: user.isAdmin === true,
+    parentUserId: user.parentUserId ? String(user.parentUserId) : "",
     password: "",
+    seatLimit:
+      accountNature === "team"
+        ? String(user.seatLimit ?? user.usedSeats ?? 0)
+        : "0",
     username: user.username?.trim() ?? "",
   };
 }
 
 function toLoadedUserForm(summary: EditableUserSummary, detail?: User) {
-  if (!detail) return toUserForm(summary);
+  return toUserForm(detail ? { ...summary, ...detail } : summary);
+}
 
-  return {
-    enabled: detail.enabled ?? summary.enabled,
-    isAdmin: detail.isAdmin ?? summary.isAdmin,
-    password: "",
-    username: detail.username?.trim() || summary.username,
-  };
+function isSubAccountForm(form: UserForm) {
+  return form.accountType === "sub";
+}
+
+function isSubAccountUser(user: Partial<User> | Partial<EditableUserSummary>) {
+  return user.accountType === "sub" && (user.parentUserId ?? 0) > 0;
+}
+
+function isMainAccountUser(user: Partial<User>) {
+  return user.accountType === "main" || (user.parentUserId ?? 0) === 0;
+}
+
+function isEligibleParentAccount(user: User) {
+  return isMainAccountUser(user) && user.accountNature === "team";
+}
+
+function validateParentForSubAccount(parent: User, users: User[]) {
+  if (!isMainAccountUser(parent)) return "子账号不能再创建子账号。";
+  if (parent.accountNature !== "team") return "个人账号不能创建子账号。";
+
+  const seatLimit = parent.seatLimit ?? 0;
+  const usedSeats = getUsedSeatCount(parent, users);
+
+  if (seatLimit <= usedSeats) return "团队账号子账号数量不能超过席位数量。";
+
+  return null;
+}
+
+function getUsedSeatCount(parent: User, users: User[]) {
+  if (parent.id == null) return 0;
+
+  return users.filter(
+    (user) => user.parentUserId === parent.id && user.accountType === "sub",
+  ).length;
+}
+
+function parseSeatLimit(value: string) {
+  const seatLimit = Number(value.trim() || "0");
+
+  if (!Number.isInteger(seatLimit) || seatLimit < 0) {
+    throw new Error("席位数量必须是大于等于 0 的整数。");
+  }
+
+  return seatLimit;
+}
+
+function toAccountType(key: Key | null): UserForm["accountType"] {
+  return key === "sub" ? "sub" : "main";
+}
+
+function toAccountNature(key: Key | null): UserForm["accountNature"] {
+  return key === "team" ? "team" : "personal";
+}
+
+function getUserName(user: Pick<User, "displayName" | "id" | "username">) {
+  return user.displayName?.trim() || user.username?.trim() || `用户 ${user.id}`;
 }
 
 function getUserActionError(error: unknown, fallback: string) {
