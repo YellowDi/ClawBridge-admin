@@ -28,9 +28,12 @@ import { ModelProviderLogo } from "@/components/model-provider-logo";
 import {
   createModel,
   deleteModel,
+  listModelProviderCatalog,
   listModels,
   listOpenClawRPCInstances,
   type Model,
+  type ModelProviderCatalogModel,
+  type ModelProviderCatalogProvider,
   type OpenClawRPCInstance,
   type ReqModelCreate,
   type ReqModelUpdate,
@@ -50,6 +53,8 @@ type ModelCapabilityId =
 type ModelCapabilityValue = ModelCapabilityId | (string & {});
 
 type ModelProviderPreset = {
+  apiBase?: string;
+  catalogModels?: ModelProviderCatalogModel[];
   defaultModel: string;
   id: string;
   label: string;
@@ -132,9 +137,13 @@ type ModelConfigurationPageAction =
   | { type: "modelsLoaded"; modelConfigurations: ModelConfiguration[] }
   | { type: "modelsLoadFailed"; error: string }
   | { type: "modelsLoading" }
-  | { type: "openCreate"; providerId: string }
-  | { type: "openEdit"; modelConfiguration: ModelConfiguration }
-  | { type: "providerChanged"; providerId: string }
+  | { type: "openCreate"; apiBase?: string; providerId: string }
+  | {
+      type: "openEdit";
+      form: ModelFormState;
+      modelConfiguration: ModelConfiguration;
+    }
+  | { type: "providerChanged"; apiBase?: string; providerId: string }
   | { type: "submitFinished" }
   | { type: "submitStarted" };
 
@@ -340,6 +349,12 @@ export function ModelConfigurationPage() {
     INITIAL_MODEL_CONFIGURATION_PAGE_STATE,
   );
   const [selectedModelIds, setSelectedModelIds] = useState<number[]>([]);
+  const [providerCatalog, setProviderCatalog] = useState<
+    ModelProviderCatalogProvider[]
+  >([]);
+  const [providerCatalogError, setProviderCatalogError] = useState<
+    string | null
+  >(null);
   const [syncDialogState, setSyncDialogState] = useState<ModelSyncDialogState>(
     DEFAULT_MODEL_SYNC_DIALOG_STATE,
   );
@@ -354,10 +369,10 @@ export function ModelConfigurationPage() {
     modelConfigurations,
   } = state;
 
+  const providerPresets = getModelProviderPresets(providerCatalog);
   const selectedProvider =
-    modelProviderPresets.find(
-      (provider) => provider.id === form.providerType,
-    ) ?? defaultModelProviderPreset;
+    getModelProviderPreset(form.providerType, providerPresets) ??
+    defaultModelProviderPreset;
   const usesCustomProvider = selectedProvider.id === "custom";
   const suggestedModel = providerPresetModels(selectedProvider)[0];
   const modelPlaceholder = suggestedModel
@@ -368,6 +383,21 @@ export function ModelConfigurationPage() {
       modelConfiguration.recordId !== undefined &&
       selectedModelIds.includes(modelConfiguration.recordId),
   );
+
+  const loadProviderCatalog = useCallback(async () => {
+    try {
+      const providers = await listModelProviderCatalog();
+
+      setProviderCatalog(providers);
+      setProviderCatalogError(null);
+    } catch (error) {
+      const message = getActionErrorMessage(error);
+
+      setProviderCatalog([]);
+      setProviderCatalogError(message);
+      toast.danger(`Provider 目录加载失败：${message}`);
+    }
+  }, []);
 
   const loadModelConfigurations = useCallback(async () => {
     dispatch({ type: "modelsLoading" });
@@ -388,6 +418,10 @@ export function ModelConfigurationPage() {
   }, []);
 
   useEffect(() => {
+    void loadProviderCatalog();
+  }, [loadProviderCatalog]);
+
+  useEffect(() => {
     void loadModelConfigurations();
   }, [loadModelConfigurations]);
 
@@ -395,10 +429,14 @@ export function ModelConfigurationPage() {
     event.preventDefault();
 
     const nextName = form.modelConfigName.trim();
+    const modelReference = splitModelReference(
+      form.model,
+      usesCustomProvider ? "" : selectedProvider.id,
+    );
     const nextProvider = usesCustomProvider
       ? form.customProvider.trim()
       : selectedProvider.id;
-    const nextModel = form.model.trim();
+    const nextModel = modelReference.modelid;
     const nextBillingUnit = form.billingUnit.trim() || "token";
     const nextUnitPrice = form.unitPriceAmount.trim();
     const nextInputPrice = form.inputPricePerMillion.trim();
@@ -518,13 +556,21 @@ export function ModelConfigurationPage() {
   }
 
   function openCreateProviderDialog(
-    providerId = defaultModelProviderPreset.id,
+    providerId = providerPresets[0]?.id ?? defaultModelProviderPreset.id,
   ) {
-    dispatch({ providerId, type: "openCreate" });
+    dispatch({
+      apiBase: getProviderApiBase(providerId, providerPresets),
+      providerId,
+      type: "openCreate",
+    });
   }
 
   function openEditProviderDialog(modelConfiguration: ModelConfiguration) {
-    dispatch({ modelConfiguration, type: "openEdit" });
+    dispatch({
+      form: getModelFormFromConfiguration(modelConfiguration, providerPresets),
+      modelConfiguration,
+      type: "openEdit",
+    });
   }
 
   async function deleteProvider() {
@@ -673,6 +719,7 @@ export function ModelConfigurationPage() {
         isLoadingModels={isLoadingModels}
         loadError={loadError}
         modelConfigurations={modelConfigurations}
+        providerPresets={providerPresets}
         selectedModelIds={selectedModelIds}
         onCreate={() => openCreateProviderDialog()}
         onEdit={openEditProviderDialog}
@@ -689,6 +736,8 @@ export function ModelConfigurationPage() {
         isOpen={isProviderDialogOpen}
         isSubmitting={isSubmitting}
         modelPlaceholder={modelPlaceholder}
+        providerCatalogError={providerCatalogError}
+        providerPresets={providerPresets}
         usesCustomProvider={usesCustomProvider}
         onCapabilityToggle={toggleCapability}
         onDelete={() => void deleteProvider()}
@@ -697,7 +746,11 @@ export function ModelConfigurationPage() {
           dispatch({ isOpen, type: "dialogOpenChanged" })
         }
         onProviderChange={(providerId) =>
-          dispatch({ providerId, type: "providerChanged" })
+          dispatch({
+            apiBase: getProviderApiBase(providerId, providerPresets),
+            providerId,
+            type: "providerChanged",
+          })
         }
         onSubmit={submitProvider}
       />
@@ -728,6 +781,7 @@ function ModelConfigurationGrid({
   onSelectedModelIdsChange,
   onSelectionClear,
   onSync,
+  providerPresets,
   selectedModelIds,
 }: {
   isLoadingModels: boolean;
@@ -739,6 +793,7 @@ function ModelConfigurationGrid({
   onSelectedModelIdsChange: (modelIds: number[]) => void;
   onSelectionClear: () => void;
   onSync: () => void;
+  providerPresets: ModelProviderPreset[];
   selectedModelIds: number[];
 }) {
   const selectedModelKeys = selectedModelIds.map(String);
@@ -787,7 +842,10 @@ function ModelConfigurationGrid({
                     <Checkbox.Indicator />
                   </Checkbox.Control>
                   <ModelProviderLogo
-                    label={modelProviderLabel(modelConfiguration.provider_type)}
+                    label={modelProviderLabel(
+                      modelConfiguration.provider_type,
+                      providerPresets,
+                    )}
                     providerType={modelConfiguration.provider_type}
                     size="lg"
                   />
@@ -805,8 +863,11 @@ function ModelConfigurationGrid({
                         color="muted"
                         type="body-xs"
                       >
-                        {modelProviderLabel(modelConfiguration.provider_type)} ·{" "}
-                        {modelConfiguration.model || "未配置模型 ID"}
+                        {modelProviderLabel(
+                          modelConfiguration.provider_type,
+                          providerPresets,
+                        )}{" "}
+                        · {modelConfiguration.model || "未配置模型 ID"}
                       </Typography>
                     </div>
                     <div className="flex max-h-12 flex-wrap gap-1 overflow-hidden pr-8">
@@ -860,7 +921,10 @@ function ModelConfigurationGrid({
                 className="bg-surface flex h-36 min-w-0 items-center gap-4 overflow-hidden rounded-3xl px-4 py-4"
               >
                 <ModelProviderLogo
-                  label={modelProviderLabel(modelConfiguration.provider_type)}
+                  label={modelProviderLabel(
+                    modelConfiguration.provider_type,
+                    providerPresets,
+                  )}
                   providerType={modelConfiguration.provider_type}
                   size="lg"
                 />
@@ -873,8 +937,11 @@ function ModelConfigurationGrid({
                     {modelConfiguration.name}
                   </Typography>
                   <Typography className="truncate" color="muted" type="body-xs">
-                    {modelProviderLabel(modelConfiguration.provider_type)} ·{" "}
-                    {modelConfiguration.model || "未配置模型 ID"}
+                    {modelProviderLabel(
+                      modelConfiguration.provider_type,
+                      providerPresets,
+                    )}{" "}
+                    · {modelConfiguration.model || "未配置模型 ID"}
                   </Typography>
                 </div>
               </div>
@@ -1151,6 +1218,8 @@ function ModelConfigurationDialog({
   onOpenChange,
   onProviderChange,
   onSubmit,
+  providerCatalogError,
+  providerPresets,
   usesCustomProvider,
 }: {
   editingModelConfiguration: ModelConfiguration | null;
@@ -1168,6 +1237,8 @@ function ModelConfigurationDialog({
   onOpenChange: (isOpen: boolean) => void;
   onProviderChange: (providerId: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  providerCatalogError: string | null;
+  providerPresets: ModelProviderPreset[];
   usesCustomProvider: boolean;
 }) {
   const providerDialogTitle = editingModelConfiguration
@@ -1194,6 +1265,8 @@ function ModelConfigurationDialog({
               <ModelConfigurationFields
                 form={form}
                 modelPlaceholder={modelPlaceholder}
+                providerCatalogError={providerCatalogError}
+                providerPresets={providerPresets}
                 usesCustomProvider={usesCustomProvider}
                 onCapabilityToggle={onCapabilityToggle}
                 onFormChange={onFormChange}
@@ -1223,6 +1296,8 @@ function ModelConfigurationFields({
   onCapabilityToggle,
   onFormChange,
   onProviderChange,
+  providerCatalogError,
+  providerPresets,
   usesCustomProvider,
 }: {
   form: ModelFormState;
@@ -1233,8 +1308,20 @@ function ModelConfigurationFields({
   ) => void;
   onFormChange: (patch: Partial<ModelFormState>) => void;
   onProviderChange: (providerId: string) => void;
+  providerCatalogError: string | null;
+  providerPresets: ModelProviderPreset[];
   usesCustomProvider: boolean;
 }) {
+  const selectedProvider =
+    getModelProviderPreset(form.providerType, providerPresets) ??
+    defaultModelProviderPreset;
+  const catalogModels = selectedProvider.catalogModels ?? [];
+  const selectedCatalogModelKey = getSelectedCatalogModelKey(
+    form.model,
+    selectedProvider.id,
+    catalogModels,
+  );
+
   return (
     <div className="grid gap-4">
       <TextField
@@ -1267,7 +1354,7 @@ function ModelConfigurationFields({
         </Select.Trigger>
         <Select.Popover>
           <ListBox>
-            {modelProviderPresets.map((provider) => (
+            {providerPresets.map((provider) => (
               <ListBox.Item
                 key={provider.id}
                 id={provider.id}
@@ -1278,6 +1365,11 @@ function ModelConfigurationFields({
             ))}
           </ListBox>
         </Select.Popover>
+        {providerCatalogError ? (
+          <Description>
+            Provider 目录加载失败，当前使用本地兜底选项。
+          </Description>
+        ) : null}
         <FieldError />
       </Select>
       {usesCustomProvider ? (
@@ -1292,6 +1384,45 @@ function ModelConfigurationFields({
           <Input placeholder="例如：google" variant="secondary" />
           <FieldError />
         </TextField>
+      ) : null}
+      {catalogModels.length > 0 ? (
+        <Select
+          fullWidth
+          name="official_model"
+          selectedKey={selectedCatalogModelKey}
+          variant="secondary"
+          onSelectionChange={(key) => {
+            const model = String(key ?? "");
+
+            if (model) {
+              onFormChange({ model });
+            }
+          }}
+        >
+          <Label>官方模型</Label>
+          <Select.Trigger>
+            <Select.Value />
+            <Select.Indicator />
+          </Select.Trigger>
+          <Select.Popover>
+            <ListBox>
+              {catalogModels.map((model) => {
+                const modelId = model.model ?? "";
+
+                return (
+                  <ListBox.Item
+                    key={modelId}
+                    id={modelId}
+                    textValue={model.name || modelId}
+                  >
+                    {model.name || modelId}
+                    <ListBox.ItemIndicator />
+                  </ListBox.Item>
+                );
+              })}
+            </ListBox>
+          </Select.Popover>
+        </Select>
       ) : null}
       <TextField
         fullWidth
@@ -1770,14 +1901,14 @@ function modelConfigurationPageReducer(
       return {
         ...state,
         editingModelConfiguration: null,
-        form: getDefaultModelForm(action.providerId),
+        form: getDefaultModelForm(action.providerId, action.apiBase),
         isProviderDialogOpen: true,
       };
     case "openEdit":
       return {
         ...state,
         editingModelConfiguration: action.modelConfiguration,
-        form: getModelFormFromConfiguration(action.modelConfiguration),
+        form: action.form,
         isProviderDialogOpen: true,
       };
     case "providerChanged":
@@ -1787,7 +1918,8 @@ function modelConfigurationPageReducer(
           ...state.form,
           customProvider: "",
           model: "",
-          providerType: getModelProviderPreset(action.providerId).id,
+          openClawProviderBaseUrl: action.apiBase ?? "",
+          providerType: action.providerId,
         },
       };
     case "submitFinished":
@@ -1814,17 +1946,20 @@ function addCapability(
 
 function getDefaultModelForm(
   providerId = defaultModelProviderPreset.id,
+  apiBase = "",
 ): ModelFormState {
   return {
     ...DEFAULT_MODEL_FORM,
-    providerType: getModelProviderPreset(providerId).id,
+    openClawProviderBaseUrl: apiBase,
+    providerType: providerId,
   };
 }
 
 function getModelFormFromConfiguration(
   modelConfiguration: ModelConfiguration,
+  providerPresets = modelProviderPresets,
 ): ModelFormState {
-  const nextProvider = modelProviderPresets.find(
+  const nextProvider = providerPresets.find(
     (item) => item.id === modelConfiguration.provider_type,
   );
 
@@ -1868,11 +2003,11 @@ function getModelFormFromConfiguration(
   };
 }
 
-function getModelProviderPreset(providerId: string) {
-  return (
-    modelProviderPresets.find((provider) => provider.id === providerId) ??
-    defaultModelProviderPreset
-  );
+function getModelProviderPreset(
+  providerId: string,
+  providerPresets = modelProviderPresets,
+) {
+  return providerPresets.find((provider) => provider.id === providerId);
 }
 
 function buildModelRequest({
@@ -2013,10 +2148,126 @@ function normalizeCapabilities(
   return values;
 }
 
-function modelProviderLabel(providerType: string): string {
+function getModelProviderPresets(
+  providerCatalog: ModelProviderCatalogProvider[],
+): ModelProviderPreset[] {
+  const customPreset =
+    modelProviderPresets.find((provider) => provider.id === "custom") ??
+    defaultModelProviderPreset;
+  const presets = modelProviderPresets
+    .filter((provider) => provider.id !== "custom")
+    .map((provider) => ({ ...provider }));
+  const presetById = new Map(
+    presets.map((provider) => [provider.id, provider]),
+  );
+
+  for (const catalogProvider of providerCatalog) {
+    const id = normalizeText(catalogProvider.provider);
+    const catalogModels = normalizeCatalogModels(catalogProvider.models);
+    const existing = presetById.get(id);
+
+    if (!id) continue;
+
+    const nextPreset: ModelProviderPreset = {
+      apiBase: normalizeText(catalogProvider.api_base),
+      catalogModels,
+      defaultModel:
+        catalogModels
+          .map((model) => model.model)
+          .filter(Boolean)
+          .join("\n") ||
+        existing?.defaultModel ||
+        "",
+      id,
+      label: normalizeText(catalogProvider.name) || existing?.label || id,
+    };
+
+    if (existing) {
+      Object.assign(existing, nextPreset);
+    } else {
+      presets.push(nextPreset);
+      presetById.set(id, nextPreset);
+    }
+  }
+
+  return [...presets, customPreset];
+}
+
+function normalizeCatalogModels(
+  models?: ModelProviderCatalogModel[],
+): ModelProviderCatalogModel[] {
+  const values: ModelProviderCatalogModel[] = [];
+  const seen = new Set<string>();
+
+  for (const model of models ?? []) {
+    const modelId = normalizeText(model.model);
+
+    if (!modelId || seen.has(modelId)) continue;
+    seen.add(modelId);
+    values.push({
+      ...model,
+      model: modelId,
+      name: normalizeText(model.name) || modelId,
+    });
+  }
+
+  return values;
+}
+
+function getProviderApiBase(
+  providerId: string,
+  providerPresets: ModelProviderPreset[],
+) {
+  return normalizeText(
+    getModelProviderPreset(providerId, providerPresets)?.apiBase,
+  );
+}
+
+function getSelectedCatalogModelKey(
+  value: string,
+  providerId: string,
+  models: ModelProviderCatalogModel[],
+) {
+  const modelReference = normalizeText(value);
+
+  if (!modelReference) return null;
+
+  const normalizedModel = splitModelReference(
+    modelReference,
+    providerId,
+  ).modelid;
+
   return (
-    modelProviderPresets.find((provider) => provider.id === providerType)
-      ?.label ?? providerType
+    models.find((model) => {
+      const catalogModel = normalizeText(model.model);
+
+      return (
+        catalogModel === modelReference ||
+        splitModelReference(catalogModel, providerId).modelid ===
+          normalizedModel
+      );
+    })?.model ?? null
+  );
+}
+
+function splitModelReference(value: string, providerId: string) {
+  const modelReference = normalizeText(value);
+  const providerPrefix = `${providerId}/`;
+
+  if (providerId && modelReference.startsWith(providerPrefix)) {
+    return { modelid: modelReference.slice(providerPrefix.length) };
+  }
+
+  return { modelid: modelReference };
+}
+
+function modelProviderLabel(
+  providerType: string,
+  providerPresets = modelProviderPresets,
+): string {
+  return (
+    providerPresets.find((provider) => provider.id === providerType)?.label ??
+    providerType
   );
 }
 

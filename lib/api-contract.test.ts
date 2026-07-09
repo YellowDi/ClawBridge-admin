@@ -2,6 +2,7 @@ import type {
   Agent,
   KnowledgeBase,
   MCPServer,
+  ModelProviderCatalogProvider,
   OpenClawConfigSnapshot,
   OpenClawMCPApplyResult,
   OpenClawRPCInstance,
@@ -24,6 +25,7 @@ import {
   getSubscriptionPlanDetail,
   getTencentCosSts,
   grantUserSubscription,
+  listModelProviderCatalog,
   listMCPServers,
   listOpenClawRPCInstances,
   listSubscriptionPlans,
@@ -43,6 +45,11 @@ expectType<"metered" | "subscription" | string | undefined>(
   {} as User["billingMode"],
 );
 expectType<KnowledgeBase[] | undefined>({} as Agent["knowledgeBases"]);
+expectType<string | undefined>({} as ModelProviderCatalogProvider["provider"]);
+expectType<string | undefined>(
+  {} as NonNullable<ModelProviderCatalogProvider["models"]>[number]["model"],
+);
+expectType<Promise<ModelProviderCatalogProvider[]>>(listModelProviderCatalog());
 expectType<Promise<TencentCosSts | undefined>>(getTencentCosSts());
 expectType<Promise<SubscriptionPlan[]>>(listSubscriptionPlans());
 expectType<Promise<SubscriptionPlan | undefined>>(getSubscriptionPlanDetail(1));

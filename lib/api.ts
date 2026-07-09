@@ -177,6 +177,30 @@ export interface ResModels {
   [property: string]: unknown;
 }
 
+export interface ModelProviderCatalogModel {
+  mode?: string;
+  model?: string;
+  name?: string;
+  [property: string]: unknown;
+}
+
+export interface ModelProviderCatalogProvider {
+  api_base?: string;
+  documentation?: string;
+  logo?: string;
+  models?: ModelProviderCatalogModel[];
+  name?: string;
+  prefix?: string;
+  provider?: string;
+  website?: string;
+  [property: string]: unknown;
+}
+
+export interface ResModelProviderCatalog {
+  providers?: ModelProviderCatalogProvider[];
+  [property: string]: unknown;
+}
+
 export interface Model {
   billingUnit?: string;
   cacheReadPricePerMillion?: string;
@@ -1556,6 +1580,21 @@ export async function listModels(request: ReqModelList = {}): Promise<Model[]> {
   if (Array.isArray(response)) return response;
 
   return response.data ?? [];
+}
+
+export async function listModelProviderCatalog(): Promise<
+  ModelProviderCatalogProvider[]
+> {
+  const response = await requestJson<
+    ResModelProviderCatalog | ModelProviderCatalogProvider[]
+  >("/api/models/providers/catalog", {
+    body: JSON.stringify({}),
+    method: "POST",
+  });
+
+  if (Array.isArray(response)) return response;
+
+  return response.providers ?? [];
 }
 
 export async function createModel(
