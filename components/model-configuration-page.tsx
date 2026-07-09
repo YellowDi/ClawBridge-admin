@@ -337,7 +337,14 @@ function Typography({
 function ProviderPresetOption({ provider }: { provider: ModelProviderPreset }) {
   return (
     <>
-      {provider.label}
+      <span className="flex min-w-0 items-center gap-2">
+        <ModelProviderLogo
+          label={provider.label}
+          providerType={provider.id}
+          size="xs"
+        />
+        <span className="min-w-0 truncate">{provider.label}</span>
+      </span>
       <ListBox.ItemIndicator />
     </>
   );
@@ -1323,20 +1330,17 @@ function ModelConfigurationDialog({
 
   return (
     <Modal.Backdrop isOpen={isOpen} onOpenChange={onOpenChange}>
-      <Modal.Container placement="auto" scroll="inside" size="lg">
-        <Modal.Dialog className="flex max-h-[calc(100dvh-5rem)] flex-col overflow-hidden">
+      <Modal.Container placement="auto" scroll="outside" size="lg">
+        <Modal.Dialog className="w-full max-w-[1120px]">
           <Modal.CloseTrigger />
-          <Form
-            className="flex min-h-0 min-w-0 flex-1 flex-col"
-            onSubmit={onSubmit}
-          >
-            <Modal.Header className="shrink-0">
+          <Form className="min-w-0" onSubmit={onSubmit}>
+            <Modal.Header>
               <Modal.Heading>{providerDialogTitle}</Modal.Heading>
               <Typography color="muted" type="body-sm">
                 配置模型服务和可用能力。
               </Typography>
             </Modal.Header>
-            <Modal.Body className="min-h-0 flex-1 overflow-y-auto">
+            <Modal.Body>
               <ModelConfigurationFields
                 form={form}
                 modelPlaceholder={modelPlaceholder}
@@ -1348,7 +1352,7 @@ function ModelConfigurationDialog({
                 onProviderChange={onProviderChange}
               />
             </Modal.Body>
-            <Modal.Footer className="shrink-0">
+            <Modal.Footer>
               <ModelConfigurationDialogFooter
                 editingModelConfiguration={editingModelConfiguration}
                 isDeletingProvider={isDeletingProvider}
@@ -1398,124 +1402,147 @@ function ModelConfigurationFields({
   );
 
   return (
-    <div className="grid gap-4">
-      <TextField
-        fullWidth
-        isRequired
-        name="model_config_name"
-        value={form.modelConfigName}
-        onChange={(value) => onFormChange({ modelConfigName: value })}
-      >
-        <Label>配置名称</Label>
-        <Input placeholder="例如：默认主模型" variant="secondary" />
-        <FieldError />
-      </TextField>
-      <Select
-        fullWidth
-        isRequired
-        name="provider_type"
-        selectedKey={form.providerType}
-        variant="secondary"
-        onSelectionChange={(key) => {
-          if (key) {
-            onProviderChange(String(key));
-          }
-        }}
-      >
-        <Label>主模型来源</Label>
-        <Select.Trigger>
-          <Select.Value />
-          <Select.Indicator />
-        </Select.Trigger>
-        <Select.Popover>
-          <ListBox>
-            {providerPresets.map((provider) => (
-              <ListBox.Item
-                key={provider.id}
-                id={provider.id}
-                textValue={provider.label}
-              >
-                <ProviderPresetOption provider={provider} />
-              </ListBox.Item>
-            ))}
-          </ListBox>
-        </Select.Popover>
-        {providerCatalogError ? (
-          <Description>
-            Provider 目录加载失败，当前使用本地兜底选项。
-          </Description>
-        ) : null}
-        <FieldError />
-      </Select>
-      {usesCustomProvider ? (
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)]">
+      <div className="grid content-start gap-4">
         <TextField
           fullWidth
           isRequired
-          name="provider"
-          value={form.customProvider}
-          onChange={(value) => onFormChange({ customProvider: value })}
+          name="model_config_name"
+          value={form.modelConfigName}
+          onChange={(value) => onFormChange({ modelConfigName: value })}
         >
-          <Label>供应商标识</Label>
-          <Input placeholder="例如：google" variant="secondary" />
+          <Label>配置名称</Label>
+          <Input placeholder="例如：默认主模型" variant="secondary" />
           <FieldError />
         </TextField>
-      ) : null}
-      {catalogModels.length > 0 ? (
-        <Select
-          fullWidth
-          name="official_model"
-          selectedKey={selectedCatalogModelKey}
-          variant="secondary"
-          onSelectionChange={(key) => {
-            const model = String(key ?? "");
-
-            if (model) {
-              onFormChange({ model });
-            }
-          }}
+        <div
+          className={
+            catalogModels.length > 0
+              ? "grid gap-4 md:grid-cols-2"
+              : "grid gap-4"
+          }
         >
-          <Label>官方模型</Label>
-          <Select.Trigger>
-            <Select.Value />
-            <Select.Indicator />
-          </Select.Trigger>
-          <Select.Popover>
-            <ListBox>
-              {catalogModels.map((model) => {
-                const modelId = model.model ?? "";
-
-                return (
+          <Select
+            fullWidth
+            isRequired
+            name="provider_type"
+            selectedKey={form.providerType}
+            variant="secondary"
+            onSelectionChange={(key) => {
+              if (key) {
+                onProviderChange(String(key));
+              }
+            }}
+          >
+            <Label>主模型来源</Label>
+            <Select.Trigger>
+              <Select.Value>
+                <span className="flex min-w-0 items-center gap-2">
+                  <ModelProviderLogo
+                    label={selectedProvider.label}
+                    providerType={selectedProvider.id}
+                    size="xs"
+                  />
+                  <span className="min-w-0 truncate">
+                    {selectedProvider.label}
+                  </span>
+                </span>
+              </Select.Value>
+              <Select.Indicator />
+            </Select.Trigger>
+            <Select.Popover>
+              <ListBox>
+                {providerPresets.map((provider) => (
                   <ListBox.Item
-                    key={modelId}
-                    id={modelId}
-                    textValue={model.name || modelId}
+                    key={provider.id}
+                    id={provider.id}
+                    textValue={provider.label}
                   >
-                    {model.name || modelId}
-                    <ListBox.ItemIndicator />
+                    <ProviderPresetOption provider={provider} />
                   </ListBox.Item>
-                );
-              })}
-            </ListBox>
-          </Select.Popover>
-        </Select>
-      ) : null}
-      <TextField
-        fullWidth
-        isRequired
-        name="model"
-        value={form.model}
-        onChange={(value) => onFormChange({ model: value })}
-      >
-        <Label>模型 ID</Label>
-        <Input placeholder={modelPlaceholder} variant="secondary" />
-        <FieldError />
-      </TextField>
-      <ModelPricingFields form={form} onFormChange={onFormChange} />
-      <ModelCapabilityFields
-        selectedCapabilities={form.selectedCapabilities}
-        onCapabilityToggle={onCapabilityToggle}
-      />
-      <OpenClawConfigurationFields form={form} onFormChange={onFormChange} />
+                ))}
+              </ListBox>
+            </Select.Popover>
+            {providerCatalogError ? (
+              <Description>
+                Provider 目录加载失败，当前使用本地兜底选项。
+              </Description>
+            ) : null}
+            <FieldError />
+          </Select>
+          {catalogModels.length > 0 ? (
+            <Select
+              fullWidth
+              name="official_model"
+              selectedKey={selectedCatalogModelKey}
+              variant="secondary"
+              onSelectionChange={(key) => {
+                const model = String(key ?? "");
+
+                if (model) {
+                  onFormChange({ model });
+                }
+              }}
+            >
+              <Label>官方模型</Label>
+              <Select.Trigger>
+                <Select.Value />
+                <Select.Indicator />
+              </Select.Trigger>
+              <Select.Popover>
+                <ListBox>
+                  {catalogModels.map((model) => {
+                    const modelId = model.model ?? "";
+
+                    return (
+                      <ListBox.Item
+                        key={modelId}
+                        id={modelId}
+                        textValue={model.name || modelId}
+                      >
+                        {model.name || modelId}
+                        <ListBox.ItemIndicator />
+                      </ListBox.Item>
+                    );
+                  })}
+                </ListBox>
+              </Select.Popover>
+            </Select>
+          ) : null}
+        </div>
+        {usesCustomProvider ? (
+          <TextField
+            fullWidth
+            isRequired
+            name="provider"
+            value={form.customProvider}
+            onChange={(value) => onFormChange({ customProvider: value })}
+          >
+            <Label>供应商标识</Label>
+            <Input placeholder="例如：google" variant="secondary" />
+            <FieldError />
+          </TextField>
+        ) : null}
+        <TextField
+          fullWidth
+          isRequired
+          name="model"
+          value={form.model}
+          onChange={(value) => onFormChange({ model: value })}
+        >
+          <Label>模型 ID</Label>
+          <Input placeholder={modelPlaceholder} variant="secondary" />
+          <FieldError />
+        </TextField>
+        <OpenClawConfigurationFields form={form} onFormChange={onFormChange} />
+      </div>
+      <div className="grid content-start gap-4">
+        <ModelPricingFields form={form} onFormChange={onFormChange} />
+        <ModelCapabilityFields
+          selectedCapabilities={form.selectedCapabilities}
+          onCapabilityToggle={onCapabilityToggle}
+        />
+      </div>
     </div>
   );
 }
@@ -1689,132 +1716,106 @@ function OpenClawConfigurationFields({
   onFormChange: (patch: Partial<ModelFormState>) => void;
 }) {
   return (
-    <details className="border-border rounded-3xl border px-4 py-3">
-      <summary className="cursor-[var(--cursor-interactive)] text-sm font-medium">
-        OpenClaw 配置
-      </summary>
-      <div className="mt-4 grid gap-4">
-        <Typography className="block" color="muted" type="body-sm">
-          官方 provider 通常只需要同步到 OpenClaw 模型 allowlist，不需要填写
-          OpenClaw provider catalog 配置。
-        </Typography>
-        <Typography className="block" color="muted" type="body-sm">
-          自定义 provider、OpenAI-compatible 代理或本地模型服务需要开启「同步
-          provider catalog」，并填写 API 地址、协议适配器和密钥环境变量引用。
-        </Typography>
-        <Checkbox
-          isSelected={form.openClawSyncProviderCatalog}
-          variant="secondary"
-          onChange={(openClawSyncProviderCatalog) =>
-            onFormChange({ openClawSyncProviderCatalog })
-          }
-        >
-          <Checkbox.Content>
-            <Checkbox.Control>
-              <Checkbox.Indicator />
-            </Checkbox.Control>
-            同步 provider catalog
-          </Checkbox.Content>
-        </Checkbox>
-        <div className="grid gap-4 md:grid-cols-2">
-          <TextField
-            fullWidth
-            name="openclaw_provider_base_url"
-            value={form.openClawProviderBaseUrl}
-            onChange={(openClawProviderBaseUrl) =>
-              onFormChange({ openClawProviderBaseUrl })
-            }
-          >
-            <Label>API 基础地址</Label>
-            <Input
-              placeholder="https://api.example.com/v1"
-              variant="secondary"
-            />
-            <FieldError />
-          </TextField>
-          <TextField
-            fullWidth
-            name="openclaw_provider_api"
-            value={form.openClawProviderApi}
-            onChange={(openClawProviderApi) =>
-              onFormChange({ openClawProviderApi })
-            }
-          >
-            <Label>协议适配器</Label>
-            <Input placeholder="openai-completions" variant="secondary" />
-            <FieldError />
-          </TextField>
-          <TextField
-            fullWidth
-            name="openclaw_provider_api_key_ref"
-            value={form.openClawProviderApiKeyRef}
-            onChange={(openClawProviderApiKeyRef) =>
-              onFormChange({ openClawProviderApiKeyRef })
-            }
-          >
-            <Label>API key 环境变量引用</Label>
-            <Input placeholder="${CUSTOM_API_KEY}" variant="secondary" />
-            <FieldError />
-          </TextField>
-          <TextField
-            fullWidth
-            name="openclaw_context_window"
-            value={form.openClawContextWindow}
-            onChange={(openClawContextWindow) =>
-              onFormChange({ openClawContextWindow })
-            }
-          >
-            <Label>原生上下文窗口</Label>
-            <Input
-              inputMode="numeric"
-              placeholder="128000"
-              variant="secondary"
-            />
-            <FieldError />
-          </TextField>
-          <TextField
-            fullWidth
-            name="openclaw_context_tokens"
-            value={form.openClawContextTokens}
-            onChange={(openClawContextTokens) =>
-              onFormChange({ openClawContextTokens })
-            }
-          >
-            <Label>运行上下文预算</Label>
-            <Input
-              inputMode="numeric"
-              placeholder="96000"
-              variant="secondary"
-            />
-            <FieldError />
-          </TextField>
-          <TextField
-            fullWidth
-            name="openclaw_max_tokens"
-            value={form.openClawMaxTokens}
-            onChange={(openClawMaxTokens) =>
-              onFormChange({ openClawMaxTokens })
-            }
-          >
-            <Label>最大输出 token</Label>
-            <Input inputMode="numeric" placeholder="8192" variant="secondary" />
-            <FieldError />
-          </TextField>
-        </div>
-        <Checkbox
-          isSelected={form.openClawReasoning}
-          variant="secondary"
-          onChange={(openClawReasoning) => onFormChange({ openClawReasoning })}
-        >
-          <Checkbox.Content>
-            <Checkbox.Control>
-              <Checkbox.Indicator />
-            </Checkbox.Control>
-            支持 thinking/reasoning 控制
-          </Checkbox.Content>
-        </Checkbox>
-      </div>
-    </details>
+    <div className="grid gap-4 md:grid-cols-2">
+      <TextField
+        fullWidth
+        name="openclaw_provider_base_url"
+        value={form.openClawProviderBaseUrl}
+        onChange={(openClawProviderBaseUrl) =>
+          onFormChange({ openClawProviderBaseUrl })
+        }
+      >
+        <Label>API 基础地址</Label>
+        <Input placeholder="https://api.example.com/v1" variant="secondary" />
+        <FieldError />
+      </TextField>
+      <TextField
+        fullWidth
+        name="openclaw_provider_api_key_ref"
+        value={form.openClawProviderApiKeyRef}
+        onChange={(openClawProviderApiKeyRef) =>
+          onFormChange({ openClawProviderApiKeyRef })
+        }
+      >
+        <Label>API key 环境变量引用</Label>
+        <Input placeholder="${CUSTOM_API_KEY}" variant="secondary" />
+        <FieldError />
+      </TextField>
+      <Checkbox
+        className="md:col-span-2"
+        isSelected={form.openClawSyncProviderCatalog}
+        variant="secondary"
+        onChange={(openClawSyncProviderCatalog) =>
+          onFormChange({ openClawSyncProviderCatalog })
+        }
+      >
+        <Checkbox.Content>
+          <Checkbox.Control>
+            <Checkbox.Indicator />
+          </Checkbox.Control>
+          同步 provider catalog
+        </Checkbox.Content>
+      </Checkbox>
+      <TextField
+        fullWidth
+        name="openclaw_provider_api"
+        value={form.openClawProviderApi}
+        onChange={(openClawProviderApi) =>
+          onFormChange({ openClawProviderApi })
+        }
+      >
+        <Label>协议适配器</Label>
+        <Input placeholder="openai-completions" variant="secondary" />
+        <FieldError />
+      </TextField>
+      <TextField
+        fullWidth
+        name="openclaw_context_window"
+        value={form.openClawContextWindow}
+        onChange={(openClawContextWindow) =>
+          onFormChange({ openClawContextWindow })
+        }
+      >
+        <Label>原生上下文窗口</Label>
+        <Input inputMode="numeric" placeholder="128000" variant="secondary" />
+        <FieldError />
+      </TextField>
+      <TextField
+        fullWidth
+        name="openclaw_context_tokens"
+        value={form.openClawContextTokens}
+        onChange={(openClawContextTokens) =>
+          onFormChange({ openClawContextTokens })
+        }
+      >
+        <Label>运行上下文预算</Label>
+        <Input inputMode="numeric" placeholder="96000" variant="secondary" />
+        <FieldError />
+      </TextField>
+      <TextField
+        fullWidth
+        name="openclaw_max_tokens"
+        value={form.openClawMaxTokens}
+        onChange={(openClawMaxTokens) => onFormChange({ openClawMaxTokens })}
+      >
+        <Label>最大输出 token</Label>
+        <Input inputMode="numeric" placeholder="8192" variant="secondary" />
+        <FieldError />
+      </TextField>
+      <Checkbox
+        className="md:col-span-2"
+        isSelected={form.openClawReasoning}
+        variant="secondary"
+        onChange={(openClawReasoning) => onFormChange({ openClawReasoning })}
+      >
+        <Checkbox.Content>
+          <Checkbox.Control>
+            <Checkbox.Indicator />
+          </Checkbox.Control>
+          支持 thinking/reasoning 控制
+        </Checkbox.Content>
+      </Checkbox>
+    </div>
   );
 }
 

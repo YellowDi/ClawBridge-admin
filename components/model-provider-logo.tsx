@@ -4,6 +4,11 @@ import Image from "next/image";
 import { useState } from "react";
 
 const sizeClasses = {
+  xs: {
+    chip: "size-4 rounded-sm",
+    image: "size-3",
+    text: "text-[9px]",
+  },
   sm: {
     chip: "size-7 rounded-lg",
     image: "size-4",
