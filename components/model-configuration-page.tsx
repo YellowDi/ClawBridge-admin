@@ -355,6 +355,7 @@ export function ModelConfigurationPage() {
   const [providerCatalogError, setProviderCatalogError] = useState<
     string | null
   >(null);
+  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
   const [syncDialogState, setSyncDialogState] = useState<ModelSyncDialogState>(
     DEFAULT_MODEL_SYNC_DIALOG_STATE,
   );
@@ -575,19 +576,13 @@ export function ModelConfigurationPage() {
 
   async function deleteProvider() {
     if (!editingModelConfiguration?.recordId) return;
-    if (
-      !window.confirm(
-        "删除后，该模型会从后台模型列表、用户授权关系以及当前在线的 OpenClaw 实例中移除。正在使用该模型的 Agent 或会话可能需要重新选择模型，是否继续？",
-      )
-    ) {
-      return;
-    }
 
     dispatch({ type: "deleteStarted" });
 
     try {
       await deleteModel(editingModelConfiguration.recordId);
       toast.success("模型已删除，并已同步清理在线 OpenClaw 实例。");
+      setIsDeleteConfirmOpen(false);
       dispatch({
         modelConfigurationId: editingModelConfiguration.id,
         type: "modelDeleted",
@@ -744,7 +739,7 @@ export function ModelConfigurationPage() {
         providerPresets={providerPresets}
         usesCustomProvider={usesCustomProvider}
         onCapabilityToggle={toggleCapability}
-        onDelete={() => void deleteProvider()}
+        onDelete={() => setIsDeleteConfirmOpen(true)}
         onFormChange={(patch) => dispatch({ patch, type: "formPatched" })}
         onOpenChange={(isOpen) =>
           dispatch({ isOpen, type: "dialogOpenChanged" })
@@ -757,6 +752,18 @@ export function ModelConfigurationPage() {
           })
         }
         onSubmit={submitProvider}
+      />
+
+      <DeleteModelConfirmationDialog
+        isDeleting={isDeletingProvider}
+        isOpen={isDeleteConfirmOpen}
+        modelName={editingModelConfiguration?.name ?? ""}
+        onConfirm={() => void deleteProvider()}
+        onOpenChange={(isOpen) => {
+          if (!isDeletingProvider) {
+            setIsDeleteConfirmOpen(isOpen);
+          }
+        }}
       />
 
       <ModelSyncDialog
@@ -1012,6 +1019,70 @@ function ModelConfigurationGrid({
         </div>
       ) : null}
     </>
+  );
+}
+
+function DeleteModelConfirmationDialog({
+  isDeleting,
+  isOpen,
+  modelName,
+  onConfirm,
+  onOpenChange,
+}: {
+  isDeleting: boolean;
+  isOpen: boolean;
+  modelName: string;
+  onConfirm: () => void;
+  onOpenChange: (isOpen: boolean) => void;
+}) {
+  return (
+    <Modal.Backdrop
+      isDismissable={!isDeleting}
+      isKeyboardDismissDisabled={isDeleting}
+      isOpen={isOpen}
+      onOpenChange={onOpenChange}
+    >
+      <Modal.Container placement="auto" size="md">
+        <Modal.Dialog>
+          <Modal.CloseTrigger />
+          <Modal.Header>
+            <Modal.Heading>删除模型</Modal.Heading>
+            <Typography color="muted" type="body-sm">
+              {modelName || "当前模型"}
+            </Typography>
+          </Modal.Header>
+          <Modal.Body className="grid gap-3">
+            <Typography type="body-sm">
+              删除后，该模型会从后台模型列表、用户授权关系以及当前在线的
+              OpenClaw 实例中移除。正在使用该模型的 Agent
+              或会话可能需要重新选择模型，是否继续？
+            </Typography>
+            <Typography color="muted" type="body-sm">
+              只有当前在线的 OpenClaw RPC
+              实例会被同步清理；如果某些实例离线，重新上线后如仍保留旧配置，需要通过模型同步或配置管理流程重新校准。
+            </Typography>
+          </Modal.Body>
+          <Modal.Footer>
+            <Button
+              isDisabled={isDeleting}
+              type="button"
+              variant="secondary"
+              onPress={() => onOpenChange(false)}
+            >
+              取消
+            </Button>
+            <Button
+              isPending={isDeleting}
+              type="button"
+              variant="danger"
+              onPress={onConfirm}
+            >
+              删除模型
+            </Button>
+          </Modal.Footer>
+        </Modal.Dialog>
+      </Modal.Container>
+    </Modal.Backdrop>
   );
 }
 
