@@ -617,6 +617,7 @@ export interface SubscriptionPlan {
   createdAt?: string;
   description?: string;
   enabled?: boolean;
+  featureIntro?: string;
   id?: number;
   isDelete?: number;
   monthlyPriceAmount?: string;
@@ -645,6 +646,7 @@ export interface ReqSubscriptionPlanList extends ReqPagination {
 export interface ReqSubscriptionPlanCreate {
   description?: string;
   enabled?: boolean;
+  featureIntro?: string;
   monthlyPriceAmount?: string;
   name?: string;
   remark?: string;

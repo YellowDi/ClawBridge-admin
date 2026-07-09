@@ -11,6 +11,7 @@ import {
   Input,
   Label,
   Modal,
+  TextArea,
   TextField,
   toast,
   useOverlayState,
@@ -30,6 +31,7 @@ import {
 type SubscriptionPlanForm = {
   description: string;
   enabled: boolean;
+  featureIntro: string;
   monthlyPriceAmount: string;
   name: string;
   remark: string;
@@ -54,6 +56,7 @@ type PlansLoadState = {
 const DEFAULT_PLAN_FORM: SubscriptionPlanForm = {
   description: "",
   enabled: true,
+  featureIntro: "",
   monthlyPriceAmount: "",
   name: "",
   remark: "",
@@ -85,6 +88,20 @@ const PLAN_COLUMNS: DataGridColumn<SubscriptionPlan>[] = [
     headerClassName: "whitespace-nowrap",
     id: "name",
     isRowHeader: true,
+    minWidth: 220,
+  },
+  {
+    cell: (item) => (
+      <span
+        className="text-muted line-clamp-2 whitespace-pre-line text-xs"
+        title={item.featureIntro}
+      >
+        {item.featureIntro || "无功能介绍"}
+      </span>
+    ),
+    header: "功能介绍",
+    headerClassName: "whitespace-nowrap",
+    id: "featureIntro",
     minWidth: 220,
   },
   {
@@ -305,7 +322,7 @@ export function SubscriptionPlansPage() {
         aria-label="订阅套餐列表"
         className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
         columns={columns}
-        contentClassName="min-w-[860px]"
+        contentClassName="min-w-[1080px]"
         data={plans}
         getRowId={(item) => String(item.id ?? item.name)}
         renderEmptyState={() => getPlansEmptyState(error, isLoading)}
@@ -450,6 +467,20 @@ function PlanFormFields({
           onChange={(event) => onChange({ description: event.target.value })}
         />
       </TextField>
+      <TextField
+        fullWidth
+        isDisabled={isDisabled}
+        value={form.featureIntro}
+        variant="secondary"
+        onChange={(featureIntro) => onChange({ featureIntro })}
+      >
+        <Label>功能介绍</Label>
+        <TextArea
+          placeholder={"包含高级模型调用额度\n支持团队协作席位"}
+          rows={4}
+          variant="secondary"
+        />
+      </TextField>
       <TextField fullWidth isDisabled={isDisabled} variant="secondary">
         <Label>备注</Label>
         <Input
@@ -564,6 +595,7 @@ function toPlanForm(plan: SubscriptionPlan): SubscriptionPlanForm {
   return {
     description: plan.description ?? "",
     enabled: plan.enabled !== false,
+    featureIntro: plan.featureIntro ?? "",
     monthlyPriceAmount: plan.monthlyPriceAmount ?? "",
     name: plan.name ?? "",
     remark: plan.remark ?? "",
@@ -592,6 +624,7 @@ function toPlanRequest(form: SubscriptionPlanForm) {
   return {
     description: form.description.trim(),
     enabled: form.enabled,
+    featureIntro: form.featureIntro.trim(),
     monthlyPriceAmount,
     name,
     remark: form.remark.trim(),

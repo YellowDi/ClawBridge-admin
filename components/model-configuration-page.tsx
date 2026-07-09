@@ -575,7 +575,11 @@ export function ModelConfigurationPage() {
 
   async function deleteProvider() {
     if (!editingModelConfiguration?.recordId) return;
-    if (!window.confirm(`删除“${editingModelConfiguration.name}”模型配置？`)) {
+    if (
+      !window.confirm(
+        "删除后，该模型会从后台模型列表、用户授权关系以及当前在线的 OpenClaw 实例中移除。正在使用该模型的 Agent 或会话可能需要重新选择模型，是否继续？",
+      )
+    ) {
       return;
     }
 
@@ -583,7 +587,7 @@ export function ModelConfigurationPage() {
 
     try {
       await deleteModel(editingModelConfiguration.recordId);
-      toast.success("模型配置已删除。");
+      toast.success("模型已删除，并已同步清理在线 OpenClaw 实例。");
       dispatch({
         modelConfigurationId: editingModelConfiguration.id,
         type: "modelDeleted",
@@ -591,8 +595,8 @@ export function ModelConfigurationPage() {
       setSelectedModelIds((current) =>
         current.filter((id) => id !== editingModelConfiguration.recordId),
       );
-    } catch (error) {
-      toast.danger(`模型配置删除失败：${getActionErrorMessage(error)}`);
+    } catch {
+      toast.danger("模型删除失败，OpenClaw 实例同步未完成，请稍后重试。");
       dispatch({ type: "deleteFinished" });
     }
   }

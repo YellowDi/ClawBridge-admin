@@ -52,10 +52,13 @@ expectType<string | undefined>(
 expectType<Promise<ModelProviderCatalogProvider[]>>(listModelProviderCatalog());
 expectType<Promise<TencentCosSts | undefined>>(getTencentCosSts());
 expectType<Promise<SubscriptionPlan[]>>(listSubscriptionPlans());
+expectType<string | undefined>({} as SubscriptionPlan["featureIntro"]);
 expectType<Promise<SubscriptionPlan | undefined>>(getSubscriptionPlanDetail(1));
 expectType<Promise<SubscriptionPlan | undefined>>(
   createSubscriptionPlan({
     enabled: true,
+    featureIntro:
+      "包含高级模型调用额度\n支持团队协作席位\n适合持续使用 OpenClaw 自动化能力",
     monthlyPriceAmount: "300.0000000000",
     name: "pro",
     seatLimit: 3,
