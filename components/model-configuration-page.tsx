@@ -58,6 +58,7 @@ type ModelProviderPreset = {
   defaultModel: string;
   id: string;
   label: string;
+  logo?: string;
 };
 
 type ModelConfiguration = {
@@ -340,6 +341,7 @@ function ProviderPresetOption({ provider }: { provider: ModelProviderPreset }) {
       <span className="flex min-w-0 items-center gap-2">
         <ModelProviderLogo
           label={provider.label}
+          logo={provider.logo}
           providerType={provider.id}
           size="xs"
         />
@@ -864,6 +866,10 @@ function ModelConfigurationGrid({
                       modelConfiguration.provider_type,
                       providerPresets,
                     )}
+                    logo={modelProviderLogo(
+                      modelConfiguration.provider_type,
+                      providerPresets,
+                    )}
                     providerType={modelConfiguration.provider_type}
                     size="lg"
                   />
@@ -940,6 +946,10 @@ function ModelConfigurationGrid({
               >
                 <ModelProviderLogo
                   label={modelProviderLabel(
+                    modelConfiguration.provider_type,
+                    providerPresets,
+                  )}
+                  logo={modelProviderLogo(
                     modelConfiguration.provider_type,
                     providerPresets,
                   )}
@@ -1440,6 +1450,7 @@ function ModelConfigurationFields({
                 <span className="flex min-w-0 items-center gap-2">
                   <ModelProviderLogo
                     label={selectedProvider.label}
+                    logo={selectedProvider.logo}
                     providerType={selectedProvider.id}
                     size="xs"
                   />
@@ -2256,6 +2267,7 @@ function getModelProviderPresets(
         "",
       id,
       label: normalizeText(catalogProvider.name) || existing?.label || id,
+      logo: normalizeText(catalogProvider.logo) || existing?.logo,
     };
 
     if (existing) {
@@ -2345,6 +2357,13 @@ function modelProviderLabel(
     providerPresets.find((provider) => provider.id === providerType)?.label ??
     providerType
   );
+}
+
+function modelProviderLogo(
+  providerType: string,
+  providerPresets = modelProviderPresets,
+): string | undefined {
+  return providerPresets.find((provider) => provider.id === providerType)?.logo;
 }
 
 function modelCapabilityLabel(capability: ModelCapabilityValue): string {

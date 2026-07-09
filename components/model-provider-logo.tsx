@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useState } from "react";
 
 const sizeClasses = {
@@ -60,20 +59,28 @@ const darkInvertLogos = new Set([
 
 export function ModelProviderLogo({
   label,
+  logo,
   providerType,
   size = "sm",
 }: {
   label?: string;
+  logo?: string;
   providerType?: string;
   size?: keyof typeof sizeClasses;
 }) {
   const normalizedProviderType = providerType?.trim() ?? "";
-  const logo = modelProviderLogos[normalizedProviderType.toLowerCase()];
-  const imageSrc = logo ? `/model-logos/${logo}.svg` : "";
-  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const catalogLogo = logo?.trim() ?? "";
+  const localLogo = modelProviderLogos[normalizedProviderType.toLowerCase()];
+  const imageSrcs = uniqueValues([
+    normalizeLogoSrc(catalogLogo),
+    getLocalLogoSrc(localLogo),
+  ]);
+  const [failedSrcs, setFailedSrcs] = useState<string[]>([]);
   const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
-  const failed = Boolean(imageSrc && failedSrc === imageSrc);
+  const imageSrc = imageSrcs.find((src) => !failedSrcs.includes(src)) ?? "";
   const loaded = Boolean(imageSrc && loadedSrc === imageSrc);
+  const invertKey =
+    getLogoKey(imageSrc) || normalizedProviderType.toLowerCase();
   const fallback = (label || normalizedProviderType || "?")
     .trim()
     .slice(0, 1)
@@ -89,23 +96,57 @@ export function ModelProviderLogo({
           {fallback}
         </span>
       ) : null}
-      {logo && !failed ? (
-        <Image
-          unoptimized
+      {imageSrc ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
           alt=""
           aria-hidden="true"
           className={`absolute inset-0 m-auto object-contain ${classes.image} ${
-            darkInvertLogos.has(normalizedProviderType.toLowerCase())
+            darkInvertLogos.has(invertKey)
               ? "dark:invert dark:brightness-110"
               : ""
           }`}
-          height={20}
           src={imageSrc}
-          width={20}
-          onError={() => setFailedSrc(imageSrc)}
+          onError={() =>
+            setFailedSrcs((current) =>
+              current.includes(imageSrc) ? current : [...current, imageSrc],
+            )
+          }
           onLoad={() => setLoadedSrc(imageSrc)}
         />
       ) : null}
     </span>
   );
+}
+
+function normalizeLogoSrc(value: string) {
+  const logo = value.trim();
+
+  if (!logo) return "";
+  if (/^(https?:|data:image\/|\/)/i.test(logo)) return logo;
+  if (logo.includes("/")) return `/${logo.replace(/^\/+/, "")}`;
+  if (logo.includes(".")) return `/model-logos/${logo}`;
+
+  return `/model-logos/${logo}.svg`;
+}
+
+function getLocalLogoSrc(logo?: string) {
+  return logo ? `/model-logos/${logo}.svg` : "";
+}
+
+function uniqueValues(values: string[]) {
+  return values.filter(
+    (value, index) => value && values.indexOf(value) === index,
+  );
+}
+
+function getLogoKey(value: string) {
+  const logo = value.trim().toLowerCase();
+
+  if (!logo) return "";
+
+  const pathname = logo.split(/[?#]/, 1)[0] ?? "";
+  const filename = pathname.split("/").pop() ?? pathname;
+
+  return filename.replace(/\.[a-z0-9]+$/, "");
 }
