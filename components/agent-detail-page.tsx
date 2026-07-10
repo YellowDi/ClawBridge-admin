@@ -337,13 +337,15 @@ function AgentDetailActions({
 
   return (
     <>
-      <Button
-        size="sm"
-        variant="secondary"
-        onPress={() => router.push("/agents")}
-      >
-        返回列表
-      </Button>
+      {editableAgent ? null : (
+        <Button
+          size="sm"
+          variant="secondary"
+          onPress={() => router.push("/agents")}
+        >
+          返回列表
+        </Button>
+      )}
       {isInitialized ? null : (
         <InitDevAgentButton agentRecordId={agentRecordId} onDone={onChanged} />
       )}
@@ -379,9 +381,11 @@ function AgentDetailMoreActions({
           <Dropdown.Menu
             aria-label="Agent 更多操作"
             onAction={(key) => {
+              if (key === "back") router.push("/agents");
               if (key === "delete") deleteModal.open();
             }}
           >
+            <Dropdown.Item id="back">返回列表</Dropdown.Item>
             {editableAgent ? (
               <Dropdown.Item id="delete" variant="danger">
                 删除

@@ -13,6 +13,7 @@ import {
 } from "@heroui/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { AdminIcon } from "@/components/admin-icons";
 import {
   AdminPage,
   SectionCard,
@@ -166,12 +167,14 @@ export function SettingsPage() {
       actions={
         <>
           <Button
+            aria-label="刷新系统资源"
             isPending={state.isLoading}
             size="sm"
             variant="tertiary"
             onPress={() => void loadSources()}
           >
-            刷新资源
+            <AdminIcon className="size-4" name="refresh" />
+            <span className="hidden sm:inline">刷新资源</span>
           </Button>
           <Button
             isDisabled={state.isLoading || state.isApplying}

@@ -497,13 +497,14 @@ export function AdminMCPPage() {
       actions={
         <>
           <Button
+            aria-label="刷新 OpenClaw MCP"
             isPending={serversState.isLoading || instancesState.isLoading}
             size="sm"
             variant="tertiary"
             onPress={refreshAll}
           >
             <AdminIcon className="size-4" name="refresh" />
-            刷新
+            <span className="hidden sm:inline">刷新</span>
           </Button>
           <MCPServerDialog onSaved={loadMCPServers} />
         </>

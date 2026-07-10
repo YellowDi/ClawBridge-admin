@@ -24,6 +24,7 @@ import {
   Label,
   ListBox,
   Modal,
+  SearchField,
   Select,
   Switch,
   Tabs,
@@ -35,7 +36,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AdminIcon } from "@/components/admin-icons";
-import { AdminPage } from "@/components/admin-page-kit";
+import { AdminPage, CollectionToolbar } from "@/components/admin-page-kit";
 import { PluginConfigurationForm } from "@/components/plugin-configuration-form";
 import {
   deleteOpenClawPluginLibrary,
@@ -169,9 +170,14 @@ export function OpenClawPluginsPage() {
     <AdminPage
       actions={
         <>
-          <Button size="sm" variant="tertiary" onPress={refreshAll}>
+          <Button
+            aria-label="刷新插件管理"
+            size="sm"
+            variant="tertiary"
+            onPress={refreshAll}
+          >
             <AdminIcon className="size-4" name="refresh" />
-            刷新
+            <span className="hidden sm:inline">刷新</span>
           </Button>
           <Button size="sm" onPress={() => setUploadOpen(true)}>
             <AdminIcon className="size-4" name="upload" />
@@ -477,11 +483,6 @@ function PluginLibraryTab({
     [onInstall, openDetail],
   );
 
-  function handleSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    void loadLibrary(1, queryInput, state.includeDeleted);
-  }
-
   function handleDeletedChange(includeDeleted: boolean) {
     void loadLibrary(1, state.query, includeDeleted, state.pluginType);
   }
@@ -506,10 +507,7 @@ function PluginLibraryTab({
             同一稳定 ID 可保留多个版本；默认突出当前最新版本。
           </p>
         </div>
-        <form
-          className="flex flex-col gap-3 lg:flex-row lg:items-end"
-          onSubmit={handleSearch}
-        >
+        <CollectionToolbar>
           <Tabs
             className="w-full min-w-0 shrink-0 lg:w-auto lg:max-w-[33rem]"
             selectedKey={state.pluginType || "all"}
@@ -539,40 +537,46 @@ function PluginLibraryTab({
               </Tabs.List>
             </Tabs.ListContainer>
           </Tabs>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-end lg:ml-auto">
-            <TextField
-              fullWidth
-              className="min-w-0 sm:w-[280px]"
+          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+            <SearchField
+              aria-label="搜索插件"
+              className="w-full sm:w-[280px]"
+              value={queryInput}
               variant="secondary"
+              onChange={setQueryInput}
+              onClear={() =>
+                void loadLibrary(1, "", state.includeDeleted, state.pluginType)
+              }
+              onSubmit={(value) =>
+                void loadLibrary(
+                  1,
+                  value.trim(),
+                  state.includeDeleted,
+                  state.pluginType,
+                )
+              }
             >
-              <Label className="sr-only">搜索插件</Label>
-              <Input
-                placeholder="搜索名称、插件 ID、描述或版本"
-                value={queryInput}
-                onChange={(event) => setQueryInput(event.target.value)}
-              />
-            </TextField>
-            <div className="flex items-center justify-between gap-3 sm:justify-end">
-              <Switch
-                className="shrink-0"
-                isSelected={state.includeDeleted}
-                size="sm"
-                onChange={handleDeletedChange}
-              >
-                <Switch.Content>
-                  <Switch.Control>
-                    <Switch.Thumb />
-                  </Switch.Control>
-                  显示已删除
-                </Switch.Content>
-              </Switch>
-              <Button type="submit" variant="secondary">
-                <AdminIcon className="size-4" name="search" />
-                搜索
-              </Button>
-            </div>
+              <SearchField.Group>
+                <SearchField.SearchIcon />
+                <SearchField.Input placeholder="搜索名称、插件 ID、描述或版本" />
+                <SearchField.ClearButton />
+              </SearchField.Group>
+            </SearchField>
+            <Switch
+              className="shrink-0"
+              isSelected={state.includeDeleted}
+              size="sm"
+              onChange={handleDeletedChange}
+            >
+              <Switch.Content>
+                <Switch.Control>
+                  <Switch.Thumb />
+                </Switch.Control>
+                显示已删除
+              </Switch.Content>
+            </Switch>
           </div>
-        </form>
+        </CollectionToolbar>
         {state.error ? <InlineError>{state.error}</InlineError> : null}
         {groups.length > 0 ? (
           <div className="flex flex-col">
@@ -624,9 +628,13 @@ function PluginLibraryTab({
               );
             })}
           </div>
-        ) : (
+        ) : state.error ? null : (
           <p className="text-muted rounded-md border border-dashed border-divider px-3 py-8 text-center text-sm">
-            {state.isLoading ? "加载中..." : "暂无插件记录"}
+            {state.isLoading
+              ? "加载中..."
+              : state.query || state.pluginType
+                ? "当前筛选没有匹配的插件。"
+                : "暂无插件记录。"}
           </p>
         )}
         <PaginationControls

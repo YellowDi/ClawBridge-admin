@@ -13,6 +13,7 @@ import { useRef, useState } from "react";
 import { AgentFormError } from "@/components/agent-form-error";
 import { AgentFormFields } from "@/components/agent-form-fields";
 import { EMPTY_MODEL_OPTIONS } from "@/components/agent-dialog-types";
+import { AdminIcon } from "@/components/admin-icons";
 import {
   getAgentActionError,
   toAgentForm,
@@ -31,10 +32,12 @@ type EditAgentState = {
 
 export function EditAgentDialog({
   agent,
+  isIconOnly = false,
   modelOptions = EMPTY_MODEL_OPTIONS,
   onUpdated,
 }: {
   agent: EditableAgentSummary;
+  isIconOnly?: boolean;
   onUpdated: () => void;
 } & AgentDialogProps) {
   const loadRequestRef = useRef(0);
@@ -166,7 +169,18 @@ export function EditAgentDialog({
   return (
     <Modal state={modal}>
       <Modal.Trigger>
-        <Button size="sm">编辑配置</Button>
+        <Button
+          aria-label={isIconOnly ? "编辑 Agent" : undefined}
+          isIconOnly={isIconOnly}
+          size="sm"
+          variant={isIconOnly ? "tertiary" : undefined}
+        >
+          {isIconOnly ? (
+            <AdminIcon className="size-4" name="edit" />
+          ) : (
+            "编辑配置"
+          )}
+        </Button>
       </Modal.Trigger>
       <Modal.Backdrop
         isDismissable={!isBusy}

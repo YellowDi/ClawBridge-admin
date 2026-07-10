@@ -1,13 +1,26 @@
 "use client";
 
-import type { DataGridColumn } from "@heroui-pro/react";
+import type { Key } from "react";
 import type { KnowledgeBase } from "@/lib/api";
 
-import { DataGrid } from "@heroui-pro/react";
-import { Button, Chip, toast } from "@heroui/react";
+import {
+  Button,
+  Card,
+  Chip,
+  Label,
+  ListBox,
+  Select,
+  toast,
+} from "@heroui/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { AdminPage, StatGrid } from "@/components/admin-page-kit";
+import { AdminIcon } from "@/components/admin-icons";
+import {
+  AdminPage,
+  CardCollection,
+  CollectionToolbar,
+  StatGrid,
+} from "@/components/admin-page-kit";
 import { CreateKnowledgeBaseDialog } from "@/components/create-knowledge-base-dialog";
 import { KnowledgeFormError } from "@/components/knowledge-form-error";
 import { listKnowledgeBases, retryKnowledgeBase } from "@/lib/api";
@@ -32,6 +45,7 @@ type KnowledgeRow = {
   sourceType: string;
   status: KnowledgeStatus;
   updatedAt: string;
+  updatedAtValue: string;
 };
 
 type KnowledgeLoadState = {
@@ -39,6 +53,14 @@ type KnowledgeLoadState = {
   isLoading: boolean;
   rows: KnowledgeRow[];
 };
+
+type KnowledgeSort =
+  | "chunks-asc"
+  | "chunks-desc"
+  | "name-asc"
+  | "name-desc"
+  | "updated-asc"
+  | "updated-desc";
 
 const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("zh-CN", {
   day: "2-digit",
@@ -56,89 +78,14 @@ const STATUS_LABELS: Record<string, string> = {
   indexed: "已入库",
   pending: "待处理",
 };
-
-const KNOWLEDGE_COLUMNS: DataGridColumn<KnowledgeRow>[] = [
-  {
-    accessorKey: "name",
-    allowsSorting: true,
-    cell: (item) => (
-      <div className="flex min-w-0 flex-col">
-        <span className="truncate text-xs font-medium">{item.name}</span>
-        {item.description ? (
-          <span className="text-muted line-clamp-1 text-xs">
-            {item.description}
-          </span>
-        ) : null}
-      </div>
-    ),
-    header: "名称",
-    headerClassName: "whitespace-nowrap",
-    id: "name",
-    isRowHeader: true,
-    minWidth: 200,
-    width: 220,
-  },
-  {
-    cellClassName: "whitespace-nowrap",
-    cell: (item) => (
-      <Chip
-        className="whitespace-nowrap"
-        color={getStatusColor(item.status)}
-        size="sm"
-        variant="soft"
-      >
-        {getStatusLabel(item.status)}
-      </Chip>
-    ),
-    header: "状态",
-    headerClassName: "whitespace-nowrap",
-    id: "status",
-    width: 72,
-  },
-  {
-    accessorKey: "sourceType",
-    cellClassName: "whitespace-nowrap",
-    header: "来源类型",
-    headerClassName: "whitespace-nowrap",
-    id: "sourceType",
-    width: 80,
-  },
-  {
-    accessorKey: "chunkCount",
-    align: "end",
-    allowsSorting: true,
-    cell: (item) => item.chunkCount ?? "-",
-    cellClassName: "whitespace-nowrap",
-    header: "片段数",
-    headerClassName: "whitespace-nowrap",
-    id: "chunkCount",
-    width: 72,
-  },
-  {
-    cell: (item) => (
-      <span
-        className="text-muted block whitespace-nowrap text-xs"
-        title={item.sourceAddress}
-      >
-        {formatCompactSourceAddress(item.sourceAddress)}
-      </span>
-    ),
-    header: "来源地址",
-    headerClassName: "whitespace-nowrap",
-    id: "sourceAddress",
-    width: 260,
-  },
-  {
-    accessorKey: "updatedAt",
-    align: "end",
-    allowsSorting: true,
-    cellClassName: "whitespace-nowrap",
-    header: "更新时间",
-    headerClassName: "whitespace-nowrap",
-    id: "updatedAt",
-    width: 140,
-  },
-];
+const KNOWLEDGE_SKELETON_IDS = [
+  "knowledge-skeleton-1",
+  "knowledge-skeleton-2",
+  "knowledge-skeleton-3",
+  "knowledge-skeleton-4",
+  "knowledge-skeleton-5",
+  "knowledge-skeleton-6",
+] as const;
 
 export function KnowledgeBasesPage() {
   const isMountedRef = useRef(false);
@@ -150,6 +97,7 @@ export function KnowledgeBasesPage() {
   });
   const [actionError, setActionError] = useState<string | null>(null);
   const [retryingId, setRetryingId] = useState<number | null>(null);
+  const [sort, setSort] = useState<KnowledgeSort>("updated-desc");
   const { error, isLoading, rows } = loadState;
 
   const loadKnowledgeBases = useCallback(async () => {
@@ -176,11 +124,11 @@ export function KnowledgeBasesPage() {
       if (isMountedRef.current && loadRequestRef.current === requestId) {
         const message = getKnowledgeError(error, "知识库列表加载失败。");
 
-        setLoadState({
+        setLoadState((current) => ({
+          ...current,
           error: message,
           isLoading: false,
-          rows: [],
-        });
+        }));
         toast.danger(message);
       }
     }
@@ -227,46 +175,26 @@ export function KnowledgeBasesPage() {
     [loadKnowledgeBases],
   );
 
-  const columns = useMemo<DataGridColumn<KnowledgeRow>[]>(
-    () => [
-      ...KNOWLEDGE_COLUMNS,
-      {
-        align: "end",
-        cell: (item) => {
-          if (item.status !== "failed" || item.knowledgeBaseId == null) {
-            return <span className="text-muted text-xs">-</span>;
-          }
-
-          const knowledgeBaseId = item.knowledgeBaseId;
-
-          return (
-            <Button
-              isDisabled={retryingId != null}
-              size="sm"
-              variant="tertiary"
-              onPress={() => void handleRetry(knowledgeBaseId)}
-            >
-              {retryingId === knowledgeBaseId ? "重试中..." : "重试"}
-            </Button>
-          );
-        },
-        cellClassName: "w-[88px] min-w-[88px] max-w-[88px] pl-4 pr-4",
-        header: "操作",
-        headerClassName:
-          "w-[88px] min-w-[88px] max-w-[88px] whitespace-nowrap pl-4 pr-4",
-        id: "actions",
-        pinned: "end",
-        width: 88,
-      },
-    ],
-    [handleRetry, retryingId],
-  );
   const stats = useMemo(() => getKnowledgeStats(rows), [rows]);
-  const emptyState = getKnowledgeEmptyState({ error, isLoading });
+  const sortedRows = useMemo(() => sortKnowledgeRows(rows, sort), [rows, sort]);
 
   return (
     <AdminPage
-      actions={<CreateKnowledgeBaseDialog onCreated={refreshKnowledgeBases} />}
+      actions={
+        <>
+          <Button
+            aria-label="刷新知识库"
+            isDisabled={isLoading}
+            size="sm"
+            variant="tertiary"
+            onPress={refreshKnowledgeBases}
+          >
+            <AdminIcon className="size-4" name="refresh" />
+            <span className="hidden sm:inline">刷新</span>
+          </Button>
+          <CreateKnowledgeBaseDialog onCreated={refreshKnowledgeBases} />
+        </>
+      }
       description="管理可用于检索增强的知识库，查看入库状态和切片结果。"
       eyebrow="Knowledge"
       title="知识库"
@@ -299,25 +227,189 @@ export function KnowledgeBasesPage() {
         ]}
       />
 
-      <section className="flex min-w-0 flex-col gap-3">
+      <section className="flex min-w-0 flex-col gap-4">
+        <CollectionToolbar>
+          <Select
+            aria-label="知识库排序方式"
+            className="w-full sm:ml-auto sm:w-52"
+            selectedKey={sort}
+            variant="secondary"
+            onSelectionChange={(key) => setSort(toKnowledgeSort(key))}
+          >
+            <Label className="sr-only">排序方式</Label>
+            <Select.Trigger>
+              <Select.Value />
+              <Select.Indicator />
+            </Select.Trigger>
+            <Select.Popover>
+              <ListBox>
+                <ListBox.Item id="updated-desc" textValue="最近更新优先">
+                  最近更新优先
+                </ListBox.Item>
+                <ListBox.Item id="updated-asc" textValue="最早更新优先">
+                  最早更新优先
+                </ListBox.Item>
+                <ListBox.Item id="name-asc" textValue="名称 A-Z">
+                  名称 A-Z
+                </ListBox.Item>
+                <ListBox.Item id="name-desc" textValue="名称 Z-A">
+                  名称 Z-A
+                </ListBox.Item>
+                <ListBox.Item id="chunks-desc" textValue="片段数从多到少">
+                  片段数从多到少
+                </ListBox.Item>
+                <ListBox.Item id="chunks-asc" textValue="片段数从少到多">
+                  片段数从少到多
+                </ListBox.Item>
+              </ListBox>
+            </Select.Popover>
+          </Select>
+        </CollectionToolbar>
         {actionError ? (
           <KnowledgeFormError>{actionError}</KnowledgeFormError>
         ) : null}
-        <DataGrid
-          aria-label="知识库列表"
-          className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
-          columns={columns}
-          contentClassName="min-w-[932px]"
-          data={rows}
-          defaultSortDescriptor={{
-            column: "updatedAt",
-            direction: "descending",
-          }}
-          getRowId={(item) => item.id}
-          renderEmptyState={() => emptyState}
-        />
+        {error ? <KnowledgeFormError>{error}</KnowledgeFormError> : null}
+        {isLoading && rows.length === 0 ? (
+          <KnowledgeGridSkeleton />
+        ) : sortedRows.length > 0 ? (
+          <CardCollection>
+            {sortedRows.map((row) => (
+              <KnowledgeCard
+                key={row.id}
+                isRetrying={retryingId === row.knowledgeBaseId}
+                retryDisabled={retryingId != null}
+                row={row}
+                onRetry={handleRetry}
+              />
+            ))}
+          </CardCollection>
+        ) : error ? null : (
+          <KnowledgeEmptyState />
+        )}
       </section>
     </AdminPage>
+  );
+}
+
+function KnowledgeCard({
+  isRetrying,
+  onRetry,
+  retryDisabled,
+  row,
+}: {
+  isRetrying: boolean;
+  onRetry: (knowledgeBaseId: number) => Promise<void>;
+  retryDisabled: boolean;
+  row: KnowledgeRow;
+}) {
+  return (
+    <Card className="h-full">
+      <Card.Header>
+        <div className="flex w-full min-w-0 items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="bg-default-100 text-muted flex size-10 shrink-0 items-center justify-center rounded-md">
+              <AdminIcon className="size-5" name="knowledge" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex min-w-0 items-center gap-2">
+                <Card.Title className="truncate text-base">
+                  {row.name}
+                </Card.Title>
+                <Chip
+                  className="shrink-0 whitespace-nowrap"
+                  color={getStatusColor(row.status)}
+                  size="sm"
+                  variant="soft"
+                >
+                  {getStatusLabel(row.status)}
+                </Chip>
+              </div>
+              <Card.Description className="truncate text-xs">
+                {row.sourceType}
+              </Card.Description>
+            </div>
+          </div>
+          {row.status === "failed" && row.knowledgeBaseId != null ? (
+            <Button
+              isDisabled={retryDisabled}
+              size="sm"
+              variant="tertiary"
+              onPress={() => void onRetry(row.knowledgeBaseId!)}
+            >
+              {isRetrying ? "重试中..." : "重试"}
+            </Button>
+          ) : null}
+        </div>
+      </Card.Header>
+      <Card.Content className="flex h-full flex-col gap-4">
+        <p className="text-muted line-clamp-3 min-h-14 text-sm">
+          {row.description || "暂无说明"}
+        </p>
+        <div className="min-w-0 rounded-md bg-default-50 px-3 py-2">
+          <div className="text-muted text-xs">来源地址</div>
+          <div
+            className="text-foreground mt-1 truncate text-xs font-medium"
+            title={row.sourceAddress}
+          >
+            {formatCompactSourceAddress(row.sourceAddress)}
+          </div>
+        </div>
+        <dl className="mt-auto grid grid-cols-2 gap-3 text-xs">
+          <KnowledgeMeta label="来源" value={row.sourceType} />
+          <KnowledgeMeta
+            label="片段数"
+            value={row.chunkCount == null ? "-" : String(row.chunkCount)}
+          />
+          <KnowledgeMeta label="大小" value={formatBytes(row.size)} />
+          <KnowledgeMeta label="更新时间" value={row.updatedAt} />
+        </dl>
+      </Card.Content>
+    </Card>
+  );
+}
+
+function KnowledgeMeta({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-muted">{label}</dt>
+      <dd className="text-foreground truncate font-medium" title={value}>
+        {value}
+      </dd>
+    </div>
+  );
+}
+
+function KnowledgeGridSkeleton() {
+  return (
+    <CardCollection>
+      {KNOWLEDGE_SKELETON_IDS.map((id) => (
+        <Card key={id}>
+          <Card.Content className="flex min-h-64 flex-col gap-4 p-5">
+            <div className="bg-default-200 h-5 w-2/3 animate-pulse rounded" />
+            <div className="bg-default-100 h-14 animate-pulse rounded" />
+            <div className="bg-default-100 h-12 animate-pulse rounded" />
+            <div className="mt-auto grid grid-cols-2 gap-3">
+              <div className="bg-default-100 h-10 animate-pulse rounded" />
+              <div className="bg-default-100 h-10 animate-pulse rounded" />
+            </div>
+          </Card.Content>
+        </Card>
+      ))}
+    </CardCollection>
+  );
+}
+
+function KnowledgeEmptyState() {
+  return (
+    <div className="flex min-h-72 flex-col items-center justify-center rounded-md border border-dashed border-default-300 px-6 py-12 text-center">
+      <AdminIcon className="text-muted size-9" name="knowledge" />
+      <h2 className="text-foreground mt-4 text-base font-semibold">
+        还没有知识库
+      </h2>
+      <p className="text-muted mt-2 max-w-md text-sm">
+        创建知识库后会在这里显示入库状态和来源信息。
+      </p>
+    </div>
   );
 }
 
@@ -344,7 +436,44 @@ function toKnowledgeRow(
     sourceType: getSourceTypeLabel(knowledgeBase.storageType),
     status,
     updatedAt: formatDateTime(knowledgeBase.updatedAt),
+    updatedAtValue: knowledgeBase.updatedAt ?? "",
   };
+}
+
+function sortKnowledgeRows(rows: KnowledgeRow[], sort: KnowledgeSort) {
+  return [...rows].sort((left, right) => {
+    if (sort === "name-asc")
+      return left.name.localeCompare(right.name, "zh-CN");
+    if (sort === "name-desc")
+      return right.name.localeCompare(left.name, "zh-CN");
+    if (sort === "chunks-asc") {
+      return (left.chunkCount ?? 0) - (right.chunkCount ?? 0);
+    }
+    if (sort === "chunks-desc") {
+      return (right.chunkCount ?? 0) - (left.chunkCount ?? 0);
+    }
+
+    const leftTime = Date.parse(left.updatedAtValue) || 0;
+    const rightTime = Date.parse(right.updatedAtValue) || 0;
+
+    return sort === "updated-asc" ? leftTime - rightTime : rightTime - leftTime;
+  });
+}
+
+function toKnowledgeSort(key: Key | null): KnowledgeSort {
+  const value = String(key ?? "updated-desc");
+
+  if (
+    value === "chunks-asc" ||
+    value === "chunks-desc" ||
+    value === "name-asc" ||
+    value === "name-desc" ||
+    value === "updated-asc"
+  ) {
+    return value;
+  }
+
+  return "updated-desc";
 }
 
 function getKnowledgeStats(rows: KnowledgeRow[]) {
@@ -411,19 +540,6 @@ function getKnowledgeError(error: unknown, fallback: string) {
   }
 
   return fallback;
-}
-
-function getKnowledgeEmptyState({
-  error,
-  isLoading,
-}: {
-  error: string | null;
-  isLoading: boolean;
-}) {
-  if (isLoading) return "正在加载知识库...";
-  if (error) return error;
-
-  return "暂无知识库数据。";
 }
 
 function formatCount(value: number, isLoading: boolean) {

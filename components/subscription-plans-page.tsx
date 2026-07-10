@@ -1,26 +1,34 @@
 "use client";
 
-import type { DataGridColumn } from "@heroui-pro/react";
-import type { FormEvent } from "react";
+import type { FormEvent, Key } from "react";
 import type { SubscriptionPlan } from "@/lib/api";
 
 import {
   Button,
+  Card,
   Checkbox,
+  Chip,
   Description,
+  Dropdown,
   Input,
   Label,
+  ListBox,
   Modal,
+  Select,
   TextArea,
   TextField,
   toast,
   useOverlayState,
 } from "@heroui/react";
-import { DataGrid } from "@heroui-pro/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AdminIcon } from "@/components/admin-icons";
-import { AdminPage, StatGrid } from "@/components/admin-page-kit";
+import {
+  AdminPage,
+  CardCollection,
+  CollectionToolbar,
+  StatGrid,
+} from "@/components/admin-page-kit";
 import {
   createSubscriptionPlan,
   deleteSubscriptionPlan,
@@ -53,6 +61,13 @@ type PlansLoadState = {
   plans: SubscriptionPlan[];
 };
 
+type PlanSort =
+  | "default"
+  | "name-asc"
+  | "name-desc"
+  | "price-asc"
+  | "price-desc";
+
 const DEFAULT_PLAN_FORM: SubscriptionPlanForm = {
   description: "",
   enabled: true,
@@ -70,74 +85,14 @@ const DEFAULT_PLAN_FORM: SubscriptionPlanForm = {
     },
   ],
 };
-
-const PLAN_COLUMNS: DataGridColumn<SubscriptionPlan>[] = [
-  {
-    allowsSorting: true,
-    cell: (item) => (
-      <div className="flex min-w-0 flex-col">
-        <span className="truncate text-xs font-medium">
-          {item.name || `套餐 ${item.id}`}
-        </span>
-        <span className="text-muted truncate text-xs">
-          {item.description || "无介绍"}
-        </span>
-      </div>
-    ),
-    header: "套餐",
-    headerClassName: "whitespace-nowrap",
-    id: "name",
-    isRowHeader: true,
-    minWidth: 220,
-  },
-  {
-    cell: (item) => (
-      <span
-        className="text-muted line-clamp-2 whitespace-pre-line text-xs"
-        title={item.featureIntro}
-      >
-        {item.featureIntro || "无功能介绍"}
-      </span>
-    ),
-    header: "功能介绍",
-    headerClassName: "whitespace-nowrap",
-    id: "featureIntro",
-    minWidth: 220,
-  },
-  {
-    align: "end",
-    accessorKey: "monthlyPriceAmount",
-    cellClassName: "whitespace-nowrap tabular-nums",
-    header: "月价格",
-    headerClassName: "whitespace-nowrap",
-    id: "monthlyPriceAmount",
-    width: 130,
-  },
-  {
-    align: "end",
-    accessorKey: "seatLimit",
-    cellClassName: "whitespace-nowrap tabular-nums",
-    header: "席位",
-    headerClassName: "whitespace-nowrap",
-    id: "seatLimit",
-    width: 80,
-  },
-  {
-    cell: (item) => formatWindows(item),
-    header: "额度窗口",
-    headerClassName: "whitespace-nowrap",
-    id: "windows",
-    minWidth: 180,
-  },
-  {
-    cell: (item) => (item.enabled === false ? "停用" : "启用"),
-    cellClassName: "whitespace-nowrap",
-    header: "状态",
-    headerClassName: "whitespace-nowrap",
-    id: "enabled",
-    width: 80,
-  },
-];
+const PLAN_SKELETON_IDS = [
+  "plan-skeleton-1",
+  "plan-skeleton-2",
+  "plan-skeleton-3",
+  "plan-skeleton-4",
+  "plan-skeleton-5",
+  "plan-skeleton-6",
+] as const;
 
 export function SubscriptionPlansPage() {
   const isMountedRef = useRef(false);
@@ -151,6 +106,7 @@ export function SubscriptionPlansPage() {
   const [form, setForm] = useState<SubscriptionPlanForm>(DEFAULT_PLAN_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [sort, setSort] = useState<PlanSort>("default");
   const { error, isLoading, plans } = loadState;
 
   const loadPlans = useCallback(async () => {
@@ -166,7 +122,11 @@ export function SubscriptionPlansPage() {
       if (isMountedRef.current) {
         const message = getPlanError(error, "订阅套餐加载失败。");
 
-        setLoadState({ error: message, isLoading: false, plans: [] });
+        setLoadState((current) => ({
+          ...current,
+          error: message,
+          isLoading: false,
+        }));
         toast.danger(message);
       }
     }
@@ -182,36 +142,8 @@ export function SubscriptionPlansPage() {
     };
   }, [loadPlans]);
 
-  const columns = useMemo<DataGridColumn<SubscriptionPlan>[]>(
-    () => [
-      ...PLAN_COLUMNS,
-      {
-        align: "end",
-        cell: (item) => (
-          <div className="flex justify-end gap-2">
-            <Button size="sm" variant="tertiary" onPress={() => openEdit(item)}>
-              编辑
-            </Button>
-            <Button
-              size="sm"
-              variant="danger-soft"
-              onPress={() => void deletePlan(item)}
-            >
-              删除
-            </Button>
-          </div>
-        ),
-        cellClassName: "w-[132px] min-w-[132px] max-w-[132px]",
-        header: "操作",
-        headerClassName: "w-[132px] min-w-[132px] max-w-[132px]",
-        id: "actions",
-        pinned: "end",
-        width: 132,
-      },
-    ],
-    [plans],
-  );
   const stats = useMemo(() => getPlanStats(plans), [plans]);
+  const sortedPlans = useMemo(() => sortPlans(plans, sort), [plans, sort]);
 
   function openCreate() {
     setEditingPlan(null);
@@ -282,10 +214,22 @@ export function SubscriptionPlansPage() {
   return (
     <AdminPage
       actions={
-        <Button size="sm" onPress={openCreate}>
-          <AdminIcon className="size-4" name="plus" />
-          添加套餐
-        </Button>
+        <>
+          <Button
+            aria-label="刷新订阅套餐"
+            isDisabled={isLoading}
+            size="sm"
+            variant="tertiary"
+            onPress={() => void loadPlans()}
+          >
+            <AdminIcon className="size-4" name="refresh" />
+            <span className="hidden sm:inline">刷新</span>
+          </Button>
+          <Button size="sm" onPress={openCreate}>
+            <AdminIcon className="size-4" name="plus" />
+            添加套餐
+          </Button>
+        </>
       }
       description="配置订阅套餐、月价格、席位和周期额度窗口。"
       eyebrow="Subscription"
@@ -318,15 +262,59 @@ export function SubscriptionPlansPage() {
         ]}
       />
 
-      <DataGrid
-        aria-label="订阅套餐列表"
-        className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
-        columns={columns}
-        contentClassName="min-w-[1080px]"
-        data={plans}
-        getRowId={(item) => String(item.id ?? item.name)}
-        renderEmptyState={() => getPlansEmptyState(error, isLoading)}
-      />
+      <section className="flex min-w-0 flex-col gap-4">
+        <CollectionToolbar>
+          <Select
+            aria-label="订阅套餐排序方式"
+            className="w-full sm:ml-auto sm:w-52"
+            selectedKey={sort}
+            variant="secondary"
+            onSelectionChange={(key) => setSort(toPlanSort(key))}
+          >
+            <Label className="sr-only">排序方式</Label>
+            <Select.Trigger>
+              <Select.Value />
+              <Select.Indicator />
+            </Select.Trigger>
+            <Select.Popover>
+              <ListBox>
+                <ListBox.Item id="default" textValue="默认顺序">
+                  默认顺序
+                </ListBox.Item>
+                <ListBox.Item id="name-asc" textValue="名称 A-Z">
+                  名称 A-Z
+                </ListBox.Item>
+                <ListBox.Item id="name-desc" textValue="名称 Z-A">
+                  名称 Z-A
+                </ListBox.Item>
+                <ListBox.Item id="price-desc" textValue="价格从高到低">
+                  价格从高到低
+                </ListBox.Item>
+                <ListBox.Item id="price-asc" textValue="价格从低到高">
+                  价格从低到高
+                </ListBox.Item>
+              </ListBox>
+            </Select.Popover>
+          </Select>
+        </CollectionToolbar>
+        {error ? <PlanFormError>{error}</PlanFormError> : null}
+        {isLoading && plans.length === 0 ? (
+          <PlanGridSkeleton />
+        ) : sortedPlans.length > 0 ? (
+          <CardCollection>
+            {sortedPlans.map((plan) => (
+              <SubscriptionPlanCard
+                key={String(plan.id ?? plan.name)}
+                plan={plan}
+                onDelete={deletePlan}
+                onEdit={openEdit}
+              />
+            ))}
+          </CardCollection>
+        ) : error ? null : (
+          <PlanEmptyState />
+        )}
+      </section>
 
       <Modal.Backdrop
         isDismissable={!isSaving}
@@ -370,6 +358,147 @@ export function SubscriptionPlansPage() {
         </Modal.Container>
       </Modal.Backdrop>
     </AdminPage>
+  );
+}
+
+function SubscriptionPlanCard({
+  onDelete,
+  onEdit,
+  plan,
+}: {
+  onDelete: (plan: SubscriptionPlan) => Promise<void>;
+  onEdit: (plan: SubscriptionPlan) => void;
+  plan: SubscriptionPlan;
+}) {
+  const name = plan.name || `套餐 ${plan.id ?? "-"}`;
+  const windowSummary = formatWindows(plan);
+
+  return (
+    <Card className="h-full">
+      <Card.Header>
+        <div className="flex w-full min-w-0 items-start justify-between gap-3">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="bg-default-100 text-muted flex size-10 shrink-0 items-center justify-center rounded-md">
+              <AdminIcon className="size-5" name="database" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex min-w-0 items-center gap-2">
+                <Card.Title className="truncate text-base">{name}</Card.Title>
+                <Chip
+                  className="shrink-0 whitespace-nowrap"
+                  color={plan.enabled === false ? "default" : "success"}
+                  size="sm"
+                  variant="soft"
+                >
+                  {plan.enabled === false ? "停用" : "启用"}
+                </Chip>
+              </div>
+              <Card.Description className="truncate text-xs">
+                {plan.remark || "订阅套餐"}
+              </Card.Description>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            <Button size="sm" variant="tertiary" onPress={() => onEdit(plan)}>
+              编辑
+            </Button>
+            <Dropdown>
+              <Button
+                isIconOnly
+                aria-label={`${name} 更多操作`}
+                size="sm"
+                variant="tertiary"
+              >
+                <AdminIcon className="size-4" name="more" />
+              </Button>
+              <Dropdown.Popover placement="bottom end">
+                <Dropdown.Menu
+                  aria-label={`${name} 更多操作`}
+                  onAction={(key) => {
+                    if (key === "delete") void onDelete(plan);
+                  }}
+                >
+                  <Dropdown.Item id="delete" variant="danger">
+                    删除
+                  </Dropdown.Item>
+                </Dropdown.Menu>
+              </Dropdown.Popover>
+            </Dropdown>
+          </div>
+        </div>
+      </Card.Header>
+      <Card.Content className="flex h-full flex-col gap-4">
+        <p className="text-muted line-clamp-3 min-h-14 text-sm">
+          {plan.description || "暂无套餐说明"}
+        </p>
+        <div className="min-w-0 rounded-md bg-default-50 px-3 py-2">
+          <div className="text-muted text-xs">功能介绍</div>
+          <div
+            className="text-foreground mt-1 line-clamp-2 text-xs font-medium"
+            title={plan.featureIntro}
+          >
+            {plan.featureIntro || "暂无功能介绍"}
+          </div>
+        </div>
+        <dl className="mt-auto grid grid-cols-2 gap-3 text-xs">
+          <PlanMeta
+            label="月价格"
+            value={formatDecimal(plan.monthlyPriceAmount)}
+          />
+          <PlanMeta label="席位" value={String(plan.seatLimit ?? 0)} />
+          <PlanMeta
+            label="额度窗口"
+            value={`${plan.windows?.length ?? 0} 个`}
+          />
+          <PlanMeta label="窗口摘要" value={windowSummary} />
+        </dl>
+      </Card.Content>
+    </Card>
+  );
+}
+
+function PlanMeta({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-muted">{label}</dt>
+      <dd className="text-foreground truncate font-medium" title={value}>
+        {value}
+      </dd>
+    </div>
+  );
+}
+
+function PlanGridSkeleton() {
+  return (
+    <CardCollection>
+      {PLAN_SKELETON_IDS.map((id) => (
+        <Card key={id}>
+          <Card.Content className="flex min-h-64 flex-col gap-4 p-5">
+            <div className="bg-default-200 h-5 w-2/3 animate-pulse rounded" />
+            <div className="bg-default-100 h-14 animate-pulse rounded" />
+            <div className="bg-default-100 h-12 animate-pulse rounded" />
+            <div className="mt-auto grid grid-cols-2 gap-3">
+              <div className="bg-default-100 h-10 animate-pulse rounded" />
+              <div className="bg-default-100 h-10 animate-pulse rounded" />
+            </div>
+          </Card.Content>
+        </Card>
+      ))}
+    </CardCollection>
+  );
+}
+
+function PlanEmptyState() {
+  return (
+    <div className="flex min-h-72 flex-col items-center justify-center rounded-md border border-dashed border-default-300 px-6 py-12 text-center">
+      <AdminIcon className="text-muted size-9" name="database" />
+      <h2 className="text-foreground mt-4 text-base font-semibold">
+        还没有订阅套餐
+      </h2>
+      <p className="text-muted mt-2 max-w-md text-sm">
+        添加套餐后会在这里显示价格、席位和额度窗口。
+      </p>
+    </div>
   );
 }
 
@@ -683,6 +812,41 @@ function getPlanStats(plans: SubscriptionPlan[]) {
   };
 }
 
+function sortPlans(plans: SubscriptionPlan[], sort: PlanSort) {
+  if (sort === "default") return [...plans];
+
+  return [...plans].sort((left, right) => {
+    if (sort === "name-asc") {
+      return (left.name ?? "").localeCompare(right.name ?? "", "zh-CN");
+    }
+    if (sort === "name-desc") {
+      return (right.name ?? "").localeCompare(left.name ?? "", "zh-CN");
+    }
+
+    const leftPrice = Number(left.monthlyPriceAmount) || 0;
+    const rightPrice = Number(right.monthlyPriceAmount) || 0;
+
+    return sort === "price-asc"
+      ? leftPrice - rightPrice
+      : rightPrice - leftPrice;
+  });
+}
+
+function toPlanSort(key: Key | null): PlanSort {
+  const value = String(key ?? "default");
+
+  if (
+    value === "name-asc" ||
+    value === "name-desc" ||
+    value === "price-asc" ||
+    value === "price-desc"
+  ) {
+    return value;
+  }
+
+  return "default";
+}
+
 function formatWindows(plan: SubscriptionPlan) {
   const windows = plan.windows ?? [];
 
@@ -690,20 +854,26 @@ function formatWindows(plan: SubscriptionPlan) {
 
   return windows
     .map(
-      (window) => `${window.windowHours ?? "-"}h/${window.quotaAmount ?? "-"}`,
+      (window) =>
+        `${window.windowHours ?? "-"}h/${formatDecimal(window.quotaAmount)}`,
     )
     .join(" · ");
 }
 
-function formatCount(value: number, isLoading: boolean) {
-  return isLoading ? "-" : String(value);
+function formatDecimal(value?: string) {
+  const trimmed = value?.trim();
+
+  if (!trimmed) return "-";
+  if (!trimmed.includes(".")) return trimmed;
+
+  const [integer, fraction] = trimmed.split(".");
+  const significantFraction = fraction.replace(/0+$/, "");
+
+  return significantFraction ? `${integer}.${significantFraction}` : integer;
 }
 
-function getPlansEmptyState(error: string | null, isLoading: boolean) {
-  if (isLoading) return "正在加载订阅套餐...";
-  if (error) return error;
-
-  return "暂无订阅套餐。";
+function formatCount(value: number, isLoading: boolean) {
+  return isLoading ? "-" : String(value);
 }
 
 function PlanFormError({ children }: { children: string }) {

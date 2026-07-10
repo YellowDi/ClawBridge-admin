@@ -24,7 +24,11 @@ import { DataGrid } from "@heroui-pro/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AdminIcon } from "@/components/admin-icons";
-import { AdminPage, StatGrid } from "@/components/admin-page-kit";
+import {
+  AdminPage,
+  CollectionToolbar,
+  StatGrid,
+} from "@/components/admin-page-kit";
 import {
   archiveConversation,
   getConversationContext,
@@ -251,10 +255,11 @@ export function UsagePage() {
       if (isMountedRef.current) {
         const message = getPageError(error, "用量统计加载失败。");
 
-        setLoadState({
+        setLoadState((current) => ({
+          ...current,
           error: message,
           isLoading: false,
-        });
+        }));
         toast.danger(message);
       }
     }
@@ -278,16 +283,37 @@ export function UsagePage() {
     <AdminPage
       actions={
         <Button
+          aria-label="刷新用量统计"
           isPending={isLoading}
           size="sm"
+          variant="tertiary"
           onPress={() => void loadUsage()}
         >
           <AdminIcon className="size-4" name="refresh" />
-          刷新
+          <span className="hidden sm:inline">刷新</span>
         </Button>
       }
       description="查看 ClawCore 记录的模型 token 用量、调用次数和费用聚合。"
       eyebrow="Usage"
+      navigation={
+        <Tabs
+          selectedKey={usageView}
+          onSelectionChange={(key) => setUsageView(toUsageView(key))}
+        >
+          <Tabs.ListContainer className="w-auto">
+            <Tabs.List aria-label="用量视图" className="w-auto">
+              <Tabs.Tab className="whitespace-nowrap" id="time">
+                按日用量
+                <Tabs.Indicator />
+              </Tabs.Tab>
+              <Tabs.Tab className="whitespace-nowrap" id="users">
+                按用户用量
+                <Tabs.Indicator />
+              </Tabs.Tab>
+            </Tabs.List>
+          </Tabs.ListContainer>
+        </Tabs>
+      }
       title="用量统计"
     >
       <StatGrid
@@ -318,30 +344,18 @@ export function UsagePage() {
       />
 
       <section className="flex min-w-0 flex-col gap-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <Tabs
-            selectedKey={usageView}
-            onSelectionChange={(key) => setUsageView(toUsageView(key))}
-          >
-            <Tabs.ListContainer>
-              <Tabs.List aria-label="用量视图">
-                <Tabs.Tab className="whitespace-nowrap" id="time">
-                  按日用量
-                  <Tabs.Indicator />
-                </Tabs.Tab>
-                <Tabs.Tab className="whitespace-nowrap" id="users">
-                  按用户用量
-                  <Tabs.Indicator />
-                </Tabs.Tab>
-              </Tabs.List>
-            </Tabs.ListContainer>
-          </Tabs>
-        </div>
-        {usageView === "time" ? (
+        {error ? (
+          <div className="rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
+            {error}
+          </div>
+        ) : null}
+        {error &&
+        timeRows.length === 0 &&
+        userRows.length === 0 ? null : usageView === "time" ? (
           <UsageTable
             columns={USAGE_TIME_COLUMNS}
             data={timeRows}
-            emptyText={getUsageEmptyText(error, isLoading)}
+            emptyText={getUsageEmptyText(isLoading)}
             label="按日用量"
             rowId={(item) => item.id}
           />
@@ -349,7 +363,7 @@ export function UsagePage() {
           <UsageTable
             columns={USAGE_USER_COLUMNS}
             data={userRows}
-            emptyText={getUsageEmptyText(error, isLoading)}
+            emptyText={getUsageEmptyText(isLoading)}
             label="按用户用量"
             rowId={(item) => item.id}
           />
@@ -394,11 +408,11 @@ export function ConversationsPage() {
       if (isMountedRef.current) {
         const message = getPageError(error, "会话列表加载失败。");
 
-        setLoadState({
-          conversations: [],
+        setLoadState((current) => ({
+          ...current,
           error: message,
           isLoading: false,
-        });
+        }));
         toast.danger(message);
       }
     }
@@ -484,9 +498,15 @@ export function ConversationsPage() {
   return (
     <AdminPage
       actions={
-        <Button isPending={isLoading} size="sm" onPress={refresh}>
+        <Button
+          aria-label="刷新会话记录"
+          isPending={isLoading}
+          size="sm"
+          variant="tertiary"
+          onPress={refresh}
+        >
           <AdminIcon className="size-4" name="refresh" />
-          刷新
+          <span className="hidden sm:inline">刷新</span>
         </Button>
       }
       description="查看 Bridge 会话、消息、上下文快照和会话级 token 用量。"
@@ -521,7 +541,7 @@ export function ConversationsPage() {
       />
 
       <section className="flex min-w-0 flex-col gap-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <CollectionToolbar>
           <Tabs
             selectedKey={filter}
             onSelectionChange={(key) => setFilter(toConversationFilter(key))}
@@ -555,20 +575,32 @@ export function ConversationsPage() {
               <SearchField.ClearButton />
             </SearchField.Group>
           </SearchField>
-        </div>
-        <DataGrid
-          aria-label="会话列表"
-          className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
-          columns={columns}
-          contentClassName="min-w-[1120px]"
-          data={filteredConversations}
-          defaultSortDescriptor={{
-            column: "lastMessageAt",
-            direction: "descending",
-          }}
-          getRowId={(item) => item.conversationId ?? String(item.id)}
-          renderEmptyState={() => getConversationEmptyText(error, isLoading)}
-        />
+        </CollectionToolbar>
+        {error ? (
+          <div className="rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
+            {error}
+          </div>
+        ) : null}
+        {error && conversations.length === 0 ? null : (
+          <DataGrid
+            aria-label="会话列表"
+            className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
+            columns={columns}
+            contentClassName="min-w-[1120px]"
+            data={filteredConversations}
+            defaultSortDescriptor={{
+              column: "lastMessageAt",
+              direction: "descending",
+            }}
+            getRowId={(item) => item.conversationId ?? String(item.id)}
+            renderEmptyState={() =>
+              getConversationEmptyText({
+                hasFilter: Boolean(searchQuery.trim()) || filter !== "all",
+                isLoading,
+              })
+            }
+          />
+        )}
       </section>
     </AdminPage>
   );
@@ -817,8 +849,7 @@ function UsageTable<T extends object>({
   rowId: (item: T) => string;
 }) {
   return (
-    <section className="flex min-w-0 flex-col gap-3">
-      <h2 className="text-sm font-semibold">{label}</h2>
+    <section className="min-w-0">
       <DataGrid
         aria-label={label}
         className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
@@ -959,16 +990,21 @@ function toUsageView(key: unknown): UsageView {
   return key === "users" ? "users" : "time";
 }
 
-function getUsageEmptyText(error: string | null, isLoading: boolean) {
+function getUsageEmptyText(isLoading: boolean) {
   if (isLoading) return "正在加载用量统计...";
-  if (error) return error;
 
   return "暂无用量数据。";
 }
 
-function getConversationEmptyText(error: string | null, isLoading: boolean) {
+function getConversationEmptyText({
+  hasFilter,
+  isLoading,
+}: {
+  hasFilter: boolean;
+  isLoading: boolean;
+}) {
   if (isLoading) return "正在加载会话...";
-  if (error) return error;
+  if (hasFilter) return "当前筛选没有匹配的会话。";
 
   return "暂无会话数据。";
 }

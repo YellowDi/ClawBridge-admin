@@ -18,7 +18,11 @@ import {
 import { DataGrid } from "@heroui-pro/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { AdminPage, StatGrid } from "@/components/admin-page-kit";
+import {
+  AdminPage,
+  CollectionToolbar,
+  StatGrid,
+} from "@/components/admin-page-kit";
 import { AdminIcon } from "@/components/admin-icons";
 import {
   CreateUserDialog,
@@ -223,11 +227,11 @@ export function UsersPage() {
       if (isMountedRef.current) {
         const message = getUserListError(error);
 
-        setLoadState({
+        setLoadState((current) => ({
+          ...current,
           error: message,
           isLoading: false,
-          users: [],
-        });
+        }));
         toast.danger(message);
       }
     }
@@ -281,14 +285,27 @@ export function UsersPage() {
   );
   const userStats = useMemo(() => getUserStats(users), [users]);
   const emptyState = getUsersEmptyState({
-    error,
     hasFilter: Boolean(searchQuery.trim()) || userFilter !== "all",
     isLoading,
   });
 
   return (
     <AdminPage
-      actions={<CreateUserDialog onCreated={() => void loadUsers()} />}
+      actions={
+        <>
+          <Button
+            aria-label="刷新用户"
+            isDisabled={isLoading}
+            size="sm"
+            variant="tertiary"
+            onPress={() => void loadUsers()}
+          >
+            <AdminIcon className="size-4" name="refresh" />
+            <span className="hidden sm:inline">刷新</span>
+          </Button>
+          <CreateUserDialog onCreated={() => void loadUsers()} />
+        </>
+      }
       description="集中管理登录用户、管理员身份和账号状态。"
       eyebrow="Identity"
       title="用户管理"
@@ -321,7 +338,7 @@ export function UsersPage() {
       />
 
       <section className="flex min-w-0 flex-col gap-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <CollectionToolbar>
           <Tabs
             selectedKey={userFilter}
             onSelectionChange={(key) => setUserFilter(toUserFilter(key))}
@@ -355,20 +372,27 @@ export function UsersPage() {
               <SearchField.ClearButton />
             </SearchField.Group>
           </SearchField>
-        </div>
-        <DataGrid
-          aria-label="用户列表"
-          className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
-          columns={userColumns}
-          contentClassName="min-w-[1080px]"
-          data={filteredUsers}
-          defaultSortDescriptor={{
-            column: "username",
-            direction: "ascending",
-          }}
-          getRowId={(item) => item.id}
-          renderEmptyState={() => emptyState}
-        />
+        </CollectionToolbar>
+        {error ? (
+          <div className="rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
+            {error}
+          </div>
+        ) : null}
+        {error && users.length === 0 ? null : (
+          <DataGrid
+            aria-label="用户列表"
+            className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
+            columns={userColumns}
+            contentClassName="min-w-[1080px]"
+            data={filteredUsers}
+            defaultSortDescriptor={{
+              column: "username",
+              direction: "ascending",
+            }}
+            getRowId={(item) => item.id}
+            renderEmptyState={() => emptyState}
+          />
+        )}
       </section>
     </AdminPage>
   );
@@ -591,16 +615,13 @@ function toBillingModeLabel(value: string) {
 }
 
 function getUsersEmptyState({
-  error,
   hasFilter,
   isLoading,
 }: {
-  error: string | null;
   hasFilter: boolean;
   isLoading: boolean;
 }) {
   if (isLoading) return "正在加载用户...";
-  if (error) return error;
   if (hasFilter) return "没有匹配的用户。";
 
   return "暂无用户数据。";

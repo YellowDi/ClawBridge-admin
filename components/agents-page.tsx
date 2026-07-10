@@ -1,6 +1,7 @@
 "use client";
 
 import type { FormEvent, Key } from "react";
+import type { EditableAgentSummary } from "@/components/agent-dialog";
 import type {
   Agent as ApiAgent,
   AgentDeployment,
@@ -13,6 +14,7 @@ import {
   Button,
   Card,
   Chip,
+  Dropdown,
   Input,
   Label,
   Modal,
@@ -27,8 +29,17 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AdminIcon } from "@/components/admin-icons";
-import { AdminPage, StatGrid } from "@/components/admin-page-kit";
-import { CreateAgentDialog } from "@/components/agent-dialog";
+import {
+  AdminPage,
+  CardCollection,
+  CollectionToolbar,
+  StatGrid,
+} from "@/components/admin-page-kit";
+import {
+  CreateAgentDialog,
+  DeleteAgentDialog,
+  EditAgentDialog,
+} from "@/components/agent-dialog";
 import { importAgent, initDevAgent, listAgents, listModels } from "@/lib/api";
 
 type AgentFilter = "all" | "disabled" | "enabled";
@@ -112,11 +123,11 @@ export function AgentsPage() {
       if (isMountedRef.current) {
         const message = getAgentListError(error);
 
-        setLoadState({
-          agents: [],
+        setLoadState((current) => ({
+          ...current,
           error: message,
           isLoading: false,
-        });
+        }));
         toast.danger(message);
       }
     }
@@ -155,7 +166,6 @@ export function AgentsPage() {
   const refreshAgents = useCallback(() => void loadAgents(), [loadAgents]);
   const agentStats = useMemo(() => getAgentStats(agents), [agents]);
   const emptyState = getAgentsEmptyState({
-    error,
     hasFilter: Boolean(searchQuery.trim()) || agentFilter !== "all",
     isLoading,
   });
@@ -163,6 +173,16 @@ export function AgentsPage() {
   const actions = useMemo(
     () => (
       <>
+        <Button
+          aria-label="刷新 Agent"
+          isDisabled={isLoading}
+          size="sm"
+          variant="tertiary"
+          onPress={refreshAgents}
+        >
+          <AdminIcon className="size-4" name="refresh" />
+          <span className="hidden sm:inline">刷新</span>
+        </Button>
         <ImportAgentDialog onImported={refreshAgents} />
         <CreateAgentDialog
           modelOptions={agentModelOptions}
@@ -173,7 +193,7 @@ export function AgentsPage() {
         />
       </>
     ),
-    [agentModelOptions, loadAgents, refreshAgents],
+    [agentModelOptions, isLoading, loadAgents, refreshAgents],
   );
 
   return (
@@ -211,7 +231,7 @@ export function AgentsPage() {
       />
 
       <section className="flex min-w-0 flex-col gap-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <CollectionToolbar>
           <Tabs
             selectedKey={agentFilter}
             onSelectionChange={(key) => setAgentFilter(toAgentFilter(key))}
@@ -233,31 +253,20 @@ export function AgentsPage() {
               </Tabs.List>
             </Tabs.ListContainer>
           </Tabs>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
-            <SearchField
-              aria-label="搜索 Agent"
-              className="w-full sm:w-[280px]"
-              value={searchQuery}
-              variant="secondary"
-              onChange={setSearchQuery}
-            >
-              <SearchField.Group>
-                <SearchField.SearchIcon />
-                <SearchField.Input placeholder="搜索 Agent、模型或说明" />
-                <SearchField.ClearButton />
-              </SearchField.Group>
-            </SearchField>
-            <Button
-              isDisabled={isLoading}
-              size="sm"
-              variant="secondary"
-              onPress={refreshAgents}
-            >
-              <AdminIcon className="size-4" name="refresh" />
-              刷新
-            </Button>
-          </div>
-        </div>
+          <SearchField
+            aria-label="搜索 Agent"
+            className="w-full sm:w-[280px]"
+            value={searchQuery}
+            variant="secondary"
+            onChange={setSearchQuery}
+          >
+            <SearchField.Group>
+              <SearchField.SearchIcon />
+              <SearchField.Input placeholder="搜索 Agent、模型或说明" />
+              <SearchField.ClearButton />
+            </SearchField.Group>
+          </SearchField>
+        </CollectionToolbar>
 
         {error ? (
           <InlineError action={refreshAgents}>{error}</InlineError>
@@ -266,12 +275,17 @@ export function AgentsPage() {
         {isLoading ? (
           <AgentGridSkeleton />
         ) : filteredAgents.length > 0 ? (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <CardCollection>
             {filteredAgents.map((agent) => (
-              <AgentCard key={agent.id} agent={agent} />
+              <AgentCard
+                key={agent.id}
+                agent={agent}
+                modelOptions={agentModelOptions}
+                onChanged={refreshAgents}
+              />
             ))}
-          </div>
-        ) : (
+          </CardCollection>
+        ) : error ? null : (
           <EmptyState>{emptyState}</EmptyState>
         )}
       </section>
@@ -285,10 +299,28 @@ export function AgentsPage() {
   );
 }
 
-function AgentCard({ agent }: { agent: AdminAgent }) {
-  const content = (
-    <Card className="h-full transition-colors hover:border-accent/60">
-      <Card.Header>
+function AgentCard({
+  agent,
+  modelOptions,
+  onChanged,
+}: {
+  agent: AdminAgent;
+  modelOptions: ApiModel[];
+  onChanged: () => void;
+}) {
+  const deleteModal = useOverlayState();
+  const editableAgent = toEditableAgent(agent);
+
+  return (
+    <Card className="relative h-full transition-colors hover:border-accent/60">
+      {agent.agentRecordId != null ? (
+        <Link
+          aria-label={`查看 ${agent.displayLabel} 详情`}
+          className="absolute inset-0 z-0 rounded-md no-underline outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          href={`/agents/${agent.agentRecordId}`}
+        />
+      ) : null}
+      <Card.Header className="pointer-events-none relative z-10">
         <div className="flex w-full min-w-0 items-start justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <Avatar className="size-10 shrink-0">
@@ -303,30 +335,70 @@ function AgentCard({ agent }: { agent: AdminAgent }) {
               </Avatar.Fallback>
             </Avatar>
             <div className="min-w-0">
-              <Card.Title className="truncate text-base">
-                {agent.displayLabel}
-              </Card.Title>
+              <div className="flex min-w-0 items-center gap-2">
+                <Card.Title className="truncate text-base">
+                  {agent.displayLabel}
+                </Card.Title>
+                <Chip
+                  className="shrink-0 whitespace-nowrap"
+                  color={AGENT_STATUS_COLOR[agent.status]}
+                  size="sm"
+                  variant="soft"
+                >
+                  {agent.status}
+                </Chip>
+              </div>
               <Card.Description className="truncate text-xs">
                 {agent.agentId}
               </Card.Description>
             </div>
           </div>
-          <Chip
-            className="shrink-0 whitespace-nowrap"
-            color={AGENT_STATUS_COLOR[agent.status]}
-            size="sm"
-            variant="soft"
-          >
-            {agent.status}
-          </Chip>
+          {editableAgent ? (
+            <div className="pointer-events-auto flex shrink-0 items-center gap-1">
+              <EditAgentDialog
+                isIconOnly
+                agent={editableAgent}
+                modelOptions={modelOptions}
+                onUpdated={onChanged}
+              />
+              <Dropdown>
+                <Button
+                  isIconOnly
+                  aria-label={`${agent.displayLabel} 更多操作`}
+                  size="sm"
+                  variant="tertiary"
+                >
+                  <AdminIcon className="size-4" name="more" />
+                </Button>
+                <Dropdown.Popover placement="bottom end">
+                  <Dropdown.Menu
+                    aria-label={`${agent.displayLabel} 更多操作`}
+                    onAction={(key) => {
+                      if (key === "delete") deleteModal.open();
+                    }}
+                  >
+                    <Dropdown.Item id="delete" variant="danger">
+                      删除
+                    </Dropdown.Item>
+                  </Dropdown.Menu>
+                </Dropdown.Popover>
+              </Dropdown>
+              <DeleteAgentDialog
+                hideTrigger
+                agent={editableAgent}
+                state={deleteModal}
+                onDeleted={onChanged}
+              />
+            </div>
+          ) : null}
         </div>
       </Card.Header>
-      <Card.Content className="flex h-full flex-col gap-4">
+      <Card.Content className="pointer-events-none relative z-10 flex h-full flex-col gap-4">
         <p className="text-muted line-clamp-3 min-h-14 text-sm">
           {agent.description || "暂无说明"}
         </p>
 
-        <dl className="grid grid-cols-2 gap-3 text-xs">
+        <dl className="mt-auto grid grid-cols-2 gap-3 text-xs">
           <AgentMeta label="默认模型" value={agent.defaultModelLabel} />
           <AgentMeta
             label="知识库"
@@ -341,17 +413,28 @@ function AgentCard({ agent }: { agent: AdminAgent }) {
       </Card.Content>
     </Card>
   );
+}
 
-  if (agent.agentRecordId == null) return content;
+function toEditableAgent(agent: AdminAgent): EditableAgentSummary | null {
+  if (agent.agentRecordId == null) return null;
 
-  return (
-    <Link
-      className="block h-full rounded-md no-underline outline-none focus-visible:ring-2 focus-visible:ring-accent"
-      href={`/agents/${agent.agentRecordId}`}
-    >
-      {content}
-    </Link>
-  );
+  return {
+    agentId: agent.agentId,
+    avatarUrl: agent.avatarUrl,
+    defaultImageGenerationModelid: agent.defaultImageGenerationModelid,
+    defaultImageModelid: agent.defaultImageModelid,
+    defaultMusicGenerationModelid: agent.defaultMusicGenerationModelid,
+    defaultModelid: agent.defaultModelid,
+    defaultPdfModelid: agent.defaultPdfModelid,
+    defaultVideoGenerationModelid: agent.defaultVideoGenerationModelid,
+    description: agent.description,
+    displayName: agent.displayName,
+    enabled: agent.enabled,
+    id: agent.agentRecordId,
+    reasoningLevel: agent.reasoningLevel,
+    thinkingLevel: agent.thinkingLevel,
+    verboseLevel: agent.verboseLevel,
+  };
 }
 
 function CreatedAgentInitPrompt({
@@ -727,7 +810,7 @@ function EmptyState({ children }: { children: string }) {
 
 function AgentGridSkeleton() {
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <CardCollection>
       {Array.from({ length: 6 }).map((_, index) => (
         <Card key={index}>
           <Card.Content className="flex flex-col gap-4 p-5">
@@ -746,7 +829,7 @@ function AgentGridSkeleton() {
           </Card.Content>
         </Card>
       ))}
-    </div>
+    </CardCollection>
   );
 }
 
@@ -940,16 +1023,13 @@ function formatCount(value: number, isLoading: boolean) {
 }
 
 function getAgentsEmptyState({
-  error,
   hasFilter,
   isLoading,
 }: {
-  error: string | null;
   hasFilter: boolean;
   isLoading: boolean;
 }) {
   if (isLoading) return "正在加载 Agent...";
-  if (error) return error;
   if (hasFilter) return "没有匹配的 Agent。";
 
   return "暂无 Agent 数据。";

@@ -39,6 +39,22 @@ export function AdminPage({
   return <div className="flex w-full flex-col gap-6">{children}</div>;
 }
 
+export function CollectionToolbar({ children }: { children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      {children}
+    </div>
+  );
+}
+
+export function CardCollection({ children }: { children: ReactNode }) {
+  return (
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+      {children}
+    </div>
+  );
+}
+
 export function StatGrid({
   stats,
 }: {

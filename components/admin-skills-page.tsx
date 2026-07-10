@@ -1,6 +1,5 @@
 "use client";
 
-import type { FormEvent } from "react";
 import type { Agent, AgentSkill, PrivateSkill } from "@/lib/api";
 
 import { DropZone } from "@heroui-pro/react";
@@ -13,6 +12,7 @@ import {
   Input,
   Label,
   Modal,
+  SearchField,
   TextArea,
   TextField,
   Tooltip,
@@ -22,7 +22,11 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AdminIcon } from "@/components/admin-icons";
-import { AdminPage } from "@/components/admin-page-kit";
+import {
+  AdminPage,
+  CardCollection,
+  CollectionToolbar,
+} from "@/components/admin-page-kit";
 import {
   ApiError,
   applyAgentSkill,
@@ -125,7 +129,6 @@ export function AdminSkillsPage() {
           ...current,
           error: message,
           isLoading: false,
-          items: [],
         }));
         toast.danger(message);
       }
@@ -143,19 +146,23 @@ export function AdminSkillsPage() {
   }, [loadSkills]);
 
   const actions = useMemo(
-    () => <UploadPrivateSkillDialog onUploaded={() => void loadSkills(page)} />,
-    [loadSkills, page],
+    () => (
+      <>
+        <Button
+          aria-label="刷新 Skill"
+          isDisabled={isLoading}
+          size="sm"
+          variant="tertiary"
+          onPress={() => void loadSkills(page)}
+        >
+          <AdminIcon className="size-4" name="refresh" />
+          <span className="hidden sm:inline">刷新</span>
+        </Button>
+        <UploadPrivateSkillDialog onUploaded={() => void loadSkills(page)} />
+      </>
+    ),
+    [isLoading, loadSkills, page],
   );
-
-  function handleSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    void loadSkills(1, queryInput.trim());
-  }
-
-  function handleClearSearch() {
-    setQueryInput("");
-    void loadSkills(1, "");
-  }
 
   return (
     <AdminPage
@@ -165,55 +172,24 @@ export function AdminSkillsPage() {
       title="Skill 管理"
     >
       <section className="flex flex-col gap-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
-            <h2 className="text-foreground text-lg font-semibold">技能广场</h2>
-            <p className="text-muted text-sm">
-              当前只展示私有 Skill，可按名称、详情、分组搜索。
-            </p>
-          </div>
-          <Button
-            isDisabled={isLoading}
-            size="sm"
-            variant="secondary"
-            onPress={() => void loadSkills(page)}
-          >
-            <AdminIcon className="size-4" name="refresh" />
-            刷新
-          </Button>
-        </div>
-
-        <form
-          className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-end"
-          onSubmit={handleSearch}
-        >
-          <TextField
-            fullWidth
+        <CollectionToolbar>
+          <SearchField
+            aria-label="搜索 Skill"
+            className="w-full sm:ml-auto sm:w-[320px]"
             isDisabled={isLoading}
             value={queryInput}
             variant="secondary"
             onChange={setQueryInput}
+            onClear={() => void loadSkills(1, "")}
+            onSubmit={(value) => void loadSkills(1, value.trim())}
           >
-            <Label>搜索</Label>
-            <Input
-              fullWidth
-              placeholder="搜索名称、描述、标签或分组"
-              variant="secondary"
-            />
-          </TextField>
-          <Button isDisabled={isLoading} type="submit" variant="secondary">
-            <AdminIcon className="size-4" name="search" />
-            搜索
-          </Button>
-          <Button
-            isDisabled={isLoading || (!activeQuery && !queryInput)}
-            type="button"
-            variant="tertiary"
-            onPress={handleClearSearch}
-          >
-            清空
-          </Button>
-        </form>
+            <SearchField.Group>
+              <SearchField.SearchIcon />
+              <SearchField.Input placeholder="搜索名称、描述、标签或分组" />
+              <SearchField.ClearButton />
+            </SearchField.Group>
+          </SearchField>
+        </CollectionToolbar>
 
         {error ? (
           <InlineError action={() => void loadSkills(page)}>
@@ -224,7 +200,7 @@ export function AdminSkillsPage() {
         {isLoading ? (
           <SkillGridSkeleton />
         ) : items.length > 0 ? (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <CardCollection>
             {items.map((skill) => (
               <PrivateSkillCard
                 key={skill.id ?? rowKey(skill)}
@@ -232,8 +208,8 @@ export function AdminSkillsPage() {
                 onUpdated={() => void loadSkills(page)}
               />
             ))}
-          </div>
-        ) : (
+          </CardCollection>
+        ) : error ? null : (
           <EmptyState
             description={
               activeQuery
@@ -1066,7 +1042,7 @@ function GroupSuggestions({
 
 function SkillGridSkeleton() {
   return (
-    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+    <CardCollection>
       {Array.from({ length: 6 }).map((_, index) => (
         <Card key={index}>
           <Card.Content className="flex flex-col gap-4 p-5">
@@ -1079,7 +1055,7 @@ function SkillGridSkeleton() {
           </Card.Content>
         </Card>
       ))}
-    </div>
+    </CardCollection>
   );
 }
 
