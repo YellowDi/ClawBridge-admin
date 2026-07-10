@@ -3,6 +3,12 @@ import type {
   KnowledgeBase,
   MCPServer,
   ModelProviderCatalogProvider,
+  OpenClawInstanceDetail,
+  OpenClawInstanceSummary,
+  OpenClawPlugin,
+  OpenClawPluginCapabilities,
+  OpenClawPluginInstall,
+  OpenClawPluginInstallResult,
   OpenClawConfigSnapshot,
   OpenClawMCPApplyResult,
   OpenClawRPCInstance,
@@ -18,20 +24,34 @@ import {
   createMCPServer,
   createSubscriptionPlan,
   deleteMCPServer,
+  deleteOpenClawPluginLibrary,
+  disableOpenClawPlugin,
+  enableOpenClawPlugin,
   deleteSubscriptionPlan,
   getCurrentSubscription,
   getMCPServerDetail,
+  getOpenClawInstanceDetail,
   getOpenClawConfigSnapshot,
+  getOpenClawPluginLibraryDetail,
   getSubscriptionPlanDetail,
   getTencentCosSts,
   grantUserSubscription,
   listModelProviderCatalog,
   listMCPServers,
+  listOpenClawInstanceSummaries,
+  listOpenClawPluginInstalls,
+  listOpenClawPluginLibrary,
   listOpenClawRPCInstances,
   listSubscriptionPlans,
   listSubscriptionTransactions,
   updateMCPServer,
+  updateOpenClawPluginLibrary,
   updateSubscriptionPlan,
+  importOpenClawPluginPackage,
+  installOpenClawPlugin,
+  replaceOpenClawPluginAgents,
+  uninstallOpenClawPlugin,
+  uploadOpenClawPluginPackage,
 } from "@/lib/api";
 
 function expectType<T>(_value: T) {}
@@ -148,4 +168,69 @@ expectType<Promise<OpenClawMCPApplyResult | undefined>>(
     pluginId: "clawcore-rpc",
     validateEnvRefs: true,
   }),
+);
+expectType<string[] | undefined>({} as OpenClawPluginCapabilities["tools"]);
+expectType<Promise<{ items?: OpenClawPlugin[] }>>(
+  listOpenClawPluginLibrary({ includeDeleted: true, page: 1, pageSize: 100 }),
+);
+expectType<Promise<OpenClawPlugin | undefined>>(
+  getOpenClawPluginLibraryDetail(1),
+);
+expectType<Promise<OpenClawPlugin | undefined>>(
+  uploadOpenClawPluginPackage({} as File, true),
+);
+expectType<Promise<OpenClawPlugin | undefined>>(
+  importOpenClawPluginPackage({
+    force: false,
+    url: "https://example.com/demo.tgz",
+  }),
+);
+expectType<Promise<OpenClawPlugin | undefined>>(
+  updateOpenClawPluginLibrary({ description: "插件说明", id: 1, name: "Demo" }),
+);
+expectType<Promise<OpenClawPlugin | undefined>>(deleteOpenClawPluginLibrary(1));
+expectType<Promise<OpenClawPluginInstall[]>>(listOpenClawPluginInstalls());
+expectType<Promise<OpenClawPluginInstallResult | undefined>>(
+  installOpenClawPlugin({
+    agentIds: ["main", "coder"],
+    dryRun: false,
+    enabled: true,
+    openclawPluginId: "clawcore-rpc",
+    pluginRecordId: 1,
+    scopeType: "agents",
+  }),
+);
+expectType<Promise<OpenClawPluginInstallResult | undefined>>(
+  replaceOpenClawPluginAgents({
+    agentIds: ["main"],
+    installId: 1,
+    scopeType: "agents",
+  }),
+);
+expectType<Promise<OpenClawPluginInstallResult | undefined>>(
+  enableOpenClawPlugin({ installId: 1 }),
+);
+expectType<Promise<OpenClawPluginInstallResult | undefined>>(
+  disableOpenClawPlugin({ installId: 1 }),
+);
+expectType<Promise<OpenClawPluginInstallResult | undefined>>(
+  uninstallOpenClawPlugin({ installId: 1 }),
+);
+expectType<Promise<OpenClawInstanceSummary[]>>(
+  listOpenClawInstanceSummaries({ skillMode: "none" }),
+);
+expectType<Promise<OpenClawInstanceDetail | undefined>>(
+  getOpenClawInstanceDetail({
+    includeSkills: false,
+    pluginId: "clawcore-rpc",
+    skillMode: "none",
+  }),
+);
+expectType<string | undefined>(
+  {} as NonNullable<OpenClawInstanceDetail["agents"]>[number]["agentId"],
+);
+expectType<boolean | undefined>({} as OpenClawPluginInstallResult["success"]);
+expectType<string[] | undefined>({} as OpenClawPluginInstallResult["warnings"]);
+expectType<boolean | undefined>(
+  {} as OpenClawPluginInstallResult["restartRequired"],
 );

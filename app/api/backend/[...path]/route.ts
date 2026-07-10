@@ -32,10 +32,8 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
 
 async function proxyRequest(request: NextRequest, context: RouteContext) {
   const { path = [] } = await context.params;
-  const targetUrl = new URL(
-    path.join("/"),
-    `${trimTrailingSlash(API_BASE_URL)}/`,
-  );
+  const pathValue = path.join("/");
+  const targetUrl = new URL(pathValue, `${trimTrailingSlash(API_BASE_URL)}/`);
 
   targetUrl.search = request.nextUrl.search;
 
@@ -44,23 +42,41 @@ async function proxyRequest(request: NextRequest, context: RouteContext) {
   headers.delete("host");
   headers.delete("content-length");
 
-  const response = await fetch(targetUrl, {
-    body: canHaveBody(request.method) ? await request.arrayBuffer() : undefined,
-    cache: "no-store",
-    headers,
-    method: request.method,
-    redirect: "manual",
-  });
+  const timeoutController = isPluginInstallPath(pathValue)
+    ? new AbortController()
+    : undefined;
+  const timeoutId = timeoutController
+    ? setTimeout(() => timeoutController.abort(), 650_000)
+    : undefined;
 
-  return new Response(response.body, {
-    headers: response.headers,
-    status: response.status,
-    statusText: response.statusText,
-  });
+  try {
+    const response = await fetch(targetUrl, {
+      body: canHaveBody(request.method)
+        ? await request.arrayBuffer()
+        : undefined,
+      cache: "no-store",
+      headers,
+      method: request.method,
+      redirect: "manual",
+      signal: timeoutController?.signal,
+    });
+
+    return new Response(response.body, {
+      headers: response.headers,
+      status: response.status,
+      statusText: response.statusText,
+    });
+  } finally {
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
+  }
 }
 
 function canHaveBody(method: string) {
   return method !== "GET" && method !== "HEAD";
+}
+
+function isPluginInstallPath(path: string) {
+  return path === "openclaw/plugins/instances/install";
 }
 
 function trimTrailingSlash(value: string) {

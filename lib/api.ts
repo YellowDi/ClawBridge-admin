@@ -1192,6 +1192,173 @@ export interface ResOpenClawRPCInstances {
   [property: string]: unknown;
 }
 
+export interface OpenClawPluginCapabilities {
+  channels?: string[];
+  commands?: string[];
+  hooks?: string[];
+  providers?: string[];
+  toolMetadata?: Record<string, unknown>;
+  tools?: string[];
+  types?: string[];
+  [property: string]: unknown;
+}
+
+export interface OpenClawPlugin {
+  capabilities?: OpenClawPluginCapabilities;
+  createdAt?: string;
+  description?: string;
+  errorMessage?: string;
+  id?: number;
+  isDelete?: number;
+  latest?: boolean;
+  manifest?: Record<string, unknown>;
+  name?: string;
+  objectKey?: string;
+  package?: Record<string, unknown>;
+  pluginId?: string;
+  sha256?: string;
+  sizeBytes?: number;
+  sourceType?: "local" | "url" | (string & {});
+  sourceUrl?: string;
+  status?: string;
+  storageType?: string;
+  updatedAt?: string;
+  version?: string;
+  [property: string]: unknown;
+}
+
+export interface ReqOpenClawPluginLibraryList extends ReqPagination {
+  includeDeleted?: boolean;
+  query?: string;
+}
+
+export interface ReqOpenClawPluginLibraryUpdate {
+  description?: string;
+  id?: number;
+  name?: string;
+  [property: string]: unknown;
+}
+
+export interface ReqOpenClawPluginLibraryImport {
+  force?: boolean;
+  url?: string;
+  [property: string]: unknown;
+}
+
+export interface ResOpenClawPluginLibrary {
+  items?: OpenClawPlugin[];
+  pagination?: Pagination;
+  [property: string]: unknown;
+}
+
+export type OpenClawPluginScopeType = "global" | "agents" | (string & {});
+
+export interface OpenClawPluginInstall {
+  agentIds?: string[];
+  createdAt?: string;
+  enabled?: boolean;
+  id?: number;
+  installStatus?: string;
+  installedAt?: string;
+  isDelete?: number;
+  lastError?: string;
+  openclawPluginId?: string;
+  pluginId?: string;
+  pluginRecordId?: number;
+  pluginVersion?: string;
+  scopeType?: OpenClawPluginScopeType;
+  updatedAt?: string;
+  [property: string]: unknown;
+}
+
+export interface OpenClawPluginInstallResult extends OpenClawPluginInstall {
+  message?: string;
+  restartRequired?: boolean;
+  success?: boolean;
+  warnings?: string[];
+}
+
+export interface ReqOpenClawPluginInstall {
+  agentIds?: string[];
+  dryRun?: boolean;
+  enabled?: boolean;
+  openclawPluginId?: string;
+  pluginRecordId?: number;
+  scopeType?: OpenClawPluginScopeType;
+  [property: string]: unknown;
+}
+
+export interface ReqOpenClawPluginInstanceAction {
+  dryRun?: boolean;
+  installId?: number;
+  [property: string]: unknown;
+}
+
+export interface ReqOpenClawPluginAgentsReplace
+  extends ReqOpenClawPluginInstanceAction {
+  agentIds?: string[];
+  scopeType?: OpenClawPluginScopeType;
+}
+
+export interface ReqOpenClawPluginInstallsList {
+  openclawPluginId?: string;
+  [property: string]: unknown;
+}
+
+export interface OpenClawAgentToolSummary {
+  defaultProfiles?: string[];
+  description?: string;
+  enabled?: boolean;
+  groupId?: string;
+  groupLabel?: string;
+  label?: string;
+  optional?: boolean;
+  pluginId?: string;
+  source?: string;
+  toolKey?: string;
+  [property: string]: unknown;
+}
+
+export interface OpenClawInstanceAgent {
+  agentId?: string;
+  description?: string;
+  displayName?: string;
+  enabled?: boolean;
+  toolSummaries?: OpenClawAgentToolSummary[];
+  [property: string]: unknown;
+}
+
+export interface OpenClawInstanceSummary {
+  agents?: OpenClawInstanceAgent[];
+  online?: boolean;
+  pluginId?: string;
+  status?: string;
+  warnings?: string[];
+  [property: string]: unknown;
+}
+
+export interface OpenClawInstanceDetail extends OpenClawInstanceSummary {
+  configHash?: string;
+  connectedAt?: string;
+  lastSeenAt?: string;
+  latencyMs?: number;
+}
+
+export interface ReqOpenClawInstanceList {
+  includeSkills?: boolean;
+  skillMode?: "none" | "summary" | "full" | (string & {});
+  [property: string]: unknown;
+}
+
+export interface ReqOpenClawInstanceDetail extends ReqOpenClawInstanceList {
+  pluginId?: string;
+}
+
+export interface ResOpenClawInstanceSummaries {
+  items?: OpenClawInstanceSummary[];
+  [property: string]: unknown;
+}
+
 export interface OpenClawAgentConfigSnapshot {
   agentId?: string;
   description?: string;
@@ -1477,6 +1644,7 @@ export type AuthSession = {
 
 type ApiRequestInit = RequestInit & {
   auth?: boolean;
+  timeoutMs?: number;
 };
 
 type ApiEnvelope<T> = {
@@ -2257,6 +2425,187 @@ export async function deleteMCPServer(id: number): Promise<void> {
   });
 }
 
+export async function listOpenClawPluginLibrary(
+  request: ReqOpenClawPluginLibraryList = {},
+): Promise<ResOpenClawPluginLibrary> {
+  return requestJson<ResOpenClawPluginLibrary>(
+    "/api/openclaw/plugins/library/list",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+}
+
+export async function getOpenClawPluginLibraryDetail(
+  id: number,
+): Promise<OpenClawPlugin | undefined> {
+  return requestJson<OpenClawPlugin | undefined>(
+    "/api/openclaw/plugins/library/detail",
+    {
+      body: JSON.stringify({ id }),
+      method: "POST",
+    },
+  );
+}
+
+export async function uploadOpenClawPluginPackage(
+  file: File,
+  force = false,
+): Promise<OpenClawPlugin | undefined> {
+  const formData = new FormData();
+
+  formData.set("file", file);
+  formData.set("force", String(force));
+
+  return requestJson<OpenClawPlugin | undefined>(
+    "/api/openclaw/plugins/library/upload",
+    {
+      body: formData,
+      method: "POST",
+    },
+  );
+}
+
+export async function importOpenClawPluginPackage(
+  request: ReqOpenClawPluginLibraryImport,
+): Promise<OpenClawPlugin | undefined> {
+  return requestJson<OpenClawPlugin | undefined>(
+    "/api/openclaw/plugins/library/import-url",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+}
+
+export async function updateOpenClawPluginLibrary(
+  request: ReqOpenClawPluginLibraryUpdate,
+): Promise<OpenClawPlugin | undefined> {
+  return requestJson<OpenClawPlugin | undefined>(
+    "/api/openclaw/plugins/library/update",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+}
+
+export async function deleteOpenClawPluginLibrary(
+  id: number,
+): Promise<OpenClawPlugin | undefined> {
+  return requestJson<OpenClawPlugin | undefined>(
+    "/api/openclaw/plugins/library/delete",
+    {
+      body: JSON.stringify({ id }),
+      method: "POST",
+    },
+  );
+}
+
+export async function listOpenClawPluginInstalls(
+  request: ReqOpenClawPluginInstallsList = {},
+): Promise<OpenClawPluginInstall[]> {
+  const response = await requestJson<
+    { items?: OpenClawPluginInstall[] } | OpenClawPluginInstall[]
+  >("/api/openclaw/plugins/instances/list", {
+    body: JSON.stringify(request),
+    method: "POST",
+  });
+
+  if (Array.isArray(response)) return response;
+
+  return response.items ?? [];
+}
+
+export async function installOpenClawPlugin(
+  request: ReqOpenClawPluginInstall,
+): Promise<OpenClawPluginInstallResult | undefined> {
+  return requestJson<OpenClawPluginInstallResult | undefined>(
+    "/api/openclaw/plugins/instances/install",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+      timeoutMs: 650_000,
+    },
+  );
+}
+
+export async function uninstallOpenClawPlugin(
+  request: ReqOpenClawPluginInstanceAction,
+): Promise<OpenClawPluginInstallResult | undefined> {
+  return requestJson<OpenClawPluginInstallResult | undefined>(
+    "/api/openclaw/plugins/instances/uninstall",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+}
+
+export async function enableOpenClawPlugin(
+  request: ReqOpenClawPluginInstanceAction,
+): Promise<OpenClawPluginInstallResult | undefined> {
+  return requestJson<OpenClawPluginInstallResult | undefined>(
+    "/api/openclaw/plugins/instances/enable",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+}
+
+export async function disableOpenClawPlugin(
+  request: ReqOpenClawPluginInstanceAction,
+): Promise<OpenClawPluginInstallResult | undefined> {
+  return requestJson<OpenClawPluginInstallResult | undefined>(
+    "/api/openclaw/plugins/instances/disable",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+}
+
+export async function replaceOpenClawPluginAgents(
+  request: ReqOpenClawPluginAgentsReplace,
+): Promise<OpenClawPluginInstallResult | undefined> {
+  return requestJson<OpenClawPluginInstallResult | undefined>(
+    "/api/openclaw/plugins/instances/agents/replace",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+}
+
+export async function listOpenClawInstanceSummaries(
+  request: ReqOpenClawInstanceList = {},
+): Promise<OpenClawInstanceSummary[]> {
+  const response = await requestJson<
+    ResOpenClawInstanceSummaries | OpenClawInstanceSummary[]
+  >("/api/openclaw/instances/list", {
+    body: JSON.stringify(request),
+    method: "POST",
+  });
+
+  if (Array.isArray(response)) return response;
+
+  return response.items ?? [];
+}
+
+export async function getOpenClawInstanceDetail(
+  request: ReqOpenClawInstanceDetail,
+): Promise<OpenClawInstanceDetail | undefined> {
+  return requestJson<OpenClawInstanceDetail | undefined>(
+    "/api/openclaw/instances/detail",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+}
+
 export async function listOpenClawRPCInstances(): Promise<
   OpenClawRPCInstance[]
 > {
@@ -2486,8 +2835,19 @@ export function readStoredAuthSession(): AuthSession | null {
 }
 
 async function requestJson<T>(path: string, init: ApiRequestInit): Promise<T> {
-  const { auth = true, headers, ...requestInit } = init;
+  const { auth = true, headers, signal, timeoutMs, ...requestInit } = init;
   const requestHeaders = new Headers(headers);
+  const timeoutController = timeoutMs ? new AbortController() : undefined;
+  const abortOnCallerSignal = () => timeoutController?.abort(signal?.reason);
+  const timeoutId = timeoutController
+    ? setTimeout(() => timeoutController.abort(), timeoutMs)
+    : undefined;
+
+  if (signal?.aborted) {
+    abortOnCallerSignal();
+  } else {
+    signal?.addEventListener("abort", abortOnCallerSignal, { once: true });
+  }
 
   if (
     requestInit.body &&
@@ -2505,27 +2865,34 @@ async function requestJson<T>(path: string, init: ApiRequestInit): Promise<T> {
     }
   }
 
-  const response = await fetch(toApiUrl(path), {
-    ...requestInit,
-    headers: requestHeaders,
-  });
+  try {
+    const response = await fetch(toApiUrl(path), {
+      ...requestInit,
+      headers: requestHeaders,
+      signal: timeoutController?.signal ?? signal,
+    });
 
-  const payload = await readPayload(response);
-  const envelopeError = getEnvelopeError(payload);
+    const payload = await readPayload(response);
+    const envelopeError = getEnvelopeError(payload);
 
-  if (response.status === 401 && typeof window !== "undefined") {
-    localStorage.removeItem(AUTH_STORAGE_KEY);
+    if (response.status === 401 && typeof window !== "undefined") {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+    }
+
+    if (!response.ok || envelopeError) {
+      throw new ApiError(
+        envelopeError ?? getErrorMessage(payload),
+        response.status,
+        payload,
+      );
+    }
+
+    return unwrapPayload<T>(payload);
+  } finally {
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
+
+    signal?.removeEventListener("abort", abortOnCallerSignal);
   }
-
-  if (!response.ok || envelopeError) {
-    throw new ApiError(
-      envelopeError ?? getErrorMessage(payload),
-      response.status,
-      payload,
-    );
-  }
-
-  return unwrapPayload<T>(payload);
 }
 
 async function readPayload(response: globalThis.Response): Promise<unknown> {
