@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AdminIcon } from "@/components/admin-icons";
+import { OpenClawInstanceConfigSections } from "@/components/openclaw-instance-config-sections";
 import { AdminPage } from "@/components/admin-page-kit";
 import { OpenClawJsonTree } from "@/components/openclaw-json-tree";
 import {
@@ -435,6 +436,14 @@ function InstanceDetail({ detail }: { detail: OpenClawInstanceDetail }) {
       <DetailSection title="MCP Server 摘要">
         <MCPServerSummaryTable servers={detail.mcpServers ?? []} />
       </DetailSection>
+
+      <OpenClawInstanceConfigSections
+        channels={detail.channels ?? []}
+        models={detail.models ?? []}
+        plugins={detail.plugins ?? []}
+        skills={detail.skills ?? []}
+        toolConfig={detail.toolConfig}
+      />
 
       <DetailSection title="告警信息">
         <Warnings warnings={detail.warnings ?? []} />

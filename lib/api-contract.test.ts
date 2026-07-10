@@ -5,7 +5,12 @@ import type {
   MCPServer,
   ModelProviderCatalogProvider,
   OpenClawInstanceDetail,
+  OpenClawInstanceModel,
+  OpenClawInstancePlugin,
+  OpenClawInstanceChannel,
+  OpenClawInstanceSkill,
   OpenClawInstanceSummary,
+  OpenClawInstanceToolConfig,
   OpenClawPlugin,
   OpenClawPluginCapabilities,
   OpenClawPluginConfiguration,
@@ -290,6 +295,36 @@ expectType<Promise<ControlOpenClawInstanceResult | undefined>>(
 );
 expectType<string | undefined>(
   {} as NonNullable<OpenClawInstanceDetail["agents"]>[number]["agentId"],
+);
+expectType<OpenClawInstanceModel[] | undefined>(
+  {} as OpenClawInstanceDetail["models"],
+);
+expectType<OpenClawInstancePlugin[] | undefined>(
+  {} as OpenClawInstanceDetail["plugins"],
+);
+expectType<OpenClawInstanceChannel[] | undefined>(
+  {} as OpenClawInstanceDetail["channels"],
+);
+expectType<OpenClawInstanceSkill[] | undefined>(
+  {} as OpenClawInstanceDetail["skills"],
+);
+expectType<OpenClawInstanceToolConfig | undefined>(
+  {} as OpenClawInstanceDetail["toolConfig"],
+);
+expectType<OpenClawInstanceModel[] | undefined>(
+  {} as OpenClawConfigSnapshot["models"],
+);
+expectType<OpenClawInstancePlugin[] | undefined>(
+  {} as OpenClawConfigSnapshot["plugins"],
+);
+expectType<OpenClawInstanceChannel[] | undefined>(
+  {} as OpenClawConfigSnapshot["channels"],
+);
+expectType<OpenClawInstanceSkill[] | undefined>(
+  {} as OpenClawConfigSnapshot["skills"],
+);
+expectType<OpenClawInstanceToolConfig | undefined>(
+  {} as OpenClawConfigSnapshot["toolConfig"],
 );
 expectType<boolean | undefined>({} as OpenClawPluginInstallResult["success"]);
 expectType<string[] | undefined>({} as OpenClawPluginInstallResult["warnings"]);

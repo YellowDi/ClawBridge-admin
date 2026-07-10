@@ -1448,18 +1448,84 @@ export interface OpenClawInstanceMCPServer {
   [property: string]: unknown;
 }
 
+export interface OpenClawInstanceModel {
+  alias?: string;
+  allowed: boolean;
+  api?: string;
+  auth?: string;
+  baseUrl?: string;
+  cacheReadCost: number;
+  cacheWriteCost: number;
+  contextTokens: number;
+  contextWindow: number;
+  displayName: string;
+  hasApiKey: boolean;
+  input: string[];
+  inputCost: number;
+  maxTokens: number;
+  modelId: string;
+  modelRef: string;
+  outputCost: number;
+  providerId: string;
+  reasoning: boolean;
+  source: "provider_catalog" | "allowlist";
+}
+
+export interface OpenClawInstancePlugin {
+  allowed: boolean;
+  config: Record<string, unknown>;
+  configured: boolean;
+  denied: boolean;
+  enabled: boolean;
+  hasConfig: boolean;
+  hasSecret: boolean;
+  pluginId: string;
+  slots: string[];
+}
+
+export interface OpenClawInstanceChannel {
+  accountCount: number;
+  channelId: string;
+  config: Record<string, unknown>;
+  enabled: boolean;
+  hasSecret: boolean;
+}
+
+export interface OpenClawInstanceSkill {
+  bundledAllowed: boolean;
+  configured: boolean;
+  enabled: boolean;
+  hasApiKey: boolean;
+  hasConfig: boolean;
+  hasEnv: boolean;
+  skillKey: string;
+}
+
+export interface OpenClawInstanceToolConfig {
+  allow: string[];
+  alsoAllow: string[];
+  config: Record<string, unknown>;
+  deny: string[];
+  profile?: string;
+}
+
 export interface OpenClawInstanceSummary {
   agents?: OpenClawInstanceAgent[];
+  channels?: OpenClawInstanceChannel[];
   config?: Record<string, unknown>;
   configHash?: string;
   connectedAt?: string;
   lastSeenAt?: string;
   latencyMs?: number;
   mcpServers?: OpenClawInstanceMCPServer[];
+  models?: OpenClawInstanceModel[];
   online?: boolean;
+  plugins?: OpenClawInstancePlugin[];
   pluginId?: string;
   runtime?: OpenClawInstanceRuntime;
+  skills?: OpenClawInstanceSkill[];
   status?: string;
+  toolConfig?: OpenClawInstanceToolConfig;
   warnings?: string[];
   [property: string]: unknown;
 }
@@ -1522,8 +1588,15 @@ export interface OpenClawMCPServerSnapshot {
 
 export interface OpenClawConfigSnapshot {
   agents?: OpenClawAgentConfigSnapshot[];
+  channels?: OpenClawInstanceChannel[];
   configHash?: string;
+  config?: Record<string, unknown>;
   mcpServers?: OpenClawMCPServerSnapshot[];
+  models?: OpenClawInstanceModel[];
+  plugins?: OpenClawInstancePlugin[];
+  runtime?: OpenClawInstanceRuntime;
+  skills?: OpenClawInstanceSkill[];
+  toolConfig?: OpenClawInstanceToolConfig;
   [property: string]: unknown;
 }
 
