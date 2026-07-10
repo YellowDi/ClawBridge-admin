@@ -124,7 +124,27 @@ _Avoid_: 表格区、数据卡片
 作用于单条记录的操作。常用操作可以直接显示，危险操作收纳在纯图标更多菜单中。
 _Avoid_: 行按钮、表格操作
 
-## OpenClaw 插件
+## OpenClaw
+
+**OpenClaw 实例**：
+一个通过 `openclaw-plugin-rpc` 连接到 ClawCore Bridge 的 OpenClaw 运行环境。
+_Avoid_: RPC 插件、实例插件
+
+**实例连接标识**：
+由 OpenClaw 实例配置的稳定 `pluginId`，用于在 Bridge 中唯一选择当前 RPC 连接；它不是插件库中的插件标识。
+_Avoid_: 插件 ID、实例 ID
+
+**实例连接清单**：
+ClawCore Bridge 当前可见的 OpenClaw 实例连接快照，不保留已经从连接注册表消失的历史实例。
+_Avoid_: 实例资产库、离线实例历史
+
+**控制动作已受理**：
+目标 OpenClaw 实例已接受重启或重载请求，但尚未证明动作完成或实例恢复可用。
+_Avoid_: 重启成功、操作完成
+
+**重启恢复**：
+重启请求受理后，实例以新的连接或运行时启动状态恢复在线。
+_Avoid_: 在线、重启已受理
 
 **插件**：
 由 `pluginId` 标识的插件产品，包含一个或多个插件版本。

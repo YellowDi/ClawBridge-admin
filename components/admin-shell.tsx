@@ -18,6 +18,7 @@ type NavItem = {
   href: string;
   icon: AdminIconName;
   label: string;
+  title?: string;
 };
 
 type NavGroup = {
@@ -60,10 +61,20 @@ const OPS_ITEMS: readonly NavItem[] = [
     key: "knowledge-bases",
     label: "知识库",
   },
+  { href: "/audit", icon: "audit", key: "audit", label: "审计日志" },
+] as const;
+
+const OPENCLAW_ITEMS: readonly NavItem[] = [
+  {
+    href: "/openclaw-instances",
+    icon: "model",
+    key: "openclaw-instances",
+    label: "OpenClaw 实例",
+    title: "OpenClaw 实例管理",
+  },
   { href: "/skills", icon: "skill", key: "skills", label: "Skill 管理" },
   { href: "/mcp", icon: "mcp", key: "mcp", label: "OpenClaw MCP" },
   { href: "/plugins", icon: "plugin", key: "plugins", label: "插件管理" },
-  { href: "/audit", icon: "audit", key: "audit", label: "审计日志" },
 ] as const;
 
 const SYSTEM_ITEMS: readonly NavItem[] = [
@@ -74,12 +85,14 @@ const SYSTEM_ITEMS: readonly NavItem[] = [
 const NAV_GROUPS: readonly NavGroup[] = [
   { items: PLATFORM_ITEMS, label: "平台管理" },
   { items: OPS_ITEMS, label: "运维治理" },
+  { items: OPENCLAW_ITEMS, label: "OpenClaw" },
   { items: SYSTEM_ITEMS, label: "系统" },
 ] as const;
 
 const ALL_NAV_ITEMS: readonly NavItem[] = [
   ...PLATFORM_ITEMS,
   ...OPS_ITEMS,
+  ...OPENCLAW_ITEMS,
   ...SYSTEM_ITEMS,
 ];
 
@@ -101,7 +114,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
       (item) => item.href !== "/" && pathname.startsWith(item.href),
     );
 
-    return matched?.label ?? siteConfig.name;
+    return matched?.title ?? matched?.label ?? siteConfig.name;
   }, [pathname]);
   const navbar = useMemo(
     () => (

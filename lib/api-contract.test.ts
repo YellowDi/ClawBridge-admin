@@ -1,5 +1,6 @@
 import type {
   Agent,
+  ControlOpenClawInstanceResult,
   KnowledgeBase,
   MCPServer,
   ModelProviderCatalogProvider,
@@ -25,6 +26,7 @@ import type {
 
 import {
   applyOpenClawMCPConfig,
+  controlOpenClawInstance,
   createMCPServer,
   createSubscriptionPlan,
   deleteMCPServer,
@@ -276,6 +278,14 @@ expectType<Promise<OpenClawInstanceDetail | undefined>>(
     includeSkills: false,
     pluginId: "clawcore-rpc",
     skillMode: "none",
+  }),
+);
+expectType<Promise<ControlOpenClawInstanceResult | undefined>>(
+  controlOpenClawInstance({
+    action: "restart",
+    dryRun: false,
+    pluginId: "clawcore-rpc",
+    reason: "manual restart",
   }),
 );
 expectType<string | undefined>(

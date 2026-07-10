@@ -1382,29 +1382,89 @@ export interface OpenClawAgentToolSummary {
 }
 
 export interface OpenClawInstanceAgent {
+  activeSessionCount?: number;
   agentId?: string;
+  defaultModelId?: string;
   description?: string;
   displayName?: string;
   enabled?: boolean;
+  enabledToolCount?: number;
+  skillCount?: number;
+  skillError?: string;
+  toolCount?: number;
   toolSummaries?: OpenClawAgentToolSummary[];
+  [property: string]: unknown;
+}
+
+export interface OpenClawInstanceHealthCheck {
+  available?: boolean;
+  message?: string;
+  name?: string;
+  status?: string;
+  [property: string]: unknown;
+}
+
+export interface OpenClawInstanceLastControl {
+  action?: string;
+  at?: string;
+  followUpMode?: string;
+  followUpReason?: string;
+  reason?: string;
+  success?: boolean;
+  [property: string]: unknown;
+}
+
+export interface OpenClawInstanceRuntime {
+  arch?: string;
+  configSource?: string;
+  configUpdatedAt?: string;
+  healthChecks?: OpenClawInstanceHealthCheck[];
+  hostname?: string;
+  lastControl?: OpenClawInstanceLastControl;
+  lastError?: string;
+  openclawVersion?: string;
+  pendingFollowUp?: boolean;
+  pendingFollowUpMode?: string;
+  pendingFollowUpReason?: string;
+  platform?: string;
+  pluginAllowedMethods?: string[];
+  pluginVersion?: string;
+  startedAt?: string;
+  supportedActions?: string[];
+  uptimeSeconds?: number;
+  [property: string]: unknown;
+}
+
+export interface OpenClawInstanceMCPServer {
+  authType?: string;
+  enabled?: boolean;
+  envRefMissing?: string[];
+  hasSecret?: boolean;
+  lastProbeStatus?: string;
+  serverName?: string;
+  toolCount?: number;
+  toolsPreview?: string[];
+  transport?: string;
   [property: string]: unknown;
 }
 
 export interface OpenClawInstanceSummary {
   agents?: OpenClawInstanceAgent[];
+  config?: Record<string, unknown>;
+  configHash?: string;
+  connectedAt?: string;
+  lastSeenAt?: string;
+  latencyMs?: number;
+  mcpServers?: OpenClawInstanceMCPServer[];
   online?: boolean;
   pluginId?: string;
+  runtime?: OpenClawInstanceRuntime;
   status?: string;
   warnings?: string[];
   [property: string]: unknown;
 }
 
-export interface OpenClawInstanceDetail extends OpenClawInstanceSummary {
-  configHash?: string;
-  connectedAt?: string;
-  lastSeenAt?: string;
-  latencyMs?: number;
-}
+export type OpenClawInstanceDetail = OpenClawInstanceSummary;
 
 export interface ReqOpenClawInstanceList {
   includeSkills?: boolean;
@@ -1414,6 +1474,25 @@ export interface ReqOpenClawInstanceList {
 
 export interface ReqOpenClawInstanceDetail extends ReqOpenClawInstanceList {
   pluginId?: string;
+}
+
+export interface ReqControlOpenClawInstance {
+  action?: "restart" | "reload" | (string & {});
+  dryRun?: boolean;
+  pluginId?: string;
+  reason?: string;
+  [property: string]: unknown;
+}
+
+export interface ControlOpenClawInstanceResult {
+  acceptedAt?: string;
+  action?: string;
+  dryRun?: boolean;
+  followUpMode?: string;
+  followUpReason?: string;
+  message?: string;
+  success?: boolean;
+  [property: string]: unknown;
 }
 
 export interface ResOpenClawInstanceSummaries {
@@ -2658,9 +2737,23 @@ export async function listOpenClawInstanceSummaries(
 
 export async function getOpenClawInstanceDetail(
   request: ReqOpenClawInstanceDetail,
+  options: Pick<ApiRequestInit, "signal" | "timeoutMs"> = {},
 ): Promise<OpenClawInstanceDetail | undefined> {
   return requestJson<OpenClawInstanceDetail | undefined>(
     "/api/openclaw/instances/detail",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+      ...options,
+    },
+  );
+}
+
+export async function controlOpenClawInstance(
+  request: ReqControlOpenClawInstance,
+): Promise<ControlOpenClawInstanceResult | undefined> {
+  return requestJson<ControlOpenClawInstanceResult | undefined>(
+    "/api/openclaw/instances/control",
     {
       body: JSON.stringify(request),
       method: "POST",
