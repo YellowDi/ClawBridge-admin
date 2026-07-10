@@ -191,6 +191,7 @@ expectType<OpenClawPluginConfiguration>({
   schema: { type: "object" },
   target: "channel:clawbridge",
   uiHints: { token: { label: "Token", sensitive: true } },
+  value: { token: "********" },
 });
 expectType<OpenClawPluginConfigurationValue[] | undefined>(
   {} as OpenClawPluginInstall["configurations"],
@@ -227,7 +228,14 @@ expectType<Promise<OpenClawPlugin | undefined>>(
   }),
 );
 expectType<Promise<OpenClawPlugin | undefined>>(
-  updateOpenClawPluginLibrary({ description: "插件说明", id: 1, name: "Demo" }),
+  updateOpenClawPluginLibrary({
+    configurations: [
+      { target: "channel:clawbridge", value: { token: "********" } },
+    ],
+    description: "插件说明",
+    id: 1,
+    name: "Demo",
+  }),
 );
 expectType<Promise<OpenClawPlugin | undefined>>(deleteOpenClawPluginLibrary(1));
 expectType<Promise<OpenClawPluginInstall[]>>(listOpenClawPluginInstalls());

@@ -57,6 +57,7 @@ import {
 import {
   createPluginConfigurationValue,
   isRecord,
+  mergePluginConfigurations,
   toPluginConfigurationInputs,
   validatePluginConfigurationValue,
 } from "@/lib/plugin-configuration";
@@ -1116,16 +1117,7 @@ function PluginInstallDialog({
   const isOpen = Boolean(target);
   const mode = target?.mode ?? (target?.install ? "update" : "install");
   const supportsScope = supportsAgentScope(target?.plugin.deployment);
-  const configurationDefinitions = useMemo(
-    () =>
-      mode === "configure"
-        ? (target?.install?.configurations ?? [])
-        : mode === "install"
-          ? (target?.plugin.configurations ?? [])
-          : [],
-    [mode, target],
-  );
-  const editsConfigurations = configurationDefinitions.length > 0;
+  const [pluginDetail, setPluginDetail] = useState<OpenClawPlugin | null>(null);
   const [instances, setInstances] = useState<OpenClawInstanceSummary[]>([]);
   const [agents, setAgents] = useState<OpenClawInstanceAgent[]>([]);
   const [selectedInstanceId, setSelectedInstanceId] = useState("");
@@ -1135,17 +1127,30 @@ function PluginInstallDialog({
   const [dryRun, setDryRun] = useState(false);
   const [isLoadingInstances, setIsLoadingInstances] = useState(false);
   const [isLoadingAgents, setIsLoadingAgents] = useState(false);
+  const [isLoadingPluginDetail, setIsLoadingPluginDetail] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pluginDetailError, setPluginDetailError] = useState<string | null>(
+    null,
+  );
   const [configurationErrors, setConfigurationErrors] = useState<
     Record<string, string>
   >({});
   const [configurationState, setConfigurationState] = useState<
     Record<string, Record<string, unknown>>
-  >(() => createConfigurationFormState(configurationDefinitions));
+  >({});
   const [preview, setPreview] = useState<OpenClawPluginInstallResult | null>(
     null,
   );
+  const configurationDefinitions = useMemo(
+    () =>
+      mergePluginConfigurations(
+        pluginDetail?.configurations ?? target?.plugin.configurations ?? [],
+        target?.install?.configurations ?? [],
+      ),
+    [pluginDetail, target],
+  );
+  const editsConfigurations = configurationDefinitions.length > 0;
 
   const loadInstances = useCallback(async () => {
     setIsLoadingInstances(true);
@@ -1209,11 +1214,45 @@ function PluginInstallDialog({
     );
     setEnabled(install?.enabled !== false);
     setDryRun(false);
+    setPluginDetail(null);
+    setPluginDetailError(null);
     setError(null);
     setPreview(null);
     setAgents([]);
     void loadInstances();
+
+    if (typeof target.plugin.id !== "number") return;
+
+    let cancelled = false;
+
+    setIsLoadingPluginDetail(true);
+    void getOpenClawPluginLibraryDetail(target.plugin.id)
+      .then((response) => {
+        if (!cancelled) setPluginDetail(response ?? target.plugin);
+      })
+      .catch((detailError) => {
+        if (cancelled) return;
+
+        const message = getActionError(detailError, "插件详情加载失败。");
+
+        setPluginDetailError(message);
+        toast.danger(message);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingPluginDetail(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [loadInstances, supportsScope, target]);
+
+  useEffect(() => {
+    setConfigurationState(
+      createConfigurationFormState(configurationDefinitions),
+    );
+    setConfigurationErrors({});
+  }, [configurationDefinitions]);
 
   useEffect(() => {
     if (!isOpen || !selectedInstanceId || !supportsScope) return;
@@ -1256,6 +1295,7 @@ function PluginInstallDialog({
             configuration.schema,
             configurationState[configuration.target] ?? {},
             configuration.target,
+            configuration.uiHints,
           ),
         ),
       ) as Record<string, string>;
@@ -1280,19 +1320,15 @@ function PluginInstallDialog({
 
     try {
       const result = await installOpenClawPlugin({
+        configurations: toPluginConfigurationInputs(
+          configurationDefinitions,
+          configurationState,
+        ),
         dryRun,
         enabled,
         openClawPluginId: selectedInstanceId,
         pluginRecordId,
         scopeType: supportsScope ? scopeType : "global",
-        ...(editsConfigurations
-          ? {
-              configurations: toPluginConfigurationInputs(
-                configurationDefinitions,
-                configurationState,
-              ),
-            }
-          : {}),
         ...(supportsScope
           ? { agentIds: scopeType === "agents" ? selectedAgentIds : [] }
           : {}),
@@ -1435,6 +1471,12 @@ function PluginInstallDialog({
                 </Checkbox.Content>
                 <Description>只校验，不安装、不落库。</Description>
               </Checkbox>
+              {isLoadingPluginDetail ? (
+                <p className="text-muted text-sm">正在加载插件配置...</p>
+              ) : null}
+              {pluginDetailError ? (
+                <InlineError>{pluginDetailError}</InlineError>
+              ) : null}
               {editsConfigurations && error ? (
                 <InlineError>{error}</InlineError>
               ) : null}
@@ -1442,7 +1484,7 @@ function PluginInstallDialog({
                 <PluginConfigurationForm
                   configurations={configurationDefinitions}
                   errors={configurationErrors}
-                  isDisabled={isSubmitting}
+                  isDisabled={isLoadingPluginDetail || isSubmitting}
                   state={configurationState}
                   onChange={(state) => {
                     setConfigurationState(state);
@@ -1475,6 +1517,9 @@ function PluginInstallDialog({
               <Button
                 isDisabled={
                   isLoadingInstances ||
+                  isLoadingPluginDetail ||
+                  !pluginDetail ||
+                  Boolean(pluginDetailError) ||
                   (supportsScope && isLoadingAgents) ||
                   isSubmitting ||
                   !selectedInstanceId ||
@@ -1730,16 +1775,68 @@ function PluginEditDialog({
   onSaved: () => void;
   plugin: OpenClawPlugin | null;
 }) {
+  const [detail, setDetail] = useState<OpenClawPlugin | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [configurationErrors, setConfigurationErrors] = useState<
+    Record<string, string>
+  >({});
+  const [configurationState, setConfigurationState] = useState<
+    Record<string, Record<string, unknown>>
+  >({});
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const configurations = useMemo(
+    () => detail?.configurations ?? plugin?.configurations ?? [],
+    [detail, plugin],
+  );
 
   useEffect(() => {
     setName(plugin?.name ?? "");
     setDescription(plugin?.description ?? "");
+    setDetail(null);
     setError(null);
+    setConfigurationErrors({});
+    setConfigurationState(
+      createConfigurationFormState(plugin?.configurations ?? []),
+    );
+    setIsLoadingDetail(false);
     setIsSaving(false);
+
+    if (typeof plugin?.id !== "number") return;
+
+    let cancelled = false;
+
+    setIsLoadingDetail(true);
+    void getOpenClawPluginLibraryDetail(plugin.id)
+      .then((response) => {
+        if (cancelled) return;
+
+        const resolved = response ?? plugin;
+
+        setDetail(resolved);
+        setName(resolved.name ?? "");
+        setDescription(resolved.description ?? "");
+        setConfigurationState(
+          createConfigurationFormState(resolved.configurations ?? []),
+        );
+      })
+      .catch((detailError) => {
+        if (cancelled) return;
+
+        const message = getActionError(detailError, "插件详情加载失败。");
+
+        setError(message);
+        toast.danger(message);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingDetail(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [plugin]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -1751,20 +1848,44 @@ function PluginEditDialog({
       return;
     }
 
+    const nextErrors = Object.assign(
+      {},
+      ...configurations.map((configuration) =>
+        validatePluginConfigurationValue(
+          configuration.schema,
+          configurationState[configuration.target] ?? {},
+          configuration.target,
+          configuration.uiHints,
+        ),
+      ),
+    ) as Record<string, string>;
+
+    if (Object.keys(nextErrors).length > 0) {
+      setConfigurationErrors(nextErrors);
+      setError("请修正插件配置中的错误。");
+
+      return;
+    }
+
     setIsSaving(true);
     setError(null);
+    setConfigurationErrors({});
 
     try {
       await updateOpenClawPluginLibrary({
+        configurations: toPluginConfigurationInputs(
+          configurations,
+          configurationState,
+        ),
         description: description.trim(),
         id: plugin.id,
         name: name.trim(),
       });
-      toast.success("插件展示信息已更新。");
+      toast.success("插件版本信息已更新。");
       onOpenChange(false);
       onSaved();
     } catch (error) {
-      const message = getActionError(error, "插件展示信息更新失败。");
+      const message = getActionError(error, "插件版本信息更新失败。");
 
       setError(message);
       toast.danger(message);
@@ -1790,7 +1911,7 @@ function PluginEditDialog({
               <TextField fullWidth variant="secondary">
                 <Label>名称</Label>
                 <Input
-                  disabled={isSaving}
+                  disabled={isLoadingDetail || isSaving}
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                 />
@@ -1798,13 +1919,30 @@ function PluginEditDialog({
               <TextField fullWidth variant="secondary">
                 <Label>描述</Label>
                 <TextArea
-                  disabled={isSaving}
+                  disabled={isLoadingDetail || isSaving}
                   rows={4}
                   value={description}
                   onChange={(event) => setDescription(event.target.value)}
                 />
               </TextField>
-              <p className="text-muted text-xs">版本更新必须重新上传插件包。</p>
+              {isLoadingDetail ? (
+                <p className="text-muted text-sm">正在加载插件配置...</p>
+              ) : configurations.length > 0 ? (
+                <PluginConfigurationForm
+                  configurations={configurations}
+                  errors={configurationErrors}
+                  isDisabled={isSaving}
+                  state={configurationState}
+                  onChange={(state) => {
+                    setConfigurationState(state);
+                    setConfigurationErrors({});
+                    setError(null);
+                  }}
+                />
+              ) : null}
+              <p className="text-muted text-xs">
+                版本文件更新仍需重新上传插件包。
+              </p>
               {error ? <InlineError>{error}</InlineError> : null}
             </Modal.Body>
             <Modal.Footer>
@@ -1816,7 +1954,10 @@ function PluginEditDialog({
               >
                 取消
               </Button>
-              <Button isDisabled={isSaving} type="submit">
+              <Button
+                isDisabled={isLoadingDetail || isSaving || !detail}
+                type="submit"
+              >
                 {isSaving ? "保存中..." : "保存"}
               </Button>
             </Modal.Footer>

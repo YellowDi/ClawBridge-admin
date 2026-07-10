@@ -1217,6 +1217,7 @@ export interface OpenClawPluginConfiguration {
   schema: PluginJsonSchema;
   target: string;
   uiHints?: Record<string, OpenClawPluginConfigurationUIHint>;
+  value?: Record<string, unknown>;
 }
 
 export interface OpenClawPluginConfigurationValue
@@ -1289,6 +1290,7 @@ export interface ReqOpenClawPluginLibraryList extends ReqPagination {
 }
 
 export interface ReqOpenClawPluginLibraryUpdate {
+  configurations?: OpenClawPluginConfigurationInput[];
   description?: string;
   id?: number;
   name?: string;

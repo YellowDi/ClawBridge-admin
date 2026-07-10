@@ -1,6 +1,7 @@
 import type {
   OpenClawPluginConfiguration,
   OpenClawPluginConfigurationInput,
+  OpenClawPluginConfigurationUIHint,
   PluginJsonSchema,
 } from "./api.ts";
 
@@ -20,10 +21,11 @@ export function validatePluginConfigurationValue(
   schema: PluginJsonSchema,
   value: unknown,
   path = "",
+  hints: Record<string, OpenClawPluginConfigurationUIHint> = {},
 ): ValidationErrors {
   const errors: ValidationErrors = {};
 
-  validateSchemaValue(schema, value, path, errors);
+  validateSchemaValue(schema, value, path, errors, hints);
 
   return errors;
 }
@@ -36,6 +38,23 @@ export function toPluginConfigurationInputs(
     target,
     value: state[target] ?? {},
   }));
+}
+
+export function mergePluginConfigurations(
+  definitions: OpenClawPluginConfiguration[],
+  preferred: OpenClawPluginConfiguration[],
+): OpenClawPluginConfiguration[] {
+  if (definitions.length === 0) return preferred;
+
+  const preferredByTarget = new Map(
+    preferred.map((configuration) => [configuration.target, configuration]),
+  );
+
+  return definitions.map((definition) => {
+    const value = preferredByTarget.get(definition.target)?.value;
+
+    return isRecord(value) ? { ...definition, value } : definition;
+  });
 }
 
 function initializeSchemaValue(
@@ -81,6 +100,7 @@ function validateSchemaValue(
   value: unknown,
   path: string,
   errors: ValidationErrors,
+  hints: Record<string, OpenClawPluginConfigurationUIHint>,
 ) {
   if (value === undefined || value === null || value === "") return;
 
@@ -94,7 +114,7 @@ function validateSchemaValue(
 
   switch (schema.type) {
     case "string":
-      validateString(schema, value, path, errors);
+      validateString(schema, value, path, errors, hints);
       break;
     case "number":
     case "integer":
@@ -104,10 +124,10 @@ function validateSchemaValue(
       if (typeof value !== "boolean") errors[path] = "请选择有效状态。";
       break;
     case "array":
-      validateArray(schema, value, path, errors);
+      validateArray(schema, value, path, errors, hints);
       break;
     case "object":
-      validateObject(schema, value, path, errors);
+      validateObject(schema, value, path, errors, hints);
       break;
   }
 }
@@ -117,12 +137,15 @@ function validateString(
   value: unknown,
   path: string,
   errors: ValidationErrors,
+  hints: Record<string, OpenClawPluginConfigurationUIHint>,
 ) {
   if (typeof value !== "string") {
     errors[path] = "请输入文本。";
 
     return;
   }
+
+  if (value === "********" && isSensitivePath(hints, path)) return;
 
   if (schema.format === "uri") {
     try {
@@ -172,6 +195,7 @@ function validateArray(
   value: unknown,
   path: string,
   errors: ValidationErrors,
+  hints: Record<string, OpenClawPluginConfigurationUIHint>,
 ) {
   if (!Array.isArray(value)) {
     errors[path] = "配置值必须是列表。";
@@ -196,6 +220,7 @@ function validateArray(
       item,
       joinPath(path, String(index)),
       errors,
+      hints,
     ),
   );
 }
@@ -205,6 +230,7 @@ function validateObject(
   value: unknown,
   path: string,
   errors: ValidationErrors,
+  hints: Record<string, OpenClawPluginConfigurationUIHint>,
 ) {
   if (!isRecord(value)) {
     errors[path] = "配置值必须是对象。";
@@ -228,7 +254,13 @@ function validateObject(
   for (const [key, childSchema] of Object.entries(properties)) {
     if (!isRecord(childSchema) || !Object.hasOwn(value, key)) continue;
 
-    validateSchemaValue(childSchema, value[key], joinPath(path, key), errors);
+    validateSchemaValue(
+      childSchema,
+      value[key],
+      joinPath(path, key),
+      errors,
+      hints,
+    );
   }
 
   if (isRecord(schema.additionalProperties)) {
@@ -240,6 +272,7 @@ function validateObject(
         child,
         joinPath(path, key),
         errors,
+        hints,
       );
     }
   } else if (schema.additionalProperties === false) {
@@ -253,6 +286,17 @@ function validateObject(
 
 function joinPath(path: string, key: string) {
   return path ? `${path}.${key}` : key;
+}
+
+function isSensitivePath(
+  hints: Record<string, OpenClawPluginConfigurationUIHint>,
+  path: string,
+) {
+  const fieldName = path.split(".").at(-1) ?? path;
+
+  return (
+    hints[path]?.sensitive === true || hints[fieldName]?.sensitive === true
+  );
 }
 
 function cloneValue<T>(value: T): T {
