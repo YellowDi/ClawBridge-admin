@@ -218,12 +218,14 @@ export function OpenClawInstancesPage() {
             onRestart={() => setRestartTarget(item)}
           />
         ),
-        cellClassName: "whitespace-nowrap",
+        cellClassName: "w-px whitespace-nowrap",
         header: "操作",
-        headerClassName: "whitespace-nowrap",
+        headerClassName: "w-px whitespace-nowrap",
         id: "actions",
+        maxWidth: 152,
+        minWidth: 152,
         pinned: "end",
-        width: 176,
+        width: 152,
       },
     ],
     [pendingPluginId, router],
@@ -241,7 +243,7 @@ export function OpenClawInstancesPage() {
           aria-label="OpenClaw 实例列表"
           className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
           columns={columns}
-          contentClassName="min-w-[1460px]"
+          contentClassName="min-w-[1400px]"
           data={state.instances}
           getRowId={(item) => item.pluginId || JSON.stringify(item)}
           renderEmptyState={() =>
@@ -467,10 +469,11 @@ function InstanceActions({
 }) {
   return (
     <div className="flex items-center justify-end gap-1">
-      <Button size="sm" variant="tertiary" onPress={onDetail}>
+      <Button className="px-2" size="sm" variant="tertiary" onPress={onDetail}>
         查看详情
       </Button>
       <RestartButton
+        className="px-2"
         instance={instance}
         isAnyRestartPending={isAnyRestartPending}
         isRestartPending={isRestartPending}
@@ -489,9 +492,9 @@ function HealthChecks({
 
   return (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-      {checks.map((check, index) => (
+      {checks.map((check) => (
         <div
-          key={`${check.name}-${index}`}
+          key={`${check.name}-${check.status}-${check.message}`}
           className="rounded-lg border border-default bg-surface p-3"
         >
           <div className="flex items-center justify-between gap-3">
@@ -686,9 +689,9 @@ function Warnings({ warnings }: { warnings: string[] }) {
 
   return (
     <ul className="flex flex-col gap-2">
-      {warnings.map((warning, index) => (
+      {Array.from(new Set(warnings)).map((warning) => (
         <li
-          key={`${warning}-${index}`}
+          key={warning}
           className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning"
         >
           {warning}

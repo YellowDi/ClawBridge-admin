@@ -23,11 +23,13 @@ const POLL_INTERVAL_MS = 2_000;
 const POLL_TIMEOUT_MS = 60_000;
 
 export function RestartButton({
+  className,
   instance,
   isAnyRestartPending,
   isRestartPending,
   onPress,
 }: {
+  className?: string;
   instance: OpenClawInstanceSummary;
   isAnyRestartPending: boolean;
   isRestartPending: boolean;
@@ -43,6 +45,7 @@ export function RestartButton({
   return (
     <Tooltip delay={0}>
       <Button
+        className={className}
         isDisabled={Boolean(disabledReason) || isAnyRestartPending}
         isPending={isRestartPending}
         size="sm"
@@ -70,6 +73,12 @@ export function RestartInstanceDialog({
   const pollControllerRef = useRef<AbortController | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [previousTarget, setPreviousTarget] = useState(target);
+
+  if (target !== previousTarget) {
+    setPreviousTarget(target);
+    if (target) setError(null);
+  }
 
   useEffect(
     () => () => {
@@ -77,10 +86,6 @@ export function RestartInstanceDialog({
     },
     [],
   );
-
-  useEffect(() => {
-    if (target) setError(null);
-  }, [target]);
 
   async function handleRestart() {
     const pluginId = target?.pluginId?.trim();
