@@ -1262,7 +1262,7 @@ export interface OpenClawPluginInstall {
   installedAt?: string;
   isDelete?: number;
   lastError?: string;
-  openclawPluginId?: string;
+  openClawPluginId?: string;
   pluginId?: string;
   pluginRecordId?: number;
   pluginVersion?: string;
@@ -1282,7 +1282,7 @@ export interface ReqOpenClawPluginInstall {
   agentIds?: string[];
   dryRun?: boolean;
   enabled?: boolean;
-  openclawPluginId?: string;
+  openClawPluginId?: string;
   pluginRecordId?: number;
   scopeType?: OpenClawPluginScopeType;
   [property: string]: unknown;
@@ -1301,7 +1301,7 @@ export interface ReqOpenClawPluginAgentsReplace
 }
 
 export interface ReqOpenClawPluginInstallsList {
-  openclawPluginId?: string;
+  openClawPluginId?: string;
   [property: string]: unknown;
 }
 

@@ -8,6 +8,7 @@ import {
   ChartColumn,
   ChartPie,
   CirclePlus,
+  Cpu,
   Database,
   EllipsisVertical,
   FaceRobot,
@@ -38,6 +39,7 @@ export type AdminIconName =
   | "mcp"
   | "model"
   | "more"
+  | "plugin"
   | "plus"
   | "refresh"
   | "search"
@@ -62,6 +64,7 @@ const ICONS: Record<AdminIconName, ComponentType<SVGProps<SVGSVGElement>>> = {
   mcp: LogoMcp,
   model: Server,
   more: EllipsisVertical,
+  plugin: Cpu,
   plus: CirclePlus,
   refresh: ArrowsRotateLeft,
   search: Magnifier,

@@ -11,19 +11,20 @@ import type {
 } from "@/lib/api";
 import type { FormEvent } from "react";
 
-import { DataGrid } from "@heroui-pro/react";
+import { CodeBlock, DataGrid, DropZone, ListView } from "@heroui-pro/react";
 import {
+  Accordion,
   Button,
   Checkbox,
   CheckboxGroup,
   Chip,
   Description,
-  Drawer,
   Input,
   Label,
   ListBox,
   Modal,
   Select,
+  Switch,
   Tabs,
   TextArea,
   TextField,
@@ -221,7 +222,7 @@ function PluginLibraryTab({
   onLibraryChanged: () => void;
   refreshKey: number;
 }) {
-  const detailDrawer = useOverlayState();
+  const detailModal = useOverlayState();
   const requestIdRef = useRef(0);
   const [state, setState] = useState<PluginLibraryState>({
     error: null,
@@ -314,7 +315,7 @@ function PluginLibraryTab({
       setDetailRecord(record);
       setDetail(null);
       setIsLoadingDetail(true);
-      detailDrawer.open();
+      detailModal.open();
 
       try {
         const response = await getOpenClawPluginLibraryDetail(id);
@@ -329,7 +330,7 @@ function PluginLibraryTab({
         setIsLoadingDetail(false);
       }
     },
-    [detailDrawer],
+    [detailModal],
   );
 
   const columns = useMemo<DataGridColumn<OpenClawPlugin>[]>(
@@ -464,10 +465,10 @@ function PluginLibraryTab({
           </p>
         </div>
         <form
-          className="flex flex-col gap-3 sm:flex-row"
+          className="flex flex-col gap-3 lg:flex-row lg:items-center"
           onSubmit={handleSearch}
         >
-          <TextField fullWidth variant="secondary">
+          <TextField fullWidth className="min-w-0 flex-1" variant="secondary">
             <Label className="sr-only">搜索插件</Label>
             <Input
               placeholder="搜索名称、插件 ID、描述或版本"
@@ -475,23 +476,26 @@ function PluginLibraryTab({
               onChange={(event) => setQueryInput(event.target.value)}
             />
           </TextField>
-          <Button type="submit" variant="secondary">
-            <AdminIcon className="size-4" name="search" />
-            搜索
-          </Button>
+          <div className="flex items-center justify-between gap-3 lg:justify-end">
+            <Switch
+              className="shrink-0"
+              isSelected={state.includeDeleted}
+              size="sm"
+              onChange={handleDeletedChange}
+            >
+              <Switch.Content>
+                <Switch.Control>
+                  <Switch.Thumb />
+                </Switch.Control>
+                显示已删除
+              </Switch.Content>
+            </Switch>
+            <Button type="submit" variant="secondary">
+              <AdminIcon className="size-4" name="search" />
+              搜索
+            </Button>
+          </div>
         </form>
-        <Checkbox
-          className="w-fit"
-          isSelected={state.includeDeleted}
-          onChange={handleDeletedChange}
-        >
-          <Checkbox.Content>
-            <Checkbox.Control>
-              <Checkbox.Indicator />
-            </Checkbox.Control>
-            显示已删除
-          </Checkbox.Content>
-        </Checkbox>
         {state.error ? <InlineError>{state.error}</InlineError> : null}
         {groups.length > 0 ? (
           <div className="flex flex-col">
@@ -578,11 +582,11 @@ function PluginLibraryTab({
           if (!isOpen) setDeletingRecord(null);
         }}
       />
-      <PluginDetailDrawer
+      <PluginDetailModal
         detail={detail}
-        drawer={detailDrawer}
         fallback={detailRecord}
         isLoading={isLoadingDetail}
+        modal={detailModal}
         onDelete={setDeletingRecord}
         onEdit={setEditingRecord}
         onInstall={onInstall}
@@ -695,9 +699,9 @@ function PluginInstallsTab({
         cell: (item) => (
           <span
             className="block max-w-40 truncate text-xs"
-            title={item.openclawPluginId}
+            title={item.openClawPluginId}
           >
-            {item.openclawPluginId || "-"}
+            {item.openClawPluginId || "-"}
           </span>
         ),
         header: "OpenClaw 实例 ID",
@@ -924,7 +928,7 @@ function PluginInstallsTab({
             direction: "descending",
           }}
           getRowId={(item) =>
-            String(item.id ?? `${item.openclawPluginId}-${item.pluginId}`)
+            String(item.id ?? `${item.openClawPluginId}-${item.pluginId}`)
           }
           renderEmptyState={() =>
             state.isLoading ? "加载中..." : "暂无实例插件安装关系"
@@ -1032,7 +1036,7 @@ function PluginInstallDialog({
 
     const install = target.install;
     const instanceId = target.lockInstance
-      ? install?.openclawPluginId?.trim() || ""
+      ? install?.openClawPluginId?.trim() || ""
       : "";
 
     setSelectedInstanceId(instanceId);
@@ -1084,7 +1088,7 @@ function PluginInstallDialog({
         agentIds: scopeType === "agents" ? selectedAgentIds : [],
         dryRun,
         enabled,
-        openclawPluginId: selectedInstanceId,
+        openClawPluginId: selectedInstanceId,
         pluginRecordId,
         scopeType,
       });
@@ -1269,8 +1273,8 @@ function PluginUploadDialog({
     setIsSubmitting(false);
   }, [isOpen]);
 
-  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const selectedFile = event.target.files?.[0] ?? null;
+  function handleFileSelect(files: FileList) {
+    const selectedFile = files[0] ?? null;
 
     if (!selectedFile) {
       setFile(null);
@@ -1371,23 +1375,47 @@ function PluginUploadDialog({
                   </Tabs.List>
                 </Tabs.ListContainer>
                 <Tabs.Panel className="pt-4" id="file">
-                  <TextField fullWidth variant="secondary">
-                    <Label>插件包</Label>
-                    <Input
+                  <DropZone>
+                    <DropZone.Area
+                      className="flex flex-col items-center justify-center gap-3 rounded-md border border-dashed border-default-300 bg-content1 p-5 text-center transition-colors hover:bg-default-50"
+                      isDisabled={isSubmitting}
+                    >
+                      <DropZone.Icon>
+                        <AdminIcon
+                          className="text-muted size-8"
+                          name="upload"
+                        />
+                      </DropZone.Icon>
+                      <DropZone.Label>选择或拖放插件包</DropZone.Label>
+                      <DropZone.Description>
+                        支持 ZIP、TGZ，最大 100 MiB。
+                      </DropZone.Description>
+                      <DropZone.Trigger isDisabled={isSubmitting}>
+                        选择文件
+                      </DropZone.Trigger>
+                    </DropZone.Area>
+                    <DropZone.Input
                       accept={PLUGIN_UPLOAD_ACCEPT}
-                      disabled={isSubmitting}
-                      type="file"
-                      onChange={handleFileChange}
+                      multiple={false}
+                      onSelect={handleFileSelect}
                     />
-                  </TextField>
-                  <p className="text-muted mt-2 text-xs">
-                    支持 ZIP、TGZ，最大 100 MiB。
-                  </p>
-                  {file ? (
-                    <p className="mt-2 truncate text-sm" title={file.name}>
-                      已选择：{file.name}（{formatBytes(file.size)}）
-                    </p>
-                  ) : null}
+                    {file ? (
+                      <DropZone.FileList>
+                        <DropZone.FileItem>
+                          <DropZone.FileFormatIcon
+                            color="orange"
+                            format="ZIP"
+                          />
+                          <DropZone.FileInfo>
+                            <DropZone.FileName>{file.name}</DropZone.FileName>
+                            <DropZone.FileMeta>
+                              {formatBytes(file.size)}
+                            </DropZone.FileMeta>
+                          </DropZone.FileInfo>
+                        </DropZone.FileItem>
+                      </DropZone.FileList>
+                    ) : null}
+                  </DropZone>
                 </Tabs.Panel>
                 <Tabs.Panel className="pt-4" id="url">
                   <TextField fullWidth variant="secondary">
@@ -1629,9 +1657,9 @@ function PluginDeleteDialog({
   );
 }
 
-function PluginDetailDrawer({
+function PluginDetailModal({
   detail,
-  drawer,
+  modal,
   fallback,
   isLoading,
   onDelete,
@@ -1639,7 +1667,7 @@ function PluginDetailDrawer({
   onInstall,
 }: {
   detail: OpenClawPlugin | null;
-  drawer: ReturnType<typeof useOverlayState>;
+  modal: ReturnType<typeof useOverlayState>;
   fallback: OpenClawPlugin | null;
   isLoading: boolean;
   onDelete: (plugin: OpenClawPlugin) => void;
@@ -1648,111 +1676,236 @@ function PluginDetailDrawer({
 }) {
   const plugin = detail ?? fallback;
   const isDeleted = plugin?.isDelete === 1;
+  const hasCapabilities = Boolean(
+    plugin?.capabilities?.tools?.length ||
+      plugin?.capabilities?.channels?.length ||
+      plugin?.capabilities?.providers?.length ||
+      plugin?.capabilities?.hooks?.length ||
+      plugin?.capabilities?.commands?.length,
+  );
+  const metadata = plugin
+    ? [
+        { label: "来源地址", value: plugin.sourceUrl || "-" },
+        { label: "SHA-256", value: plugin.sha256 || "-" },
+        { label: "文件大小", value: formatBytes(plugin.sizeBytes) },
+        { label: "创建时间", value: formatDateTime(plugin.createdAt) },
+        { label: "更新时间", value: formatDateTime(plugin.updatedAt) },
+      ]
+    : [];
+  const manifest = formatJson(plugin?.manifest);
+  const packageJson = formatJson(plugin?.package);
 
   return (
-    <Drawer state={drawer}>
-      <Drawer.Backdrop
-        isDismissable={!isLoading}
-        isKeyboardDismissDisabled={isLoading}
-      >
-        <Drawer.Content className="w-full max-w-2xl" placement="right">
-          <Drawer.Dialog>
-            <Drawer.Header>
-              <Drawer.Heading>插件详情</Drawer.Heading>
-              <Drawer.CloseTrigger aria-label="关闭插件详情" />
-            </Drawer.Header>
-            <Drawer.Body className="flex min-w-0 flex-col gap-5 overflow-y-auto">
-              {isLoading ? (
-                <p className="text-muted text-sm">正在加载详情...</p>
-              ) : null}
+    <Modal.Backdrop
+      isDismissable={!isLoading}
+      isKeyboardDismissDisabled={isLoading}
+      isOpen={modal.isOpen}
+      onOpenChange={modal.setOpen}
+    >
+      <Modal.Container placement="center" scroll="inside" size="lg">
+        <Modal.Dialog>
+          <Modal.CloseTrigger aria-label="关闭插件详情" />
+          <Modal.Header>
+            <div className="min-w-0">
+              <Modal.Heading>
+                {plugin?.name || plugin?.pluginId || "插件详情"}
+              </Modal.Heading>
               {plugin ? (
-                <>
-                  <DetailSection title="基本信息">
-                    <DetailGrid
-                      items={[
-                        ["名称", plugin.name],
-                        ["插件 ID", plugin.pluginId],
-                        ["版本", plugin.version],
-                        ["描述", plugin.description],
-                        ["来源", getSourceLabel(plugin.sourceType)],
-                        ["来源地址", plugin.sourceUrl],
-                        ["SHA-256", plugin.sha256],
-                        ["文件大小", formatBytes(plugin.sizeBytes)],
-                        ["创建时间", formatDateTime(plugin.createdAt)],
-                        ["更新时间", formatDateTime(plugin.updatedAt)],
-                      ]}
-                    />
-                  </DetailSection>
-                  <DetailSection title="能力信息">
-                    <CapabilityList
-                      label="工具"
-                      values={plugin.capabilities?.tools}
-                    />
-                    <CapabilityList
-                      label="Channel"
-                      values={plugin.capabilities?.channels}
-                    />
-                    <CapabilityList
-                      label="Provider"
-                      values={plugin.capabilities?.providers}
-                    />
-                    <CapabilityList
-                      label="Hook"
-                      values={plugin.capabilities?.hooks}
-                    />
-                    <CapabilityList
-                      label="Command"
-                      values={plugin.capabilities?.commands}
-                    />
-                  </DetailSection>
-                  <DetailSection title="Manifest">
-                    <JsonBlock value={plugin.manifest} />
-                  </DetailSection>
-                  <DetailSection title="Package">
-                    <JsonBlock value={plugin.package} />
-                  </DetailSection>
-                </>
-              ) : null}
-            </Drawer.Body>
-            <Drawer.Footer>
-              {plugin && !isDeleted ? (
-                <div className="flex w-full flex-wrap justify-end gap-2">
-                  <Button
-                    size="sm"
-                    variant="tertiary"
-                    onPress={() => {
-                      drawer.close();
-                      onEdit(plugin);
-                    }}
-                  >
-                    编辑
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="danger-soft"
-                    onPress={() => {
-                      drawer.close();
-                      onDelete(plugin);
-                    }}
-                  >
-                    删除
-                  </Button>
-                  <Button
-                    size="sm"
-                    onPress={() => {
-                      drawer.close();
-                      onInstall(plugin);
-                    }}
-                  >
-                    安装
-                  </Button>
+                <div className="text-muted mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                  <span className="max-w-52 truncate" title={plugin.pluginId}>
+                    {plugin.pluginId || "未标注 ID"}
+                  </span>
+                  <span>{plugin.version || "未标注版本"}</span>
+                  <span>{getSourceLabel(plugin.sourceType)}</span>
+                  <PluginStatusChip plugin={plugin} />
                 </div>
               ) : null}
-            </Drawer.Footer>
-          </Drawer.Dialog>
-        </Drawer.Content>
-      </Drawer.Backdrop>
-    </Drawer>
+            </div>
+          </Modal.Header>
+          <Modal.Body className="flex min-w-0 flex-col gap-6">
+            {isLoading ? (
+              <p className="text-muted text-sm">正在加载详情...</p>
+            ) : null}
+            {plugin ? (
+              <>
+                {plugin.description ? (
+                  <p className="text-pretty text-sm leading-6">
+                    {plugin.description}
+                  </p>
+                ) : null}
+                <Accordion allowsMultipleExpanded className="w-full">
+                  {hasCapabilities ? (
+                    <Accordion.Item defaultExpanded id="capabilities">
+                      <Accordion.Heading>
+                        <Accordion.Trigger>
+                          能力
+                          <Accordion.Indicator />
+                        </Accordion.Trigger>
+                      </Accordion.Heading>
+                      <Accordion.Panel>
+                        <Accordion.Body>
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <CapabilityList
+                              label="工具"
+                              values={plugin.capabilities?.tools}
+                            />
+                            <CapabilityList
+                              label="Channel"
+                              values={plugin.capabilities?.channels}
+                            />
+                            <CapabilityList
+                              label="Provider"
+                              values={plugin.capabilities?.providers}
+                            />
+                            <CapabilityList
+                              label="Hook"
+                              values={plugin.capabilities?.hooks}
+                            />
+                            <CapabilityList
+                              label="Command"
+                              values={plugin.capabilities?.commands}
+                            />
+                          </div>
+                        </Accordion.Body>
+                      </Accordion.Panel>
+                    </Accordion.Item>
+                  ) : null}
+                  <Accordion.Item id="metadata">
+                    <Accordion.Heading>
+                      <Accordion.Trigger>
+                        更多信息
+                        <Accordion.Indicator />
+                      </Accordion.Trigger>
+                    </Accordion.Heading>
+                    <Accordion.Panel>
+                      <Accordion.Body>
+                        <ListView
+                          aria-label="插件更多信息"
+                          items={metadata}
+                          selectionMode="none"
+                          variant="secondary"
+                        >
+                          {(item) => (
+                            <ListView.Item
+                              id={item.label}
+                              textValue={`${item.label} ${item.value}`}
+                            >
+                              <ListView.ItemContent>
+                                <div className="min-w-0">
+                                  <ListView.Title>{item.label}</ListView.Title>
+                                  <ListView.Description>
+                                    {item.value}
+                                  </ListView.Description>
+                                </div>
+                              </ListView.ItemContent>
+                            </ListView.Item>
+                          )}
+                        </ListView>
+                      </Accordion.Body>
+                    </Accordion.Panel>
+                  </Accordion.Item>
+                  <Accordion.Item id="raw-config">
+                    <Accordion.Heading>
+                      <Accordion.Trigger>
+                        原始配置
+                        <Accordion.Indicator />
+                      </Accordion.Trigger>
+                    </Accordion.Heading>
+                    <Accordion.Panel>
+                      <Accordion.Body>
+                        <Tabs defaultSelectedKey="manifest">
+                          <Tabs.ListContainer className="w-full">
+                            <Tabs.List
+                              aria-label="插件原始配置"
+                              className="w-full"
+                            >
+                              <Tabs.Tab className="flex-1" id="manifest">
+                                Manifest
+                                <Tabs.Indicator />
+                              </Tabs.Tab>
+                              <Tabs.Tab className="flex-1" id="package">
+                                Package
+                                <Tabs.Indicator />
+                              </Tabs.Tab>
+                            </Tabs.List>
+                          </Tabs.ListContainer>
+                          <Tabs.Panel className="pt-4" id="manifest">
+                            <CodeBlock>
+                              <CodeBlock.Header>
+                                <span className="text-muted text-xs uppercase">
+                                  JSON
+                                </span>
+                                <CodeBlock.CopyButton
+                                  aria-label="复制 Manifest JSON"
+                                  code={manifest}
+                                />
+                              </CodeBlock.Header>
+                              <CodeBlock.Code code={manifest} language="json" />
+                            </CodeBlock>
+                          </Tabs.Panel>
+                          <Tabs.Panel className="pt-4" id="package">
+                            <CodeBlock>
+                              <CodeBlock.Header>
+                                <span className="text-muted text-xs uppercase">
+                                  JSON
+                                </span>
+                                <CodeBlock.CopyButton
+                                  aria-label="复制 Package JSON"
+                                  code={packageJson}
+                                />
+                              </CodeBlock.Header>
+                              <CodeBlock.Code
+                                code={packageJson}
+                                language="json"
+                              />
+                            </CodeBlock>
+                          </Tabs.Panel>
+                        </Tabs>
+                      </Accordion.Body>
+                    </Accordion.Panel>
+                  </Accordion.Item>
+                </Accordion>
+              </>
+            ) : null}
+          </Modal.Body>
+          <Modal.Footer>
+            {plugin && !isDeleted ? (
+              <div className="flex w-full flex-wrap justify-end gap-2">
+                <Button
+                  size="sm"
+                  variant="tertiary"
+                  onPress={() => {
+                    modal.close();
+                    onEdit(plugin);
+                  }}
+                >
+                  编辑
+                </Button>
+                <Button
+                  size="sm"
+                  variant="danger-soft"
+                  onPress={() => {
+                    modal.close();
+                    onDelete(plugin);
+                  }}
+                >
+                  删除
+                </Button>
+                <Button
+                  size="sm"
+                  onPress={() => {
+                    modal.close();
+                    onInstall(plugin);
+                  }}
+                >
+                  安装
+                </Button>
+              </div>
+            ) : null}
+          </Modal.Footer>
+        </Modal.Dialog>
+      </Modal.Container>
+    </Modal.Backdrop>
   );
 }
 
@@ -1795,7 +1948,7 @@ function PluginScopeDialog({
   }, []);
 
   useEffect(() => {
-    const pluginId = install?.openclawPluginId?.trim();
+    const pluginId = install?.openClawPluginId?.trim();
 
     setScopeType(install?.scopeType === "agents" ? "agents" : "global");
     setSelectedAgentIds(install?.agentIds ?? []);
@@ -1952,7 +2105,7 @@ function PluginUninstallDialog({
           </Modal.Header>
           <Modal.Body className="flex min-w-0 flex-col gap-3">
             <p className="text-muted text-sm">
-              确认从实例「{install?.openclawPluginId}」卸载插件「
+              确认从实例「{install?.openClawPluginId}」卸载插件「
               {install?.pluginId}」？卸载后会保留安装记录并标记为已卸载。
             </p>
             {error ? <InlineError>{error}</InlineError> : null}
@@ -2199,20 +2352,18 @@ function CapabilityList({
   label: string;
   values?: string[];
 }) {
+  if (!values?.length) return null;
+
   return (
     <div className="flex flex-col gap-1.5">
       <span className="text-muted text-xs">{label}</span>
-      {values?.length ? (
-        <div className="flex flex-wrap gap-1">
-          {values.map((value) => (
-            <Chip key={value} size="sm" variant="soft">
-              {value}
-            </Chip>
-          ))}
-        </div>
-      ) : (
-        <span className="text-sm">-</span>
-      )}
+      <div className="flex flex-wrap gap-1">
+        {values.map((value) => (
+          <Chip key={value} size="sm" variant="soft">
+            {value}
+          </Chip>
+        ))}
+      </div>
     </div>
   );
 }
@@ -2329,42 +2480,6 @@ function PluginOperationResult({
         <span>插件已安装，OpenClaw 实例需要重启后完全生效。</span>
       ) : null}
     </div>
-  );
-}
-
-function DetailSection({
-  children,
-  title,
-}: {
-  children: React.ReactNode;
-  title: string;
-}) {
-  return (
-    <section className="flex flex-col gap-3">
-      <h3 className="text-sm font-semibold">{title}</h3>
-      {children}
-    </section>
-  );
-}
-
-function DetailGrid({ items }: { items: [string, string | undefined][] }) {
-  return (
-    <dl className="grid grid-cols-1 gap-x-5 gap-y-3 sm:grid-cols-2">
-      {items.map(([label, value]) => (
-        <div key={label} className="min-w-0">
-          <dt className="text-muted text-xs">{label}</dt>
-          <dd className="mt-1 break-words text-sm">{value || "-"}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
-function JsonBlock({ value }: { value?: Record<string, unknown> }) {
-  return (
-    <pre className="max-h-96 overflow-auto rounded-md border border-divider bg-default-50 p-3 text-xs leading-5">
-      {formatJson(value)}
-    </pre>
   );
 }
 
