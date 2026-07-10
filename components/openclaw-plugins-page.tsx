@@ -501,12 +501,6 @@ function PluginLibraryTab({
   return (
     <div className="mt-4 flex flex-col gap-4">
       <div className="flex flex-col gap-4">
-        <div>
-          <h2 className="text-balance text-base font-semibold">插件广场</h2>
-          <p className="text-muted text-pretty mt-1 text-sm">
-            同一稳定 ID 可保留多个版本；默认突出当前最新版本。
-          </p>
-        </div>
         <CollectionToolbar>
           <Tabs
             className="w-full min-w-0 shrink-0 lg:w-auto lg:max-w-[33rem]"
@@ -1055,12 +1049,6 @@ function PluginInstallsTab({
 
   return (
     <div className="mt-4 flex flex-col gap-4">
-      <div>
-        <h2 className="text-balance text-base font-semibold">实例插件</h2>
-        <p className="text-muted text-pretty mt-1 text-sm">
-          记录插件版本与目标 OpenClaw RPC 实例之间的安装关系。
-        </p>
-      </div>
       <div className="flex flex-col gap-3">
         {state.error ? <InlineError>{state.error}</InlineError> : null}
         <DataGrid
