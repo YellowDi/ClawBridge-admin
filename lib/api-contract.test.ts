@@ -7,6 +7,7 @@ import type {
   OpenClawInstanceSummary,
   OpenClawPlugin,
   OpenClawPluginCapabilities,
+  OpenClawPluginDeployment,
   OpenClawPluginInstall,
   OpenClawPluginInstallResult,
   OpenClawConfigSnapshot,
@@ -170,8 +171,22 @@ expectType<Promise<OpenClawMCPApplyResult | undefined>>(
   }),
 );
 expectType<string[] | undefined>({} as OpenClawPluginCapabilities["tools"]);
+expectType<OpenClawPluginDeployment>({
+  configurationRequired: true,
+  configurationTargets: ["channel:telegram"],
+  modes: ["channel"],
+  postInstallAction: "configure_channel",
+  supportsAgentScope: false,
+  type: "channel",
+});
+expectType<"channel" | string | undefined>({} as OpenClawPlugin["pluginType"]);
 expectType<Promise<{ items?: OpenClawPlugin[] }>>(
-  listOpenClawPluginLibrary({ includeDeleted: true, page: 1, pageSize: 100 }),
+  listOpenClawPluginLibrary({
+    includeDeleted: true,
+    page: 1,
+    pageSize: 100,
+    pluginType: "channel",
+  }),
 );
 expectType<Promise<OpenClawPlugin | undefined>>(
   getOpenClawPluginLibraryDetail(1),
@@ -233,4 +248,7 @@ expectType<boolean | undefined>({} as OpenClawPluginInstallResult["success"]);
 expectType<string[] | undefined>({} as OpenClawPluginInstallResult["warnings"]);
 expectType<boolean | undefined>(
   {} as OpenClawPluginInstallResult["restartRequired"],
+);
+expectType<OpenClawPluginDeployment | undefined>(
+  {} as OpenClawPluginInstall["deployment"],
 );

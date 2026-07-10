@@ -1203,9 +1203,35 @@ export interface OpenClawPluginCapabilities {
   [property: string]: unknown;
 }
 
+export type OpenClawPluginType =
+  | "tool"
+  | "channel"
+  | "provider"
+  | "memory"
+  | "mixed"
+  | "extension"
+  | (string & {});
+
+export interface OpenClawPluginDeployment {
+  configurationRequired?: boolean;
+  configurationTargets?: string[];
+  modes?: string[];
+  postInstallAction?:
+    | "none"
+    | "configure_channel"
+    | "configure_provider"
+    | "configure_plugin"
+    | "configure_multiple"
+    | (string & {});
+  supportsAgentScope?: boolean;
+  type?: OpenClawPluginType;
+  [property: string]: unknown;
+}
+
 export interface OpenClawPlugin {
   capabilities?: OpenClawPluginCapabilities;
   createdAt?: string;
+  deployment?: OpenClawPluginDeployment;
   description?: string;
   errorMessage?: string;
   id?: number;
@@ -1216,6 +1242,7 @@ export interface OpenClawPlugin {
   objectKey?: string;
   package?: Record<string, unknown>;
   pluginId?: string;
+  pluginType?: OpenClawPluginType;
   sha256?: string;
   sizeBytes?: number;
   sourceType?: "local" | "url" | (string & {});
@@ -1229,6 +1256,7 @@ export interface OpenClawPlugin {
 
 export interface ReqOpenClawPluginLibraryList extends ReqPagination {
   includeDeleted?: boolean;
+  pluginType?: OpenClawPluginType;
   query?: string;
 }
 
@@ -1256,6 +1284,7 @@ export type OpenClawPluginScopeType = "global" | "agents" | (string & {});
 export interface OpenClawPluginInstall {
   agentIds?: string[];
   createdAt?: string;
+  deployment?: OpenClawPluginDeployment;
   enabled?: boolean;
   id?: number;
   installStatus?: string;
@@ -1265,6 +1294,7 @@ export interface OpenClawPluginInstall {
   openClawPluginId?: string;
   pluginId?: string;
   pluginRecordId?: number;
+  pluginType?: OpenClawPluginType;
   pluginVersion?: string;
   scopeType?: OpenClawPluginScopeType;
   updatedAt?: string;

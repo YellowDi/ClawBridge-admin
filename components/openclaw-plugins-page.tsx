@@ -55,6 +55,15 @@ import {
 const PAGE_SIZE = 100;
 const MAX_PLUGIN_FILE_SIZE = 100 * 1024 * 1024;
 const PLUGIN_UPLOAD_ACCEPT = ".zip,.tgz";
+const PLUGIN_TYPE_OPTIONS = [
+  { id: "all", label: "全部类型" },
+  { id: "tool", label: "工具" },
+  { id: "channel", label: "渠道" },
+  { id: "provider", label: "Provider" },
+  { id: "memory", label: "Memory" },
+  { id: "mixed", label: "混合" },
+  { id: "extension", label: "实例扩展" },
+] as const;
 const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("zh-CN", {
   day: "2-digit",
   hour: "2-digit",
@@ -78,6 +87,7 @@ type PluginLibraryState = {
   items: OpenClawPlugin[];
   page: number;
   pageSize: number;
+  pluginType: string;
   query: string;
   total: number;
 };
@@ -231,6 +241,7 @@ function PluginLibraryTab({
     items: [],
     page: 1,
     pageSize: PAGE_SIZE,
+    pluginType: "",
     query: "",
     total: 0,
   });
@@ -253,6 +264,7 @@ function PluginLibraryTab({
       page: number,
       query = state.query,
       includeDeleted = state.includeDeleted,
+      pluginType = state.pluginType,
     ) => {
       const requestId = requestIdRef.current + 1;
 
@@ -264,6 +276,7 @@ function PluginLibraryTab({
           includeDeleted,
           page,
           pageSize: PAGE_SIZE,
+          pluginType: pluginType || undefined,
           query: query.trim() || undefined,
         });
 
@@ -276,6 +289,7 @@ function PluginLibraryTab({
           items: response.items ?? [],
           page: response.pagination?.page ?? page,
           pageSize: response.pagination?.pageSize ?? PAGE_SIZE,
+          pluginType,
           query,
           total: response.pagination?.total ?? response.items?.length ?? 0,
         });
@@ -292,11 +306,11 @@ function PluginLibraryTab({
         toast.danger(message);
       }
     },
-    [state.includeDeleted, state.query],
+    [state.includeDeleted, state.pluginType, state.query],
   );
 
   useEffect(() => {
-    void loadLibrary(1, state.query, state.includeDeleted);
+    void loadLibrary(1, state.query, state.includeDeleted, state.pluginType);
   }, [refreshKey]);
 
   const groups = useMemo(() => groupPluginVersions(state.items), [state.items]);
@@ -375,6 +389,19 @@ function PluginLibraryTab({
         width: 138,
       },
       {
+        cell: (item) => (
+          <div className="flex flex-wrap gap-1">
+            <PluginTypeChip pluginType={item.pluginType} />
+            <ConfigurationStatusChip deployment={item.deployment} />
+          </div>
+        ),
+        cellClassName: "whitespace-nowrap",
+        header: "类型",
+        headerClassName: "whitespace-nowrap",
+        id: "pluginType",
+        minWidth: 130,
+      },
+      {
         cell: (item) => <CapabilityTypes capabilities={item.capabilities} />,
         header: "能力",
         headerClassName: "whitespace-nowrap",
@@ -441,7 +468,7 @@ function PluginLibraryTab({
   }
 
   function handleDeletedChange(includeDeleted: boolean) {
-    void loadLibrary(1, state.query, includeDeleted);
+    void loadLibrary(1, state.query, includeDeleted, state.pluginType);
   }
 
   function toggleGroup(pluginId: string) {
@@ -476,6 +503,40 @@ function PluginLibraryTab({
               onChange={(event) => setQueryInput(event.target.value)}
             />
           </TextField>
+          <Select
+            className="w-full shrink-0 lg:w-40"
+            selectedKey={state.pluginType || "all"}
+            variant="secondary"
+            onSelectionChange={(key) => {
+              const nextPluginType = key === "all" ? "" : String(key ?? "");
+
+              void loadLibrary(
+                1,
+                queryInput,
+                state.includeDeleted,
+                nextPluginType,
+              );
+            }}
+          >
+            <Label>插件类型</Label>
+            <Select.Trigger>
+              <Select.Value />
+              <Select.Indicator />
+            </Select.Trigger>
+            <Select.Popover>
+              <ListBox>
+                {PLUGIN_TYPE_OPTIONS.map((option) => (
+                  <ListBox.Item
+                    key={option.id}
+                    id={option.id}
+                    textValue={option.label}
+                  >
+                    {option.label}
+                  </ListBox.Item>
+                ))}
+              </ListBox>
+            </Select.Popover>
+          </Select>
           <div className="flex items-center justify-between gap-3 lg:justify-end">
             <Switch
               className="shrink-0"
@@ -539,7 +600,7 @@ function PluginLibraryTab({
                     aria-label={`${group.pluginId} 插件版本`}
                     className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
                     columns={columns}
-                    contentClassName="min-w-[1120px]"
+                    contentClassName="min-w-[1250px]"
                     data={visibleItems}
                     getRowId={(item) => String(item.id ?? item.version)}
                   />
@@ -725,6 +786,19 @@ function PluginInstallsTab({
         minWidth: 148,
       },
       {
+        cell: (item) => (
+          <div className="flex flex-wrap gap-1">
+            <PluginTypeChip pluginType={item.pluginType} />
+            <ConfigurationStatusChip deployment={item.deployment} />
+          </div>
+        ),
+        cellClassName: "whitespace-nowrap",
+        header: "类型",
+        headerClassName: "whitespace-nowrap",
+        id: "pluginType",
+        minWidth: 130,
+      },
+      {
         cell: (item) => item.pluginVersion || "-",
         cellClassName: "whitespace-nowrap",
         header: "版本",
@@ -860,14 +934,21 @@ function PluginInstallsTab({
                         ? "启用"
                         : "禁用"}
                   </Button>
-                  <Button
-                    isDisabled={isPending || isActionPending}
-                    size="sm"
-                    variant="tertiary"
-                    onPress={() => setScopeRecord(item)}
-                  >
-                    修改 Agent
-                  </Button>
+                  {supportsAgentScope(item.deployment) ? (
+                    <Button
+                      isDisabled={isPending || isActionPending}
+                      size="sm"
+                      variant="tertiary"
+                      onPress={() => setScopeRecord(item)}
+                    >
+                      修改 Agent
+                    </Button>
+                  ) : null}
+                  {requiresConfiguration(item.deployment) ? (
+                    <Button isDisabled size="sm" variant="tertiary">
+                      配置即将支持
+                    </Button>
+                  ) : null}
                   <Button
                     isDisabled={isPending || isActionPending}
                     size="sm"
@@ -921,7 +1002,7 @@ function PluginInstallsTab({
           aria-label="OpenClaw 实例插件安装关系"
           className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
           columns={columns}
-          contentClassName="min-w-[1600px]"
+          contentClassName="min-w-[1720px]"
           data={state.items}
           defaultSortDescriptor={{
             column: "installedAt",
@@ -969,6 +1050,7 @@ function PluginInstallDialog({
   target: InstallTarget | null;
 }) {
   const isOpen = Boolean(target);
+  const supportsScope = supportsAgentScope(target?.plugin.deployment);
   const [instances, setInstances] = useState<OpenClawInstanceSummary[]>([]);
   const [agents, setAgents] = useState<OpenClawInstanceAgent[]>([]);
   const [selectedInstanceId, setSelectedInstanceId] = useState("");
@@ -1040,21 +1122,23 @@ function PluginInstallDialog({
       : "";
 
     setSelectedInstanceId(instanceId);
-    setSelectedAgentIds(install?.agentIds ?? []);
-    setScopeType(install?.scopeType === "agents" ? "agents" : "global");
+    setSelectedAgentIds(supportsScope ? (install?.agentIds ?? []) : []);
+    setScopeType(
+      supportsScope && install?.scopeType === "agents" ? "agents" : "global",
+    );
     setEnabled(install?.enabled !== false);
     setDryRun(false);
     setError(null);
     setPreview(null);
     setAgents([]);
     void loadInstances();
-  }, [loadInstances, target]);
+  }, [loadInstances, supportsScope, target]);
 
   useEffect(() => {
-    if (!isOpen || !selectedInstanceId) return;
+    if (!isOpen || !selectedInstanceId || !supportsScope) return;
 
     void loadAgents(selectedInstanceId);
-  }, [isOpen, loadAgents, selectedInstanceId]);
+  }, [isOpen, loadAgents, selectedInstanceId, supportsScope]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1073,7 +1157,11 @@ function PluginInstallDialog({
       return;
     }
 
-    if (scopeType === "agents" && selectedAgentIds.length === 0) {
+    if (
+      supportsScope &&
+      scopeType === "agents" &&
+      selectedAgentIds.length === 0
+    ) {
       setError("指定 Agent 模式至少需要选择一个 Agent。");
 
       return;
@@ -1085,12 +1173,14 @@ function PluginInstallDialog({
 
     try {
       const result = await installOpenClawPlugin({
-        agentIds: scopeType === "agents" ? selectedAgentIds : [],
         dryRun,
         enabled,
         openClawPluginId: selectedInstanceId,
         pluginRecordId,
-        scopeType,
+        scopeType: supportsScope ? scopeType : "global",
+        ...(supportsScope
+          ? { agentIds: scopeType === "agents" ? selectedAgentIds : [] }
+          : {}),
       });
 
       if (result?.success !== true) {
@@ -1110,6 +1200,9 @@ function PluginInstallDialog({
       }
 
       toast.success(result.message || "插件已安装。");
+      if (requiresConfiguration(target?.plugin.deployment)) {
+        toast.warning(getPostInstallHint(target?.plugin.deployment));
+      }
       if (result.warnings?.length) toast.warning(result.warnings.join("\n"));
       if (result.restartRequired) {
         toast.warning("插件已安装，OpenClaw 实例需要重启后完全生效。");
@@ -1150,6 +1243,10 @@ function PluginInstallDialog({
                   {" "}
                   · {target?.plugin.version || "未标注版本"}
                 </span>
+                <PluginTypeChip pluginType={target?.plugin.pluginType} />
+                <ConfigurationStatusChip
+                  deployment={target?.plugin.deployment}
+                />
               </div>
               <InstanceSelect
                 instances={instances}
@@ -1162,24 +1259,30 @@ function PluginInstallDialog({
                   setSelectedAgentIds([]);
                 }}
               />
-              <Button
-                isDisabled={isSubmitting || !selectedInstanceId}
-                size="sm"
-                type="button"
-                variant="tertiary"
-                onPress={() => void loadAgents(selectedInstanceId)}
-              >
-                <AdminIcon className="size-4" name="refresh" />
-                刷新 Agent
-              </Button>
-              <ScopeFields
-                agents={agents}
-                isDisabled={isSubmitting || isLoadingAgents}
-                scopeType={scopeType}
-                selectedAgentIds={selectedAgentIds}
-                onAgentIdsChange={setSelectedAgentIds}
-                onScopeTypeChange={setScopeType}
-              />
+              {supportsScope ? (
+                <>
+                  <Button
+                    isDisabled={isSubmitting || !selectedInstanceId}
+                    size="sm"
+                    type="button"
+                    variant="tertiary"
+                    onPress={() => void loadAgents(selectedInstanceId)}
+                  >
+                    <AdminIcon className="size-4" name="refresh" />
+                    刷新 Agent
+                  </Button>
+                  <ScopeFields
+                    agents={agents}
+                    isDisabled={isSubmitting || isLoadingAgents}
+                    scopeType={scopeType}
+                    selectedAgentIds={selectedAgentIds}
+                    onAgentIdsChange={setSelectedAgentIds}
+                    onScopeTypeChange={setScopeType}
+                  />
+                </>
+              ) : (
+                <Description>此插件仅支持实例级全局安装。</Description>
+              )}
               <Checkbox
                 isDisabled={isSubmitting}
                 isSelected={enabled}
@@ -1229,10 +1332,12 @@ function PluginInstallDialog({
               <Button
                 isDisabled={
                   isLoadingInstances ||
-                  isLoadingAgents ||
+                  (supportsScope && isLoadingAgents) ||
                   isSubmitting ||
                   !selectedInstanceId ||
-                  (scopeType === "agents" && selectedAgentIds.length === 0)
+                  (supportsScope &&
+                    scopeType === "agents" &&
+                    selectedAgentIds.length === 0)
                 }
                 type="submit"
               >
@@ -1717,6 +1822,8 @@ function PluginDetailModal({
                   </span>
                   <span>{plugin.version || "未标注版本"}</span>
                   <span>{getSourceLabel(plugin.sourceType)}</span>
+                  <PluginTypeChip pluginType={plugin.pluginType} />
+                  <ConfigurationStatusChip deployment={plugin.deployment} />
                   <PluginStatusChip plugin={plugin} />
                 </div>
               ) : null}
@@ -1766,6 +1873,44 @@ function PluginDetailModal({
                               values={plugin.capabilities?.commands}
                             />
                           </div>
+                        </Accordion.Body>
+                      </Accordion.Panel>
+                    </Accordion.Item>
+                  ) : null}
+                  {plugin.deployment ? (
+                    <Accordion.Item id="deployment">
+                      <Accordion.Heading>
+                        <Accordion.Trigger>
+                          部署策略
+                          <Accordion.Indicator />
+                        </Accordion.Trigger>
+                      </Accordion.Heading>
+                      <Accordion.Panel>
+                        <Accordion.Body>
+                          <ListView
+                            aria-label="插件部署策略"
+                            items={getDeploymentItems(plugin.deployment)}
+                            selectionMode="none"
+                            variant="secondary"
+                          >
+                            {(item) => (
+                              <ListView.Item
+                                id={item.label}
+                                textValue={`${item.label} ${item.value}`}
+                              >
+                                <ListView.ItemContent>
+                                  <div className="min-w-0">
+                                    <ListView.Title>
+                                      {item.label}
+                                    </ListView.Title>
+                                    <ListView.Description>
+                                      {item.value}
+                                    </ListView.Description>
+                                  </div>
+                                </ListView.ItemContent>
+                              </ListView.Item>
+                            )}
+                          </ListView>
                         </Accordion.Body>
                       </Accordion.Panel>
                     </Accordion.Item>
@@ -2396,6 +2541,35 @@ function PluginStatusChip({ plugin }: { plugin: OpenClawPlugin }) {
   );
 }
 
+function PluginTypeChip({ pluginType }: { pluginType?: string }) {
+  if (!pluginType) return null;
+
+  return (
+    <Chip className="whitespace-nowrap" size="sm" variant="soft">
+      {getPluginTypeLabel(pluginType)}
+    </Chip>
+  );
+}
+
+function ConfigurationStatusChip({
+  deployment,
+}: {
+  deployment?: OpenClawPlugin["deployment"];
+}) {
+  if (!requiresConfiguration(deployment)) return null;
+
+  return (
+    <Chip
+      className="whitespace-nowrap"
+      color="warning"
+      size="sm"
+      variant="soft"
+    >
+      待配置
+    </Chip>
+  );
+}
+
 function InstallStatusChip({ status }: { status?: string }) {
   const labels: Record<string, string> = {
     failed: "操作失败",
@@ -2527,8 +2701,10 @@ function toPluginRecord(
   return (
     latest ?? {
       id: install.pluginRecordId,
+      deployment: install.deployment,
       name: install.pluginId,
       pluginId: install.pluginId,
+      pluginType: install.pluginType,
       version: install.pluginVersion,
     }
   );
@@ -2539,6 +2715,60 @@ function getSourceLabel(sourceType?: string) {
   if (sourceType === "url") return "URL 导入";
 
   return sourceType || "-";
+}
+
+function getPluginTypeLabel(pluginType: string) {
+  const labels: Record<string, string> = {
+    channel: "渠道",
+    extension: "实例扩展",
+    memory: "Memory",
+    mixed: "混合",
+    provider: "Provider",
+    tool: "工具",
+  };
+
+  return labels[pluginType] || pluginType;
+}
+
+function getDeploymentItems(
+  deployment: NonNullable<OpenClawPlugin["deployment"]>,
+) {
+  return [
+    ["部署类型", deployment.type ? getPluginTypeLabel(deployment.type) : "-"],
+    ["部署模式", deployment.modes?.join(", ") || "-"],
+    [
+      "Agent 范围",
+      supportsAgentScope(deployment) ? "支持全局和指定 Agent" : "仅全局安装",
+    ],
+    [
+      "配置状态",
+      requiresConfiguration(deployment) ? "安装后仍需配置" : "无需额外配置",
+    ],
+    ["配置对象", deployment.configurationTargets?.join(", ") || "-"],
+    ["安装后动作", deployment.postInstallAction || "none"],
+  ].map(([label, value]) => ({ label, value }));
+}
+
+function requiresConfiguration(deployment?: OpenClawPlugin["deployment"]) {
+  return deployment?.configurationRequired === true;
+}
+
+function getPostInstallHint(deployment?: OpenClawPlugin["deployment"]) {
+  const targets = deployment?.configurationTargets?.length
+    ? `：${deployment.configurationTargets.join("、")}`
+    : "。";
+  const actions: Record<string, string> = {
+    configure_channel: "插件已安装，请继续配置 Channel、账号凭证和路由",
+    configure_multiple: "插件已安装，请继续完成多个待配置项",
+    configure_plugin: "插件已安装，请继续填写插件配置",
+    configure_provider: "插件已安装，请继续配置 Provider 凭证与模型",
+  };
+
+  return `${actions[deployment?.postInstallAction || ""] || "插件已安装，仍需完成后续配置"}${targets}`;
+}
+
+function supportsAgentScope(deployment?: OpenClawPlugin["deployment"]) {
+  return deployment?.supportsAgentScope === true;
 }
 
 function formatBytes(value?: number) {
