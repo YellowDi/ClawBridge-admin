@@ -7,6 +7,9 @@ import type {
   OpenClawInstanceSummary,
   OpenClawPlugin,
   OpenClawPluginCapabilities,
+  OpenClawPluginConfiguration,
+  OpenClawPluginConfigurationInput,
+  OpenClawPluginConfigurationValue,
   OpenClawPluginDeployment,
   OpenClawPluginInstall,
   OpenClawPluginInstallResult,
@@ -180,6 +183,29 @@ expectType<OpenClawPluginDeployment>({
   type: "channel",
 });
 expectType<"channel" | string | undefined>({} as OpenClawPlugin["pluginType"]);
+expectType<OpenClawPluginConfiguration[] | undefined>(
+  {} as OpenClawPlugin["configurations"],
+);
+expectType<OpenClawPluginConfiguration>({
+  configPath: "channels.clawbridge",
+  schema: { type: "object" },
+  target: "channel:clawbridge",
+  uiHints: { token: { label: "Token", sensitive: true } },
+});
+expectType<OpenClawPluginConfigurationValue[] | undefined>(
+  {} as OpenClawPluginInstall["configurations"],
+);
+expectType<OpenClawPluginConfigurationValue>({
+  configured: true,
+  configPath: "channels.clawbridge",
+  schema: { type: "object" },
+  target: "channel:clawbridge",
+  value: { token: "********" },
+});
+expectType<OpenClawPluginConfigurationInput>({
+  target: "channel:clawbridge",
+  value: { enabled: true },
+});
 expectType<Promise<{ items?: OpenClawPlugin[] }>>(
   listOpenClawPluginLibrary({
     includeDeleted: true,
@@ -213,6 +239,9 @@ expectType<Promise<OpenClawPluginInstallResult | undefined>>(
     openClawPluginId: "clawcore-rpc",
     pluginRecordId: 1,
     scopeType: "agents",
+    configurations: [
+      { target: "channel:clawbridge", value: { enabled: true } },
+    ],
   }),
 );
 expectType<Promise<OpenClawPluginInstallResult | undefined>>(

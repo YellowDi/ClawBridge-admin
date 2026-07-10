@@ -35,6 +35,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AdminIcon } from "@/components/admin-icons";
 import { AdminPage } from "@/components/admin-page-kit";
+import { PluginConfigurationForm } from "@/components/plugin-configuration-form";
 import {
   deleteOpenClawPluginLibrary,
   disableOpenClawPlugin,
@@ -51,6 +52,12 @@ import {
   updateOpenClawPluginLibrary,
   uploadOpenClawPluginPackage,
 } from "@/lib/api";
+import {
+  createPluginConfigurationValue,
+  isRecord,
+  toPluginConfigurationInputs,
+  validatePluginConfigurationValue,
+} from "@/lib/plugin-configuration";
 
 const PAGE_SIZE = 100;
 const MAX_PLUGIN_FILE_SIZE = 100 * 1024 * 1024;
@@ -77,6 +84,7 @@ type TabKey = "library" | "installs";
 type InstallTarget = {
   install?: OpenClawPluginInstall;
   lockInstance?: boolean;
+  mode?: "configure" | "install" | "update";
   plugin: OpenClawPlugin;
 };
 
@@ -196,7 +204,7 @@ export function OpenClawPluginsPage() {
       {activeTab === "library" ? (
         <PluginLibraryTab
           refreshKey={refreshKey}
-          onInstall={(plugin) => setInstallTarget({ plugin })}
+          onInstall={(plugin) => setInstallTarget({ mode: "install", plugin })}
           onLibraryChanged={refreshAll}
         />
       ) : (
@@ -213,6 +221,11 @@ export function OpenClawPluginsPage() {
         onUploaded={refreshAll}
       />
       <PluginInstallDialog
+        key={
+          installTarget
+            ? `${installTarget.mode ?? "install"}-${installTarget.install?.id ?? installTarget.plugin.id ?? "plugin"}`
+            : "closed-plugin-install"
+        }
         target={installTarget}
         onCompleted={refreshAll}
         onOpenChange={(isOpen) => {
@@ -675,6 +688,8 @@ function PluginInstallsTab({
   const [scopeRecord, setScopeRecord] = useState<OpenClawPluginInstall | null>(
     null,
   );
+  const [clearingRecord, setClearingRecord] =
+    useState<OpenClawPluginInstall | null>(null);
   const [uninstallRecord, setUninstallRecord] =
     useState<OpenClawPluginInstall | null>(null);
 
@@ -903,6 +918,7 @@ function PluginInstallsTab({
                     onInstall({
                       install: item,
                       lockInstance: true,
+                      mode: "update",
                       plugin: latest!,
                     })
                   }
@@ -945,10 +961,37 @@ function PluginInstallsTab({
                       修改 Agent
                     </Button>
                   ) : null}
-                  {requiresConfiguration(item.deployment) ? (
-                    <Button isDisabled size="sm" variant="tertiary">
-                      配置即将支持
-                    </Button>
+                  {requiresConfiguration(item.deployment) ||
+                  item.configurations?.length ? (
+                    <>
+                      <Button
+                        isDisabled={isPending || isActionPending}
+                        size="sm"
+                        variant="tertiary"
+                        onPress={() =>
+                          onInstall({
+                            install: item,
+                            lockInstance: true,
+                            mode: "configure",
+                            plugin: toPluginRecord(item),
+                          })
+                        }
+                      >
+                        编辑配置
+                      </Button>
+                      {item.configurations?.some(
+                        (configuration) => configuration.configured,
+                      ) ? (
+                        <Button
+                          isDisabled={isPending || isActionPending}
+                          size="sm"
+                          variant="danger-soft"
+                          onPress={() => setClearingRecord(item)}
+                        >
+                          清除配置
+                        </Button>
+                      ) : null}
+                    </>
                   ) : null}
                   <Button
                     isDisabled={isPending || isActionPending}
@@ -969,6 +1012,7 @@ function PluginInstallsTab({
                     onInstall({
                       install: item,
                       lockInstance: true,
+                      mode: "update",
                       plugin: record,
                     })
                   }
@@ -1027,6 +1071,17 @@ function PluginInstallsTab({
           void loadInstalls();
         }}
       />
+      <PluginConfigurationClearDialog
+        key={clearingRecord?.id ?? "clear-plugin-configuration"}
+        install={clearingRecord}
+        onCleared={(result) => {
+          applyActionResult(result, "清除插件配置失败。");
+          void loadInstalls();
+        }}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) setClearingRecord(null);
+        }}
+      />
       <PluginUninstallDialog
         install={uninstallRecord}
         onDeleted={(result) => {
@@ -1051,7 +1106,18 @@ function PluginInstallDialog({
   target: InstallTarget | null;
 }) {
   const isOpen = Boolean(target);
+  const mode = target?.mode ?? (target?.install ? "update" : "install");
   const supportsScope = supportsAgentScope(target?.plugin.deployment);
+  const configurationDefinitions = useMemo(
+    () =>
+      mode === "configure"
+        ? (target?.install?.configurations ?? [])
+        : mode === "install"
+          ? (target?.plugin.configurations ?? [])
+          : [],
+    [mode, target],
+  );
+  const editsConfigurations = configurationDefinitions.length > 0;
   const [instances, setInstances] = useState<OpenClawInstanceSummary[]>([]);
   const [agents, setAgents] = useState<OpenClawInstanceAgent[]>([]);
   const [selectedInstanceId, setSelectedInstanceId] = useState("");
@@ -1063,6 +1129,12 @@ function PluginInstallDialog({
   const [isLoadingAgents, setIsLoadingAgents] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [configurationErrors, setConfigurationErrors] = useState<
+    Record<string, string>
+  >({});
+  const [configurationState, setConfigurationState] = useState<
+    Record<string, Record<string, unknown>>
+  >(() => createConfigurationFormState(configurationDefinitions));
   const [preview, setPreview] = useState<OpenClawPluginInstallResult | null>(
     null,
   );
@@ -1168,8 +1240,34 @@ function PluginInstallDialog({
       return;
     }
 
+    if (editsConfigurations) {
+      const nextErrors = Object.assign(
+        {},
+        ...configurationDefinitions.map((configuration) =>
+          validatePluginConfigurationValue(
+            configuration.schema,
+            configurationState[configuration.target] ?? {},
+            configuration.target,
+          ),
+        ),
+      ) as Record<string, string>;
+
+      if (Object.keys(nextErrors).length > 0) {
+        setConfigurationErrors(nextErrors);
+        setError("请修正插件配置中的错误。");
+        requestAnimationFrame(() => {
+          document
+            .querySelector('[data-plugin-config-error="true"]')
+            ?.scrollIntoView({ behavior: "smooth", block: "center" });
+        });
+
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     setError(null);
+    setConfigurationErrors({});
     setPreview(null);
 
     try {
@@ -1179,6 +1277,14 @@ function PluginInstallDialog({
         openClawPluginId: selectedInstanceId,
         pluginRecordId,
         scopeType: supportsScope ? scopeType : "global",
+        ...(editsConfigurations
+          ? {
+              configurations: toPluginConfigurationInputs(
+                configurationDefinitions,
+                configurationState,
+              ),
+            }
+          : {}),
         ...(supportsScope
           ? { agentIds: scopeType === "agents" ? selectedAgentIds : [] }
           : {}),
@@ -1200,8 +1306,14 @@ function PluginInstallDialog({
         return;
       }
 
-      toast.success(result.message || "插件已安装。");
-      if (requiresConfiguration(target?.plugin.deployment)) {
+      toast.success(
+        result.message ||
+          (mode === "configure" ? "插件配置已保存。" : "插件已安装。"),
+      );
+      if (
+        mode !== "configure" &&
+        requiresConfiguration(target?.plugin.deployment)
+      ) {
         toast.warning(getPostInstallHint(target?.plugin.deployment));
       }
       if (result.warnings?.length) toast.warning(result.warnings.join("\n"));
@@ -1232,7 +1344,11 @@ function PluginInstallDialog({
           <form onSubmit={handleSubmit}>
             <Modal.Header>
               <Modal.Heading>
-                {target?.install ? "重新安装插件" : "安装插件"}
+                {mode === "configure"
+                  ? "编辑插件配置"
+                  : target?.install
+                    ? "重新安装插件"
+                    : "安装插件"}
               </Modal.Heading>
             </Modal.Header>
             <Modal.Body className="flex min-w-0 flex-col gap-4">
@@ -1311,6 +1427,22 @@ function PluginInstallDialog({
                 </Checkbox.Content>
                 <Description>只校验，不安装、不落库。</Description>
               </Checkbox>
+              {editsConfigurations && error ? (
+                <InlineError>{error}</InlineError>
+              ) : null}
+              {editsConfigurations ? (
+                <PluginConfigurationForm
+                  configurations={configurationDefinitions}
+                  errors={configurationErrors}
+                  isDisabled={isSubmitting}
+                  state={configurationState}
+                  onChange={(state) => {
+                    setConfigurationState(state);
+                    setConfigurationErrors({});
+                    setError(null);
+                  }}
+                />
+              ) : null}
               {isSubmitting ? (
                 <div className="rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-foreground">
                   正在传输并安装插件
@@ -1319,7 +1451,9 @@ function PluginInstallDialog({
               {preview ? (
                 <PluginOperationResult preview result={preview} />
               ) : null}
-              {error ? <InlineError>{error}</InlineError> : null}
+              {!editsConfigurations && error ? (
+                <InlineError>{error}</InlineError>
+              ) : null}
             </Modal.Body>
             <Modal.Footer>
               <Button
@@ -1342,7 +1476,15 @@ function PluginInstallDialog({
                 }
                 type="submit"
               >
-                {isSubmitting ? "安装中..." : dryRun ? "开始预演" : "安装插件"}
+                {isSubmitting
+                  ? mode === "configure"
+                    ? "保存中..."
+                    : "安装中..."
+                  : dryRun
+                    ? "开始预演"
+                    : mode === "configure"
+                      ? "保存并重新安装"
+                      : "安装插件"}
               </Button>
             </Modal.Footer>
           </form>
@@ -2192,6 +2334,108 @@ function PluginScopeDialog({
   );
 }
 
+function PluginConfigurationClearDialog({
+  install,
+  onCleared,
+  onOpenChange,
+}: {
+  install: OpenClawPluginInstall | null;
+  onCleared: (result: OpenClawPluginInstallResult | undefined) => void;
+  onOpenChange: (isOpen: boolean) => void;
+}) {
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function handleClear() {
+    if (
+      typeof install?.pluginRecordId !== "number" ||
+      !install.openClawPluginId
+    ) {
+      setError("安装关系缺少插件版本或实例 ID，无法清除配置。");
+
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const supportsScope = supportsAgentScope(install.deployment);
+      const result = await installOpenClawPlugin({
+        configurations: [],
+        enabled: install.enabled !== false,
+        openClawPluginId: install.openClawPluginId,
+        pluginRecordId: install.pluginRecordId,
+        scopeType: supportsScope ? install.scopeType : "global",
+        ...(supportsScope
+          ? {
+              agentIds:
+                install.scopeType === "agents" ? (install.agentIds ?? []) : [],
+            }
+          : {}),
+      });
+
+      if (result?.success !== true) {
+        setError(getOperationResultMessage(result, "清除插件配置失败。"));
+
+        return;
+      }
+
+      onCleared(result);
+      onOpenChange(false);
+    } catch (error) {
+      const message = getActionError(error, "清除插件配置失败。");
+
+      setError(message);
+      toast.danger(message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <Modal.Backdrop
+      isDismissable={!isSubmitting}
+      isKeyboardDismissDisabled={isSubmitting}
+      isOpen={Boolean(install)}
+      onOpenChange={onOpenChange}
+    >
+      <Modal.Container placement="center" scroll="outside" size="sm">
+        <Modal.Dialog>
+          <Modal.Header>
+            <Modal.Heading>清除插件配置</Modal.Heading>
+          </Modal.Header>
+          <Modal.Body className="flex min-w-0 flex-col gap-3">
+            <p className="text-muted text-sm">
+              确认清除实例「{install?.openClawPluginId}」中插件「
+              {install?.pluginId}」的全部配置？插件会重新安装，但不会卸载。
+            </p>
+            {error ? <InlineError>{error}</InlineError> : null}
+          </Modal.Body>
+          <Modal.Footer>
+            <Button
+              isDisabled={isSubmitting}
+              type="button"
+              variant="tertiary"
+              onPress={() => onOpenChange(false)}
+            >
+              取消
+            </Button>
+            <Button
+              isDisabled={isSubmitting}
+              type="button"
+              variant="danger"
+              onPress={() => void handleClear()}
+            >
+              {isSubmitting ? "清除中..." : "确认清除"}
+            </Button>
+          </Modal.Footer>
+        </Modal.Dialog>
+      </Modal.Container>
+    </Modal.Backdrop>
+  );
+}
+
 function PluginUninstallDialog({
   install,
   onDeleted,
@@ -2712,6 +2956,22 @@ function toPluginRecord(
       pluginType: install.pluginType,
       version: install.pluginVersion,
     }
+  );
+}
+
+function createConfigurationFormState(
+  configurations: NonNullable<OpenClawPlugin["configurations"]>,
+) {
+  return Object.fromEntries(
+    configurations.map((configuration) => [
+      configuration.target,
+      createPluginConfigurationValue(
+        configuration.schema,
+        "value" in configuration && isRecord(configuration.value)
+          ? configuration.value
+          : undefined,
+      ),
+    ]),
   );
 }
 

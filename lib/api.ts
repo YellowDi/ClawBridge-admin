@@ -1203,6 +1203,33 @@ export interface OpenClawPluginCapabilities {
   [property: string]: unknown;
 }
 
+export type PluginJsonSchema = Record<string, unknown>;
+
+export interface OpenClawPluginConfigurationUIHint {
+  label?: string;
+  placeholder?: string;
+  sensitive?: boolean;
+  [property: string]: unknown;
+}
+
+export interface OpenClawPluginConfiguration {
+  configPath?: string;
+  schema: PluginJsonSchema;
+  target: string;
+  uiHints?: Record<string, OpenClawPluginConfigurationUIHint>;
+}
+
+export interface OpenClawPluginConfigurationValue
+  extends OpenClawPluginConfiguration {
+  configured?: boolean;
+  value: Record<string, unknown>;
+}
+
+export interface OpenClawPluginConfigurationInput {
+  target: string;
+  value: Record<string, unknown>;
+}
+
 export type OpenClawPluginType =
   | "tool"
   | "channel"
@@ -1230,6 +1257,7 @@ export interface OpenClawPluginDeployment {
 
 export interface OpenClawPlugin {
   capabilities?: OpenClawPluginCapabilities;
+  configurations?: OpenClawPluginConfiguration[];
   createdAt?: string;
   deployment?: OpenClawPluginDeployment;
   description?: string;
@@ -1283,6 +1311,7 @@ export type OpenClawPluginScopeType = "global" | "agents" | (string & {});
 
 export interface OpenClawPluginInstall {
   agentIds?: string[];
+  configurations?: OpenClawPluginConfigurationValue[];
   createdAt?: string;
   deployment?: OpenClawPluginDeployment;
   enabled?: boolean;
@@ -1310,6 +1339,7 @@ export interface OpenClawPluginInstallResult extends OpenClawPluginInstall {
 
 export interface ReqOpenClawPluginInstall {
   agentIds?: string[];
+  configurations?: OpenClawPluginConfigurationInput[];
   dryRun?: boolean;
   enabled?: boolean;
   openClawPluginId?: string;
