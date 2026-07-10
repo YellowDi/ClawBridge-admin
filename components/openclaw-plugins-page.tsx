@@ -61,6 +61,13 @@ import {
   toPluginConfigurationInputs,
   validatePluginConfigurationValue,
 } from "@/lib/plugin-configuration";
+import {
+  comparePluginInstalls,
+  getUnavailablePluginGroups,
+  getPluginVersionInstallCounts,
+  groupPluginInstalls,
+  sortPluginInstalls,
+} from "@/lib/plugin-install-management";
 
 const PAGE_SIZE = 100;
 const MAX_PLUGIN_FILE_SIZE = 100 * 1024 * 1024;
@@ -109,6 +116,11 @@ type PluginInstallsState = {
   items: OpenClawPluginInstall[];
 };
 
+type UnavailablePluginGroup = {
+  installs: OpenClawPluginInstall[];
+  pluginId: string;
+};
+
 export function OpenClawPluginsPage() {
   const [activeTab, setActiveTab] = useState<TabKey>("library");
   const [refreshKey, setRefreshKey] = useState(0);
@@ -116,11 +128,50 @@ export function OpenClawPluginsPage() {
   const [installTarget, setInstallTarget] = useState<InstallTarget | null>(
     null,
   );
+  const [managedPluginId, setManagedPluginId] = useState<string | null>(null);
+  const [installsState, setInstallsState] = useState<PluginInstallsState>({
+    error: null,
+    isLoading: true,
+    items: [],
+  });
+  const [catalogIndexError, setCatalogIndexError] = useState<string | null>(
+    null,
+  );
+  const [isCatalogIndexLoading, setIsCatalogIndexLoading] = useState(true);
   const [latestPlugins, setLatestPlugins] = useState<
     Map<string, OpenClawPlugin>
   >(new Map());
+  const [availablePluginRecordIds, setAvailablePluginRecordIds] = useState<
+    Set<number>
+  >(new Set());
+
+  const loadInstalls = useCallback(async () => {
+    setInstallsState((current) => ({
+      ...current,
+      error: null,
+      isLoading: true,
+    }));
+
+    try {
+      const items = await listOpenClawPluginInstalls();
+
+      setInstallsState({ error: null, isLoading: false, items });
+    } catch (error) {
+      const message = getActionError(error, "实例插件加载失败。");
+
+      setInstallsState((current) => ({
+        ...current,
+        error: message,
+        isLoading: false,
+      }));
+      toast.danger(message);
+    }
+  }, []);
 
   const refreshLatestPlugins = useCallback(async () => {
+    setCatalogIndexError(null);
+    setIsCatalogIndexLoading(true);
+
     try {
       const firstPage = await listOpenClawPluginLibrary({
         includeDeleted: false,
@@ -144,24 +195,33 @@ export function OpenClawPluginsPage() {
         ...remainingPages.flatMap((response) => response.items ?? []),
       ];
       const nextLatest = new Map<string, OpenClawPlugin>();
+      const nextRecordIds = new Set<number>();
 
       records.forEach((record) => {
         const pluginId = record.pluginId?.trim();
 
+        if (typeof record.id === "number") nextRecordIds.add(record.id);
         if (pluginId && record.latest === true) {
           nextLatest.set(pluginId, record);
         }
       });
 
       setLatestPlugins(nextLatest);
+      setAvailablePluginRecordIds(nextRecordIds);
     } catch (error) {
-      toast.warning(getActionError(error, "最新插件版本加载失败。"));
+      const message = getActionError(error, "插件目录索引加载失败。");
+
+      setCatalogIndexError(message);
+      toast.warning(message);
+    } finally {
+      setIsCatalogIndexLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (activeTab === "installs") void refreshLatestPlugins();
-  }, [activeTab, refreshKey, refreshLatestPlugins]);
+    void loadInstalls();
+    void refreshLatestPlugins();
+  }, [loadInstalls, refreshKey, refreshLatestPlugins]);
 
   const refreshAll = useCallback(() => {
     setRefreshKey((current) => current + 1);
@@ -180,10 +240,12 @@ export function OpenClawPluginsPage() {
             <AdminIcon className="size-4" name="refresh" />
             <span className="hidden sm:inline">刷新</span>
           </Button>
-          <Button size="sm" onPress={() => setUploadOpen(true)}>
-            <AdminIcon className="size-4" name="upload" />
-            上传插件
-          </Button>
+          {activeTab === "library" ? (
+            <Button size="sm" onPress={() => setUploadOpen(true)}>
+              <AdminIcon className="size-4" name="upload" />
+              上传插件
+            </Button>
+          ) : null}
         </>
       }
       description="维护已入库的 OpenClaw 插件包及其在实例上的安装关系。"
@@ -211,16 +273,18 @@ export function OpenClawPluginsPage() {
     >
       {activeTab === "library" ? (
         <PluginLibraryTab
+          catalogIndexError={catalogIndexError}
+          installsState={installsState}
+          isCatalogIndexLoading={isCatalogIndexLoading}
+          latestPlugins={latestPlugins}
           refreshKey={refreshKey}
           onInstall={(plugin) => setInstallTarget({ mode: "install", plugin })}
           onLibraryChanged={refreshAll}
+          onManage={setManagedPluginId}
+          onRetryManagement={refreshAll}
         />
       ) : (
-        <PluginInstallsTab
-          latestPlugins={latestPlugins}
-          refreshKey={refreshKey}
-          onInstall={(target) => setInstallTarget(target)}
-        />
+        <PluginInstallsTab state={installsState} />
       )}
 
       <PluginUploadDialog
@@ -240,17 +304,41 @@ export function OpenClawPluginsPage() {
           if (!isOpen) setInstallTarget(null);
         }}
       />
+      <PluginInstallManagementDialog
+        availablePluginRecordIds={availablePluginRecordIds}
+        installs={installsState.items}
+        isActionOpen={Boolean(installTarget)}
+        latestPlugin={
+          managedPluginId ? latestPlugins.get(managedPluginId) : undefined
+        }
+        pluginId={managedPluginId}
+        onAction={(target) => setInstallTarget(target)}
+        onClose={() => setManagedPluginId(null)}
+        onRefresh={refreshAll}
+      />
     </AdminPage>
   );
 }
 
 function PluginLibraryTab({
+  catalogIndexError,
+  installsState,
+  isCatalogIndexLoading,
+  latestPlugins,
   onInstall,
   onLibraryChanged,
+  onManage,
+  onRetryManagement,
   refreshKey,
 }: {
+  catalogIndexError: string | null;
+  installsState: PluginInstallsState;
+  isCatalogIndexLoading: boolean;
+  latestPlugins: Map<string, OpenClawPlugin>;
   onInstall: (plugin: OpenClawPlugin) => void;
   onLibraryChanged: () => void;
+  onManage: (pluginId: string) => void;
+  onRetryManagement: () => void;
   refreshKey: number;
 }) {
   const detailModal = useOverlayState();
@@ -335,7 +423,35 @@ function PluginLibraryTab({
   }, [refreshKey]);
 
   const groups = useMemo(() => groupPluginVersions(state.items), [state.items]);
+  const installsByPluginId = useMemo(
+    () => groupPluginInstalls(installsState.items),
+    [installsState.items],
+  );
+  const unavailablePlugins = useMemo(() => {
+    if (installsState.isLoading || isCatalogIndexLoading) return [];
+
+    return getUnavailablePluginGroups(
+      installsState.items,
+      new Set(latestPlugins.keys()),
+      state.query,
+      state.pluginType,
+    );
+  }, [
+    installsState.isLoading,
+    installsState.items,
+    isCatalogIndexLoading,
+    latestPlugins,
+    state.pluginType,
+    state.query,
+  ]);
+  const managementError = installsState.error || catalogIndexError;
+  const isManagementReady =
+    !installsState.isLoading && !isCatalogIndexLoading && !managementError;
   const totalPages = Math.max(1, Math.ceil(state.total / state.pageSize));
+  const deletingInstallCounts = getPluginVersionInstallCounts(
+    installsState.items,
+    deletingRecord?.id,
+  );
 
   const openDetail = useCallback(
     async (record: OpenClawPlugin) => {
@@ -573,6 +689,21 @@ function PluginLibraryTab({
           </div>
         </CollectionToolbar>
         {state.error ? <InlineError>{state.error}</InlineError> : null}
+        {managementError ? (
+          <div className="flex flex-col gap-2 rounded-md border border-danger/30 bg-danger/10 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-danger">
+              {managementError} 插件详情、版本编辑和新安装仍可使用。
+            </p>
+            <Button size="sm" variant="secondary" onPress={onRetryManagement}>
+              重试加载管理数据
+            </Button>
+          </div>
+        ) : unavailablePlugins.length > 0 ? (
+          <UnavailablePluginsSection
+            groups={unavailablePlugins}
+            onManage={onManage}
+          />
+        ) : null}
         {groups.length > 0 ? (
           <div className="flex flex-col">
             {groups.map((group, index) => {
@@ -599,17 +730,31 @@ function PluginLibraryTab({
                         {group.items.length} 个版本
                       </p>
                     </div>
-                    {group.items.length > 1 ? (
-                      <Button
-                        size="sm"
-                        variant="tertiary"
-                        onPress={() => toggleGroup(group.pluginId)}
-                      >
-                        {isExpanded
-                          ? "收起历史版本"
-                          : `查看 ${group.items.length - 1} 个历史版本`}
-                      </Button>
-                    ) : null}
+                    <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                      {isManagementReady &&
+                      group.items.some((item) => !isPluginDeleted(item)) &&
+                      installsByPluginId.get(group.pluginId)?.length ? (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onPress={() => onManage(group.pluginId)}
+                        >
+                          管理实例（
+                          {installsByPluginId.get(group.pluginId)?.length}）
+                        </Button>
+                      ) : null}
+                      {group.items.length > 1 ? (
+                        <Button
+                          size="sm"
+                          variant="tertiary"
+                          onPress={() => toggleGroup(group.pluginId)}
+                        >
+                          {isExpanded
+                            ? "收起历史版本"
+                            : `查看 ${group.items.length - 1} 个历史版本`}
+                        </Button>
+                      ) : null}
+                    </div>
                   </div>
                   <DataGrid
                     aria-label={`${group.pluginId} 插件版本`}
@@ -653,6 +798,9 @@ function PluginLibraryTab({
         }}
       />
       <PluginDeleteDialog
+        activeInstallCount={deletingInstallCounts.active}
+        inactiveInstallCount={deletingInstallCounts.inactive}
+        isInstallDataReady={!installsState.isLoading && !installsState.error}
         plugin={deletingRecord}
         onDeleted={() => {
           onLibraryChanged();
@@ -675,115 +823,16 @@ function PluginLibraryTab({
   );
 }
 
-function PluginInstallsTab({
-  latestPlugins,
-  onInstall,
-  refreshKey,
-}: {
-  latestPlugins: Map<string, OpenClawPlugin>;
-  onInstall: (target: InstallTarget) => void;
-  refreshKey: number;
-}) {
-  const [state, setState] = useState<PluginInstallsState>({
-    error: null,
-    isLoading: true,
-    items: [],
-  });
-  const [actionId, setActionId] = useState<number | null>(null);
-  const [scopeRecord, setScopeRecord] = useState<OpenClawPluginInstall | null>(
-    null,
-  );
-  const [clearingRecord, setClearingRecord] =
-    useState<OpenClawPluginInstall | null>(null);
-  const [uninstallRecord, setUninstallRecord] =
-    useState<OpenClawPluginInstall | null>(null);
-
-  const loadInstalls = useCallback(async () => {
-    setState((current) => ({ ...current, error: null, isLoading: true }));
-
-    try {
-      const items = await listOpenClawPluginInstalls();
-
-      setState({ error: null, isLoading: false, items });
-    } catch (error) {
-      const message = getActionError(error, "实例插件加载失败。");
-
-      setState({ error: message, isLoading: false, items: [] });
-      toast.danger(message);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadInstalls();
-  }, [loadInstalls, refreshKey]);
-
-  const applyActionResult = useCallback(
-    (result: OpenClawPluginInstallResult | undefined, fallback: string) => {
-      if (result?.success !== true) {
-        const message = getOperationResultMessage(result, fallback);
-
-        toast.danger(message);
-
-        return false;
-      }
-
-      setState((current) => ({
-        ...current,
-        items: current.items.map((item) =>
-          item.id === result.id ? { ...item, ...result } : item,
-        ),
-      }));
-      toast.success(result.message || "操作已完成。");
-
-      if (result.warnings?.length) toast.warning(result.warnings.join("\n"));
-      if (result.restartRequired) {
-        toast.warning("插件已安装，OpenClaw 实例需要重启后完全生效。");
-      }
-
-      return true;
-    },
-    [],
-  );
-
-  const runAction = useCallback(
-    async (
-      record: OpenClawPluginInstall,
-      fallback: string,
-      action: (
-        installId: number,
-      ) => Promise<OpenClawPluginInstallResult | undefined>,
-    ) => {
-      const installId = record.id;
-
-      if (typeof installId !== "number") {
-        toast.danger("安装关系缺少 ID，无法执行操作。");
-
-        return;
-      }
-
-      setActionId(installId);
-
-      try {
-        applyActionResult(await action(installId), fallback);
-        void loadInstalls();
-      } catch (error) {
-        toast.danger(getActionError(error, fallback));
-      } finally {
-        setActionId(null);
-      }
-    },
-    [applyActionResult, loadInstalls],
-  );
-
+function PluginInstallsTab({ state }: { state: PluginInstallsState }) {
   const columns = useMemo<DataGridColumn<OpenClawPluginInstall>[]>(
     () => [
       {
         cell: (item) => (
           <span
             className="block max-w-40 truncate text-xs"
-            title={item.openClawPluginId}
+            title={item.openclawPluginId}
           >
-            {item.openClawPluginId || "-"}
+            {item.openclawPluginId || "-"}
           </span>
         ),
         header: "OpenClaw 实例 ID",
@@ -898,154 +947,8 @@ function PluginInstallsTab({
         id: "lastError",
         width: 224,
       },
-      {
-        align: "end",
-        cell: (item) => {
-          const latest = item.pluginId
-            ? latestPlugins.get(item.pluginId)
-            : undefined;
-          const canUpdate =
-            Boolean(latest?.id) &&
-            latest?.id !== item.pluginRecordId &&
-            latest?.version !== item.pluginVersion;
-          const isPending = item.installStatus === "pending";
-          const isActionPending = actionId === item.id;
-          const record = toPluginRecord(item, latest);
-
-          return (
-            <div className="flex items-center justify-end gap-2">
-              {canUpdate ? (
-                <Button
-                  isDisabled={isPending || isActionPending}
-                  size="sm"
-                  variant="secondary"
-                  onPress={() =>
-                    onInstall({
-                      install: item,
-                      lockInstance: true,
-                      mode: "update",
-                      plugin: latest!,
-                    })
-                  }
-                >
-                  更新
-                </Button>
-              ) : null}
-              {item.installStatus === "installed" ? (
-                <>
-                  <Button
-                    isDisabled={isPending || isActionPending}
-                    size="sm"
-                    variant="tertiary"
-                    onPress={() =>
-                      void runAction(
-                        item,
-                        item.enabled === false
-                          ? "启用插件失败。"
-                          : "禁用插件失败。",
-                        (installId) =>
-                          item.enabled === false
-                            ? enableOpenClawPlugin({ installId })
-                            : disableOpenClawPlugin({ installId }),
-                      )
-                    }
-                  >
-                    {isActionPending
-                      ? "处理中..."
-                      : item.enabled === false
-                        ? "启用"
-                        : "禁用"}
-                  </Button>
-                  {supportsAgentScope(item.deployment) ? (
-                    <Button
-                      isDisabled={isPending || isActionPending}
-                      size="sm"
-                      variant="tertiary"
-                      onPress={() => setScopeRecord(item)}
-                    >
-                      修改 Agent
-                    </Button>
-                  ) : null}
-                  {requiresConfiguration(item.deployment) ||
-                  item.configurations?.length ? (
-                    <Button
-                      isDisabled={isPending || isActionPending}
-                      size="sm"
-                      variant="tertiary"
-                      onPress={() =>
-                        onInstall({
-                          install: item,
-                          lockInstance: true,
-                          mode: "configure",
-                          plugin: toPluginRecord(item),
-                        })
-                      }
-                    >
-                      编辑配置
-                    </Button>
-                  ) : null}
-                  <Dropdown>
-                    <Button
-                      isIconOnly
-                      aria-label="更多操作"
-                      isDisabled={isPending || isActionPending}
-                      size="sm"
-                      variant="tertiary"
-                    >
-                      <AdminIcon className="size-4" name="more" />
-                    </Button>
-                    <Dropdown.Popover placement="bottom end">
-                      <Dropdown.Menu
-                        aria-label={`${item.pluginId || "插件"} 更多操作`}
-                        onAction={(key) => {
-                          if (key === "clear") setClearingRecord(item);
-                          if (key === "uninstall") setUninstallRecord(item);
-                        }}
-                      >
-                        {item.configurations?.some(
-                          (configuration) => configuration.configured,
-                        ) ? (
-                          <Dropdown.Item id="clear" variant="danger">
-                            清除配置
-                          </Dropdown.Item>
-                        ) : null}
-                        <Dropdown.Item id="uninstall" variant="danger">
-                          卸载
-                        </Dropdown.Item>
-                      </Dropdown.Menu>
-                    </Dropdown.Popover>
-                  </Dropdown>
-                </>
-              ) : item.installStatus === "failed" ||
-                item.installStatus === "removed" ? (
-                <Button
-                  isDisabled={isActionPending || !record.id}
-                  size="sm"
-                  variant="secondary"
-                  onPress={() =>
-                    onInstall({
-                      install: item,
-                      lockInstance: true,
-                      mode: "update",
-                      plugin: record,
-                    })
-                  }
-                >
-                  重新安装
-                </Button>
-              ) : null}
-            </div>
-          );
-        },
-        cellClassName: "whitespace-nowrap",
-        header: "操作",
-        headerClassName: "whitespace-nowrap",
-        id: "actions",
-        pinned: "end",
-        width: 408,
-      },
     ],
-    [actionId, latestPlugins, onInstall, runAction],
+    [],
   );
 
   return (
@@ -1063,13 +966,537 @@ function PluginInstallsTab({
             direction: "descending",
           }}
           getRowId={(item) =>
-            String(item.id ?? `${item.openClawPluginId}-${item.pluginId}`)
+            String(item.id ?? `${item.openclawPluginId}-${item.pluginId}`)
           }
           renderEmptyState={() =>
             state.isLoading ? "加载中..." : "暂无实例插件安装关系"
           }
         />
       </div>
+    </div>
+  );
+}
+
+function UnavailablePluginsSection({
+  groups,
+  onManage,
+}: {
+  groups: UnavailablePluginGroup[];
+  onManage: (pluginId: string) => void;
+}) {
+  const columns = useMemo<DataGridColumn<UnavailablePluginGroup>[]>(
+    () => [
+      {
+        cell: (group) => (
+          <span className="text-xs font-medium">{group.pluginId}</span>
+        ),
+        header: "插件 ID",
+        headerClassName: "whitespace-nowrap",
+        id: "pluginId",
+        isRowHeader: true,
+        width: 240,
+      },
+      {
+        cell: (group) => (
+          <PluginTypeChip pluginType={group.installs[0]?.pluginType} />
+        ),
+        cellClassName: "whitespace-nowrap",
+        header: "类型",
+        headerClassName: "whitespace-nowrap",
+        id: "pluginType",
+        width: 120,
+      },
+      {
+        cell: (group) => group.installs.length,
+        cellClassName: "whitespace-nowrap tabular-nums",
+        header: "实例记录",
+        headerClassName: "whitespace-nowrap",
+        id: "installCount",
+        width: 96,
+      },
+      {
+        cell: () => (
+          <Chip
+            className="whitespace-nowrap"
+            color="warning"
+            size="sm"
+            variant="soft"
+          >
+            已下架
+          </Chip>
+        ),
+        cellClassName: "whitespace-nowrap",
+        header: "状态",
+        headerClassName: "whitespace-nowrap",
+        id: "status",
+        width: 88,
+      },
+      {
+        align: "end",
+        cell: (group) => (
+          <Button
+            size="sm"
+            variant="secondary"
+            onPress={() => onManage(group.pluginId)}
+          >
+            管理实例（{group.installs.length}）
+          </Button>
+        ),
+        cellClassName: "whitespace-nowrap",
+        header: "操作",
+        headerClassName: "whitespace-nowrap",
+        id: "actions",
+        width: 152,
+      },
+    ],
+    [onManage],
+  );
+
+  return (
+    <section className="flex flex-col gap-3 border-y border-warning/30 bg-warning/5 py-4">
+      <div>
+        <h3 className="text-sm font-semibold">已下架但仍在使用</h3>
+        <p className="text-muted mt-1 text-xs">
+          这些插件没有可用版本，但仍保留实例安装记录和受支持的管理操作。
+        </p>
+      </div>
+      <DataGrid
+        aria-label="已下架但仍在使用的插件"
+        className="[&_.table__cell]:py-2 [&_.table__column]:whitespace-nowrap [&_.table__column]:text-xs"
+        columns={columns}
+        contentClassName="min-w-full w-max"
+        data={groups}
+        getRowId={(group) => group.pluginId}
+      />
+    </section>
+  );
+}
+
+function PluginInstallActions({
+  availablePluginRecordIds,
+  install,
+  isPending,
+  latestPlugin,
+  onAction,
+  onClear,
+  onScope,
+  onToggle,
+  onUninstall,
+}: {
+  availablePluginRecordIds: Set<number>;
+  install: OpenClawPluginInstall;
+  isPending: boolean;
+  latestPlugin?: OpenClawPlugin;
+  onAction: (target: InstallTarget) => void;
+  onClear: (install: OpenClawPluginInstall) => void;
+  onScope: (install: OpenClawPluginInstall) => void;
+  onToggle: (install: OpenClawPluginInstall) => void;
+  onUninstall: (install: OpenClawPluginInstall) => void;
+}) {
+  const isInstalling = install.installStatus === "pending";
+  const isInstalled = install.installStatus === "installed";
+  const canRecover =
+    install.installStatus === "failed" || install.installStatus === "removed";
+  const isCurrentVersionAvailable =
+    typeof install.pluginRecordId === "number" &&
+    availablePluginRecordIds.has(install.pluginRecordId);
+  const canInstallLatest = Boolean(
+    latestPlugin?.id &&
+      latestPlugin.id !== install.pluginRecordId &&
+      latestPlugin.version !== install.pluginVersion,
+  );
+  const currentPlugin = toPluginRecord(install);
+
+  if (isInstalling) {
+    return <span className="text-muted text-xs">等待安装完成</span>;
+  }
+  if (canRecover && !canInstallLatest && !isCurrentVersionAvailable) {
+    return <span className="text-muted text-xs">无可用版本</span>;
+  }
+
+  return (
+    <div className="flex items-center justify-end gap-2">
+      {canInstallLatest ? (
+        <Button
+          isDisabled={isPending}
+          size="sm"
+          variant="secondary"
+          onPress={() =>
+            onAction({
+              install,
+              lockInstance: true,
+              mode: "update",
+              plugin: latestPlugin!,
+            })
+          }
+        >
+          {canRecover ? "安装最新版本" : "更新到最新版本"} ·{" "}
+          {latestPlugin?.version}
+        </Button>
+      ) : null}
+      {canRecover && isCurrentVersionAvailable ? (
+        <Button
+          isDisabled={isPending || !currentPlugin.id}
+          size="sm"
+          variant={canInstallLatest ? "tertiary" : "secondary"}
+          onPress={() =>
+            onAction({
+              install,
+              lockInstance: true,
+              mode: "update",
+              plugin: currentPlugin,
+            })
+          }
+        >
+          重新安装 {install.pluginVersion || "当前版本"}
+        </Button>
+      ) : null}
+      {isInstalled ? (
+        <>
+          <Button
+            isDisabled={isPending}
+            size="sm"
+            variant="tertiary"
+            onPress={() => onToggle(install)}
+          >
+            {isPending
+              ? "处理中..."
+              : install.enabled === false
+                ? "启用"
+                : "禁用"}
+          </Button>
+          {supportsAgentScope(install.deployment) ? (
+            <Button
+              isDisabled={isPending}
+              size="sm"
+              variant="tertiary"
+              onPress={() => onScope(install)}
+            >
+              修改 Agent
+            </Button>
+          ) : null}
+          {isCurrentVersionAvailable &&
+          (requiresConfiguration(install.deployment) ||
+            install.configurations?.length) ? (
+            <Button
+              isDisabled={isPending}
+              size="sm"
+              variant="tertiary"
+              onPress={() =>
+                onAction({
+                  install,
+                  lockInstance: true,
+                  mode: "configure",
+                  plugin: currentPlugin,
+                })
+              }
+            >
+              编辑配置
+            </Button>
+          ) : null}
+          <Dropdown>
+            <Button
+              isIconOnly
+              aria-label="更多操作"
+              isDisabled={isPending}
+              size="sm"
+              variant="ghost"
+            >
+              <AdminIcon className="size-4" name="more" />
+            </Button>
+            <Dropdown.Popover placement="bottom end">
+              <Dropdown.Menu
+                aria-label={`${install.openclawPluginId || "实例"} 插件操作`}
+                onAction={(key) => {
+                  if (key === "clear") onClear(install);
+                  if (key === "uninstall") onUninstall(install);
+                }}
+              >
+                {isCurrentVersionAvailable &&
+                install.configurations?.some(
+                  (configuration) => configuration.configured,
+                ) ? (
+                  <Dropdown.Item id="clear" variant="danger">
+                    清除配置
+                  </Dropdown.Item>
+                ) : null}
+                <Dropdown.Item id="uninstall" variant="danger">
+                  卸载
+                </Dropdown.Item>
+              </Dropdown.Menu>
+            </Dropdown.Popover>
+          </Dropdown>
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+function PluginInstallManagementDialog({
+  availablePluginRecordIds,
+  installs,
+  isActionOpen,
+  latestPlugin,
+  onAction,
+  onClose,
+  onRefresh,
+  pluginId,
+}: {
+  availablePluginRecordIds: Set<number>;
+  installs: OpenClawPluginInstall[];
+  isActionOpen: boolean;
+  latestPlugin?: OpenClawPlugin;
+  onAction: (target: InstallTarget) => void;
+  onClose: () => void;
+  onRefresh: () => void;
+  pluginId: string | null;
+}) {
+  const [actionId, setActionId] = useState<number | null>(null);
+  const [scopeRecord, setScopeRecord] = useState<OpenClawPluginInstall | null>(
+    null,
+  );
+  const [clearingRecord, setClearingRecord] =
+    useState<OpenClawPluginInstall | null>(null);
+  const [uninstallRecord, setUninstallRecord] =
+    useState<OpenClawPluginInstall | null>(null);
+  const pluginInstalls = useMemo(
+    () =>
+      sortPluginInstalls(
+        installs.filter((install) => install.pluginId === pluginId),
+      ),
+    [installs, pluginId],
+  );
+  const hasChildDialog = Boolean(
+    isActionOpen || scopeRecord || clearingRecord || uninstallRecord,
+  );
+  const isLibraryUnavailable = Boolean(pluginId && !latestPlugin);
+
+  const applyActionResult = useCallback(
+    (result: OpenClawPluginInstallResult | undefined, fallback: string) => {
+      if (result?.success !== true) {
+        toast.danger(getOperationResultMessage(result, fallback));
+
+        return false;
+      }
+
+      toast.success(result.message || "操作已完成。");
+      if (result.warnings?.length) toast.warning(result.warnings.join("\n"));
+      if (result.restartRequired) {
+        toast.warning("插件已安装，OpenClaw 实例需要重启后完全生效。");
+      }
+      onRefresh();
+
+      return true;
+    },
+    [onRefresh],
+  );
+
+  const runAction = useCallback(
+    async (
+      record: OpenClawPluginInstall,
+      fallback: string,
+      action: (
+        installId: number,
+      ) => Promise<OpenClawPluginInstallResult | undefined>,
+    ) => {
+      if (typeof record.id !== "number") {
+        toast.danger("安装关系缺少 ID，无法执行操作。");
+
+        return;
+      }
+
+      setActionId(record.id);
+
+      try {
+        applyActionResult(await action(record.id), fallback);
+      } catch (error) {
+        toast.danger(getActionError(error, fallback));
+      } finally {
+        setActionId(null);
+      }
+    },
+    [applyActionResult],
+  );
+  const togglePlugin = useCallback(
+    (install: OpenClawPluginInstall) => {
+      void runAction(
+        install,
+        install.enabled === false ? "启用插件失败。" : "禁用插件失败。",
+        (installId) =>
+          install.enabled === false
+            ? enableOpenClawPlugin({ installId })
+            : disableOpenClawPlugin({ installId }),
+      );
+    },
+    [runAction],
+  );
+
+  const columns = useMemo<DataGridColumn<OpenClawPluginInstall>[]>(
+    () => [
+      {
+        allowsSorting: true,
+        cell: (item) => (
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <span
+              className="block max-w-44 truncate text-xs font-medium"
+              title={item.openclawPluginId}
+            >
+              {item.openclawPluginId || "-"}
+            </span>
+            <span className="text-muted text-xs">
+              {formatDateTime(item.updatedAt || item.installedAt)}
+            </span>
+          </div>
+        ),
+        header: "OpenClaw 实例 ID",
+        headerClassName: "whitespace-nowrap",
+        id: "instance",
+        isRowHeader: true,
+        width: 184,
+      },
+      {
+        allowsSorting: true,
+        cell: (item) => (
+          <div className="flex items-center gap-1.5 whitespace-nowrap">
+            <span>{item.pluginVersion || "-"}</span>
+            {typeof item.pluginRecordId === "number" &&
+            !availablePluginRecordIds.has(item.pluginRecordId) ? (
+              <Chip size="sm" variant="soft">
+                版本已删除
+              </Chip>
+            ) : null}
+          </div>
+        ),
+        cellClassName: "whitespace-nowrap",
+        header: "版本",
+        headerClassName: "whitespace-nowrap",
+        id: "pluginVersion",
+        width: 96,
+      },
+      {
+        allowsSorting: true,
+        cell: (item) => <InstallStatusChip status={item.installStatus} />,
+        cellClassName: "whitespace-nowrap",
+        header: "安装状态",
+        headerClassName: "whitespace-nowrap",
+        id: "installStatus",
+        sortFn: comparePluginInstalls,
+        width: 104,
+      },
+      {
+        allowsSorting: true,
+        cell: (item) => (
+          <Chip
+            className="whitespace-nowrap"
+            color={item.enabled === false ? "default" : "success"}
+            size="sm"
+            variant="soft"
+          >
+            {item.enabled === false ? "已禁用" : "已启用"}
+          </Chip>
+        ),
+        cellClassName: "whitespace-nowrap",
+        header: "启用状态",
+        headerClassName: "whitespace-nowrap",
+        id: "enabled",
+        width: 96,
+      },
+      {
+        allowsSorting: true,
+        cell: (item) =>
+          item.scopeType === "agents"
+            ? `指定 Agent（${item.agentIds?.length ?? 0}）`
+            : "全局",
+        cellClassName: "whitespace-nowrap",
+        header: "生效范围",
+        headerClassName: "whitespace-nowrap",
+        id: "scopeType",
+        width: 128,
+      },
+      {
+        cell: (item) => (
+          <span
+            className="block max-w-56 truncate text-xs"
+            title={item.lastError}
+          >
+            {item.lastError || "-"}
+          </span>
+        ),
+        header: "最近错误",
+        headerClassName: "whitespace-nowrap",
+        id: "lastError",
+        width: 224,
+      },
+      {
+        align: "end",
+        cell: (item) => (
+          <PluginInstallActions
+            availablePluginRecordIds={availablePluginRecordIds}
+            install={item}
+            isPending={actionId === item.id}
+            latestPlugin={latestPlugin}
+            onAction={onAction}
+            onClear={setClearingRecord}
+            onScope={setScopeRecord}
+            onToggle={togglePlugin}
+            onUninstall={setUninstallRecord}
+          />
+        ),
+        cellClassName: "whitespace-nowrap",
+        header: "操作",
+        headerClassName: "whitespace-nowrap",
+        id: "actions",
+        pinned: "end",
+        width: 520,
+      },
+    ],
+    [actionId, availablePluginRecordIds, latestPlugin, onAction, togglePlugin],
+  );
+
+  return (
+    <>
+      <Modal.Backdrop
+        isOpen={Boolean(pluginId) && !hasChildDialog}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) onClose();
+        }}
+      >
+        <Modal.Container placement="center" scroll="inside" size="cover">
+          <Modal.Dialog>
+            <Modal.Header>
+              <Modal.Heading>管理实例 · {pluginId}</Modal.Heading>
+            </Modal.Header>
+            <Modal.Body className="flex min-w-0 flex-col gap-4">
+              {isLibraryUnavailable ? (
+                <div className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">
+                  插件已下架，无法更新、重新安装或修改配置；仍可管理启用状态、Agent
+                  范围和卸载。
+                </div>
+              ) : null}
+              <DataGrid
+                aria-label={`${pluginId || "插件"} 实例安装管理`}
+                className="[&_.table__cell]:py-2 [&_.table__column]:whitespace-nowrap [&_.table__column]:text-xs"
+                columns={columns}
+                contentClassName="min-w-full w-max"
+                data={pluginInstalls}
+                defaultSortDescriptor={{
+                  column: "installStatus",
+                  direction: "ascending",
+                }}
+                getRowId={(item) =>
+                  String(item.id ?? `${item.openclawPluginId}-${item.pluginId}`)
+                }
+                renderEmptyState={() => "暂无实例安装记录"}
+              />
+            </Modal.Body>
+            <Modal.Footer>
+              <Button type="button" variant="tertiary" onPress={onClose}>
+                关闭
+              </Button>
+            </Modal.Footer>
+          </Modal.Dialog>
+        </Modal.Container>
+      </Modal.Backdrop>
       <PluginScopeDialog
         install={scopeRecord}
         onOpenChange={(isOpen) => {
@@ -1077,7 +1504,7 @@ function PluginInstallsTab({
         }}
         onSaved={(result) => {
           applyActionResult(result, "修改 Agent 失败。");
-          void loadInstalls();
+          setScopeRecord(null);
         }}
       />
       <PluginConfigurationClearDialog
@@ -1085,7 +1512,7 @@ function PluginInstallsTab({
         install={clearingRecord}
         onCleared={(result) => {
           applyActionResult(result, "清除插件配置失败。");
-          void loadInstalls();
+          setClearingRecord(null);
         }}
         onOpenChange={(isOpen) => {
           if (!isOpen) setClearingRecord(null);
@@ -1095,13 +1522,13 @@ function PluginInstallsTab({
         install={uninstallRecord}
         onDeleted={(result) => {
           applyActionResult(result, "卸载插件失败。");
-          void loadInstalls();
+          setUninstallRecord(null);
         }}
         onOpenChange={(isOpen) => {
           if (!isOpen) setUninstallRecord(null);
         }}
       />
-    </div>
+    </>
   );
 }
 
@@ -1204,7 +1631,7 @@ function PluginInstallDialog({
 
     const install = target.install;
     const instanceId = target.lockInstance
-      ? install?.openClawPluginId?.trim() || ""
+      ? install?.openclawPluginId?.trim() || ""
       : "";
 
     setSelectedInstanceId(instanceId);
@@ -1326,7 +1753,7 @@ function PluginInstallDialog({
         ),
         dryRun,
         enabled,
-        openClawPluginId: selectedInstanceId,
+        openclawPluginId: selectedInstanceId,
         pluginRecordId,
         scopeType: supportsScope ? scopeType : "global",
         ...(supportsScope
@@ -1969,10 +2396,16 @@ function PluginEditDialog({
 }
 
 function PluginDeleteDialog({
+  activeInstallCount,
+  inactiveInstallCount,
+  isInstallDataReady,
   onDeleted,
   onOpenChange,
   plugin,
 }: {
+  activeInstallCount: number;
+  inactiveInstallCount: number;
+  isInstallDataReady: boolean;
   onDeleted: () => void;
   onOpenChange: (isOpen: boolean) => void;
   plugin: OpenClawPlugin | null;
@@ -1988,6 +2421,18 @@ function PluginDeleteDialog({
   async function handleDelete() {
     if (typeof plugin?.id !== "number") {
       setError("插件记录缺少 ID，无法删除。");
+
+      return;
+    }
+
+    if (!isInstallDataReady) {
+      setError("实例安装记录尚未加载完成，暂时无法确认该版本是否可删除。");
+
+      return;
+    }
+
+    if (activeInstallCount > 0) {
+      setError("当前版本仍有活动实例安装，请先更新或卸载这些实例。");
 
       return;
     }
@@ -2023,11 +2468,27 @@ function PluginDeleteDialog({
             <Modal.Heading>删除插件版本</Modal.Heading>
           </Modal.Header>
           <Modal.Body className="flex min-w-0 flex-col gap-3">
-            <p className="text-muted text-sm">
-              确认删除「{plugin?.name || plugin?.pluginId || plugin?.id}
-              」？仅从插件广场软删除当前版本，不会卸载已经安装到 OpenClaw
-              实例中的插件。
-            </p>
+            {!isInstallDataReady ? (
+              <InlineError>
+                实例安装记录尚未加载完成，暂时无法确认该版本是否可删除。
+              </InlineError>
+            ) : activeInstallCount > 0 ? (
+              <InlineError>
+                当前版本仍有 {activeInstallCount} 条活动实例安装，不能删除。
+                请先更新或卸载这些实例。
+              </InlineError>
+            ) : (
+              <p className="text-muted text-sm">
+                确认删除「{plugin?.name || plugin?.pluginId || plugin?.id}
+                」？仅从插件广场软删除当前版本。
+              </p>
+            )}
+            {activeInstallCount === 0 && inactiveInstallCount > 0 ? (
+              <p className="text-sm text-warning">
+                该版本仍有 {inactiveInstallCount}{" "}
+                条失败或已卸载记录；删除后将无法重新安装此版本。
+              </p>
+            ) : null}
             {error ? <InlineError>{error}</InlineError> : null}
           </Modal.Body>
           <Modal.Footer>
@@ -2040,7 +2501,9 @@ function PluginDeleteDialog({
               取消
             </Button>
             <Button
-              isDisabled={isDeleting}
+              isDisabled={
+                !isInstallDataReady || activeInstallCount > 0 || isDeleting
+              }
               type="button"
               variant="danger"
               onPress={() => void handleDelete()}
@@ -2385,7 +2848,7 @@ function PluginScopeDialog({
   }, []);
 
   useEffect(() => {
-    const pluginId = install?.openClawPluginId?.trim();
+    const pluginId = install?.openclawPluginId?.trim();
 
     setScopeType(install?.scopeType === "agents" ? "agents" : "global");
     setSelectedAgentIds(install?.agentIds ?? []);
@@ -2498,7 +2961,7 @@ function PluginConfigurationClearDialog({
   async function handleClear() {
     if (
       typeof install?.pluginRecordId !== "number" ||
-      !install.openClawPluginId
+      !install.openclawPluginId
     ) {
       setError("安装关系缺少插件版本或实例 ID，无法清除配置。");
 
@@ -2513,7 +2976,7 @@ function PluginConfigurationClearDialog({
       const result = await installOpenClawPlugin({
         configurations: [],
         enabled: install.enabled !== false,
-        openClawPluginId: install.openClawPluginId,
+        openclawPluginId: install.openclawPluginId,
         pluginRecordId: install.pluginRecordId,
         scopeType: supportsScope ? install.scopeType : "global",
         ...(supportsScope
@@ -2556,7 +3019,7 @@ function PluginConfigurationClearDialog({
           </Modal.Header>
           <Modal.Body className="flex min-w-0 flex-col gap-3">
             <p className="text-muted text-sm">
-              确认清除实例「{install?.openClawPluginId}」中插件「
+              确认清除实例「{install?.openclawPluginId}」中插件「
               {install?.pluginId}」的全部配置？插件会重新安装，但不会卸载。
             </p>
             {error ? <InlineError>{error}</InlineError> : null}
@@ -2644,7 +3107,7 @@ function PluginUninstallDialog({
           </Modal.Header>
           <Modal.Body className="flex min-w-0 flex-col gap-3">
             <p className="text-muted text-sm">
-              确认从实例「{install?.openClawPluginId}」卸载插件「
+              确认从实例「{install?.openclawPluginId}」卸载插件「
               {install?.pluginId}」？卸载后会保留安装记录并标记为已卸载。
             </p>
             {error ? <InlineError>{error}</InlineError> : null}

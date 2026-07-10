@@ -244,7 +244,7 @@ expectType<Promise<OpenClawPluginInstallResult | undefined>>(
     agentIds: ["main", "coder"],
     dryRun: false,
     enabled: true,
-    openClawPluginId: "clawcore-rpc",
+    openclawPluginId: "clawcore-rpc",
     pluginRecordId: 1,
     scopeType: "agents",
     configurations: [

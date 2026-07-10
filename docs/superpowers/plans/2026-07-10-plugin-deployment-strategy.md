@@ -124,7 +124,7 @@ const supportsAgentScope = target?.plugin.deployment?.supportsAgentScope === tru
 const installRequest = {
   dryRun,
   enabled,
-  openClawPluginId: selectedInstanceId,
+  openclawPluginId: selectedInstanceId,
   pluginRecordId,
   scopeType: supportsAgentScope ? scopeType : "global",
   ...(supportsAgentScope
