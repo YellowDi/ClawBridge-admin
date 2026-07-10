@@ -364,7 +364,7 @@ function PluginLibraryTab({
         headerClassName: "whitespace-nowrap",
         id: "plugin",
         isRowHeader: true,
-        minWidth: 190,
+        width: 224,
       },
       {
         cell: (item) => (
@@ -386,7 +386,7 @@ function PluginLibraryTab({
         header: "版本",
         headerClassName: "whitespace-nowrap",
         id: "version",
-        width: 138,
+        width: 136,
       },
       {
         cell: (item) => (
@@ -399,14 +399,14 @@ function PluginLibraryTab({
         header: "类型",
         headerClassName: "whitespace-nowrap",
         id: "pluginType",
-        minWidth: 130,
+        width: 128,
       },
       {
         cell: (item) => <CapabilityTypes capabilities={item.capabilities} />,
         header: "能力",
         headerClassName: "whitespace-nowrap",
         id: "capabilities",
-        minWidth: 190,
+        width: 192,
       },
       {
         cell: (item) => getSourceLabel(item.sourceType),
@@ -414,7 +414,7 @@ function PluginLibraryTab({
         header: "来源",
         headerClassName: "whitespace-nowrap",
         id: "sourceType",
-        width: 96,
+        width: 80,
       },
       {
         align: "end",
@@ -423,7 +423,7 @@ function PluginLibraryTab({
         header: "大小",
         headerClassName: "whitespace-nowrap",
         id: "sizeBytes",
-        width: 92,
+        width: 80,
       },
       {
         cell: (item) => <PluginStatusChip plugin={item} />,
@@ -431,7 +431,7 @@ function PluginLibraryTab({
         header: "状态",
         headerClassName: "whitespace-nowrap",
         id: "status",
-        width: 96,
+        width: 88,
       },
       {
         cell: (item) => formatDateTime(item.updatedAt || item.createdAt),
@@ -439,7 +439,7 @@ function PluginLibraryTab({
         header: "更新时间",
         headerClassName: "whitespace-nowrap",
         id: "updatedAt",
-        width: 140,
+        width: 136,
       },
       {
         align: "end",
@@ -456,7 +456,7 @@ function PluginLibraryTab({
         header: "操作",
         headerClassName: "whitespace-nowrap",
         id: "actions",
-        minWidth: 232,
+        width: 248,
       },
     ],
     [onInstall, openDetail],
@@ -598,9 +598,9 @@ function PluginLibraryTab({
                   </div>
                   <DataGrid
                     aria-label={`${group.pluginId} 插件版本`}
-                    className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
+                    className="[&_.table__cell]:py-2 [&_.table__column]:whitespace-nowrap [&_.table__column]:text-xs"
                     columns={columns}
-                    contentClassName="min-w-[1250px]"
+                    contentClassName="min-w-full w-max"
                     data={visibleItems}
                     getRowId={(item) => String(item.id ?? item.version)}
                   />
@@ -769,7 +769,7 @@ function PluginInstallsTab({
         headerClassName: "whitespace-nowrap",
         id: "instance",
         isRowHeader: true,
-        minWidth: 160,
+        width: 168,
       },
       {
         cell: (item) => (
@@ -783,7 +783,7 @@ function PluginInstallsTab({
         header: "插件 ID",
         headerClassName: "whitespace-nowrap",
         id: "pluginId",
-        minWidth: 148,
+        width: 160,
       },
       {
         cell: (item) => (
@@ -796,7 +796,7 @@ function PluginInstallsTab({
         header: "类型",
         headerClassName: "whitespace-nowrap",
         id: "pluginType",
-        minWidth: 130,
+        width: 128,
       },
       {
         cell: (item) => item.pluginVersion || "-",
@@ -804,7 +804,7 @@ function PluginInstallsTab({
         header: "版本",
         headerClassName: "whitespace-nowrap",
         id: "pluginVersion",
-        width: 100,
+        width: 88,
       },
       {
         cell: (item) => <InstallStatusChip status={item.installStatus} />,
@@ -829,7 +829,7 @@ function PluginInstallsTab({
         header: "启用状态",
         headerClassName: "whitespace-nowrap",
         id: "enabled",
-        width: 94,
+        width: 92,
       },
       {
         cell: (item) => (item.scopeType === "agents" ? "指定 Agent" : "全局"),
@@ -837,7 +837,7 @@ function PluginInstallsTab({
         header: "生效范围",
         headerClassName: "whitespace-nowrap",
         id: "scopeType",
-        width: 104,
+        width: 96,
       },
       {
         cell: (item) => (
@@ -853,7 +853,7 @@ function PluginInstallsTab({
         header: "Agent",
         headerClassName: "whitespace-nowrap",
         id: "agentIds",
-        minWidth: 144,
+        width: 168,
       },
       {
         cell: (item) => formatDateTime(item.installedAt),
@@ -861,7 +861,7 @@ function PluginInstallsTab({
         header: "安装时间",
         headerClassName: "whitespace-nowrap",
         id: "installedAt",
-        width: 140,
+        width: 136,
       },
       {
         cell: (item) => (
@@ -875,7 +875,7 @@ function PluginInstallsTab({
         header: "最近错误",
         headerClassName: "whitespace-nowrap",
         id: "lastError",
-        minWidth: 180,
+        width: 224,
       },
       {
         align: "end",
@@ -982,7 +982,7 @@ function PluginInstallsTab({
         header: "操作",
         headerClassName: "whitespace-nowrap",
         id: "actions",
-        minWidth: 286,
+        width: 408,
       },
     ],
     [actionId, latestPlugins, onInstall, runAction],
@@ -1000,9 +1000,9 @@ function PluginInstallsTab({
         {state.error ? <InlineError>{state.error}</InlineError> : null}
         <DataGrid
           aria-label="OpenClaw 实例插件安装关系"
-          className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
+          className="[&_.table__cell]:py-2 [&_.table__column]:whitespace-nowrap [&_.table__column]:text-xs"
           columns={columns}
-          contentClassName="min-w-[1720px]"
+          contentClassName="min-w-full w-max"
           data={state.items}
           defaultSortDescriptor={{
             column: "installedAt",
@@ -1780,7 +1780,7 @@ function PluginDetailModal({
   onInstall: (plugin: OpenClawPlugin) => void;
 }) {
   const plugin = detail ?? fallback;
-  const isDeleted = plugin?.isDelete === 1;
+  const isDeleted = isPluginDeleted(plugin);
   const hasCapabilities = Boolean(
     plugin?.capabilities?.tools?.length ||
       plugin?.capabilities?.channels?.length ||
@@ -2292,7 +2292,7 @@ function LibraryActions({
   onInstall: (plugin: OpenClawPlugin) => void;
   plugin: OpenClawPlugin;
 }) {
-  const isDeleted = plugin.isDelete === 1;
+  const isDeleted = isPluginDeleted(plugin);
 
   return (
     <div className="flex items-center justify-end gap-2">
@@ -2514,7 +2514,7 @@ function CapabilityList({
 }
 
 function PluginStatusChip({ plugin }: { plugin: OpenClawPlugin }) {
-  const isDeleted = plugin.isDelete === 1;
+  const isDeleted = isPluginDeleted(plugin);
   const status = isDeleted
     ? "已删除"
     : plugin.status === "ready"
@@ -2539,6 +2539,10 @@ function PluginStatusChip({ plugin }: { plugin: OpenClawPlugin }) {
       {status}
     </Chip>
   );
+}
+
+function isPluginDeleted(plugin?: OpenClawPlugin | null) {
+  return plugin?.isDelete === 2;
 }
 
 function PluginTypeChip({ pluginType }: { pluginType?: string }) {
