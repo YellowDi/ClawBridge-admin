@@ -33,7 +33,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AdminIcon } from "@/components/admin-icons";
-import { AdminPage, SectionCard } from "@/components/admin-page-kit";
+import { AdminPage } from "@/components/admin-page-kit";
 import {
   deleteOpenClawPluginLibrary,
   disableOpenClawPlugin,
@@ -90,6 +90,7 @@ type PluginInstallsState = {
 export function OpenClawPluginsPage() {
   const [activeTab, setActiveTab] = useState<TabKey>("library");
   const [refreshKey, setRefreshKey] = useState(0);
+  const [uploadOpen, setUploadOpen] = useState(false);
   const [installTarget, setInstallTarget] = useState<InstallTarget | null>(
     null,
   );
@@ -147,47 +148,59 @@ export function OpenClawPluginsPage() {
   return (
     <AdminPage
       actions={
-        <Button size="sm" variant="tertiary" onPress={refreshAll}>
-          <AdminIcon className="size-4" name="refresh" />
-          刷新
-        </Button>
+        <>
+          <Button size="sm" variant="tertiary" onPress={refreshAll}>
+            <AdminIcon className="size-4" name="refresh" />
+            刷新
+          </Button>
+          <Button size="sm" onPress={() => setUploadOpen(true)}>
+            <AdminIcon className="size-4" name="upload" />
+            上传插件
+          </Button>
+        </>
       }
       description="维护已入库的 OpenClaw 插件包及其在实例上的安装关系。"
       eyebrow="OpenClaw"
+      navigation={
+        <Tabs
+          selectedKey={activeTab}
+          onSelectionChange={(key) => setActiveTab(key as TabKey)}
+        >
+          <Tabs.ListContainer className="w-auto">
+            <Tabs.List aria-label="插件管理视图" className="w-auto">
+              <Tabs.Tab className="whitespace-nowrap" id="library">
+                插件广场
+                <Tabs.Indicator />
+              </Tabs.Tab>
+              <Tabs.Tab className="whitespace-nowrap" id="installs">
+                实例插件
+                <Tabs.Indicator />
+              </Tabs.Tab>
+            </Tabs.List>
+          </Tabs.ListContainer>
+        </Tabs>
+      }
       title="插件管理"
     >
-      <Tabs
-        selectedKey={activeTab}
-        onSelectionChange={(key) => setActiveTab(key as TabKey)}
-      >
-        <Tabs.ListContainer>
-          <Tabs.List aria-label="插件管理视图">
-            <Tabs.Tab className="whitespace-nowrap" id="library">
-              插件广场
-              <Tabs.Indicator />
-            </Tabs.Tab>
-            <Tabs.Tab className="whitespace-nowrap" id="installs">
-              实例插件
-              <Tabs.Indicator />
-            </Tabs.Tab>
-          </Tabs.List>
-        </Tabs.ListContainer>
-        <Tabs.Panel id="library">
-          <PluginLibraryTab
-            refreshKey={refreshKey}
-            onInstall={(plugin) => setInstallTarget({ plugin })}
-            onLibraryChanged={refreshAll}
-          />
-        </Tabs.Panel>
-        <Tabs.Panel id="installs">
-          <PluginInstallsTab
-            latestPlugins={latestPlugins}
-            refreshKey={refreshKey}
-            onInstall={(target) => setInstallTarget(target)}
-          />
-        </Tabs.Panel>
-      </Tabs>
+      {activeTab === "library" ? (
+        <PluginLibraryTab
+          refreshKey={refreshKey}
+          onInstall={(plugin) => setInstallTarget({ plugin })}
+          onLibraryChanged={refreshAll}
+        />
+      ) : (
+        <PluginInstallsTab
+          latestPlugins={latestPlugins}
+          refreshKey={refreshKey}
+          onInstall={(target) => setInstallTarget(target)}
+        />
+      )}
 
+      <PluginUploadDialog
+        isOpen={uploadOpen}
+        onOpenChange={setUploadOpen}
+        onUploaded={refreshAll}
+      />
       <PluginInstallDialog
         target={installTarget}
         onCompleted={refreshAll}
@@ -227,7 +240,6 @@ function PluginLibraryTab({
   const [detailRecord, setDetailRecord] = useState<OpenClawPlugin | null>(null);
   const [detail, setDetail] = useState<OpenClawPlugin | null>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
-  const [uploadOpen, setUploadOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<OpenClawPlugin | null>(
     null,
   );
@@ -444,111 +456,108 @@ function PluginLibraryTab({
 
   return (
     <div className="mt-4 flex flex-col gap-4">
-      <SectionCard
-        action={
-          <Button size="sm" onPress={() => setUploadOpen(true)}>
-            <AdminIcon className="size-4" name="upload" />
-            上传插件
-          </Button>
-        }
-        description="同一稳定 ID 可保留多个版本；默认突出当前最新版本。"
-        title="插件广场"
-      >
-        <div className="flex flex-col gap-4">
-          <form
-            className="flex flex-col gap-3 sm:flex-row"
-            onSubmit={handleSearch}
-          >
-            <TextField fullWidth variant="secondary">
-              <Label className="sr-only">搜索插件</Label>
-              <Input
-                placeholder="搜索名称、插件 ID、描述或版本"
-                value={queryInput}
-                onChange={(event) => setQueryInput(event.target.value)}
-              />
-            </TextField>
-            <Button type="submit" variant="secondary">
-              <AdminIcon className="size-4" name="search" />
-              搜索
-            </Button>
-          </form>
-          <Checkbox
-            className="w-fit"
-            isSelected={state.includeDeleted}
-            onChange={handleDeletedChange}
-          >
-            <Checkbox.Content>
-              <Checkbox.Control>
-                <Checkbox.Indicator />
-              </Checkbox.Control>
-              显示已删除
-            </Checkbox.Content>
-          </Checkbox>
-          {state.error ? <InlineError>{state.error}</InlineError> : null}
-          {groups.length > 0 ? (
-            <div className="flex flex-col gap-3">
-              {groups.map((group) => {
-                const isExpanded = expandedPluginIds.has(group.pluginId);
-                const visibleItems = isExpanded
-                  ? group.items
-                  : [group.defaultItem];
-
-                return (
-                  <SectionCard
-                    key={group.pluginId}
-                    compactHeader
-                    action={
-                      group.items.length > 1 ? (
-                        <Button
-                          size="sm"
-                          variant="tertiary"
-                          onPress={() => toggleGroup(group.pluginId)}
-                        >
-                          {isExpanded
-                            ? "收起历史版本"
-                            : `查看 ${group.items.length - 1} 个历史版本`}
-                        </Button>
-                      ) : null
-                    }
-                    description={`${group.items.length} 个版本`}
-                    title={group.pluginId}
-                  >
-                    <DataGrid
-                      aria-label={`${group.pluginId} 插件版本`}
-                      className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
-                      columns={columns}
-                      contentClassName="min-w-[1120px]"
-                      data={visibleItems}
-                      getRowId={(item) => String(item.id ?? item.version)}
-                    />
-                  </SectionCard>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="text-muted rounded-md border border-dashed border-divider px-3 py-8 text-center text-sm">
-              {state.isLoading ? "加载中..." : "暂无插件记录"}
-            </p>
-          )}
-          <PaginationControls
-            currentPage={state.page}
-            isDisabled={state.isLoading}
-            totalPages={totalPages}
-            onPageChange={(page) =>
-              void loadLibrary(page, state.query, state.includeDeleted)
-            }
-          />
+      <div className="flex flex-col gap-4">
+        <div>
+          <h2 className="text-balance text-base font-semibold">插件广场</h2>
+          <p className="text-muted text-pretty mt-1 text-sm">
+            同一稳定 ID 可保留多个版本；默认突出当前最新版本。
+          </p>
         </div>
-      </SectionCard>
+        <form
+          className="flex flex-col gap-3 sm:flex-row"
+          onSubmit={handleSearch}
+        >
+          <TextField fullWidth variant="secondary">
+            <Label className="sr-only">搜索插件</Label>
+            <Input
+              placeholder="搜索名称、插件 ID、描述或版本"
+              value={queryInput}
+              onChange={(event) => setQueryInput(event.target.value)}
+            />
+          </TextField>
+          <Button type="submit" variant="secondary">
+            <AdminIcon className="size-4" name="search" />
+            搜索
+          </Button>
+        </form>
+        <Checkbox
+          className="w-fit"
+          isSelected={state.includeDeleted}
+          onChange={handleDeletedChange}
+        >
+          <Checkbox.Content>
+            <Checkbox.Control>
+              <Checkbox.Indicator />
+            </Checkbox.Control>
+            显示已删除
+          </Checkbox.Content>
+        </Checkbox>
+        {state.error ? <InlineError>{state.error}</InlineError> : null}
+        {groups.length > 0 ? (
+          <div className="flex flex-col">
+            {groups.map((group, index) => {
+              const isExpanded = expandedPluginIds.has(group.pluginId);
+              const visibleItems = isExpanded
+                ? group.items
+                : [group.defaultItem];
 
-      <PluginUploadDialog
-        isOpen={uploadOpen}
-        onOpenChange={setUploadOpen}
-        onUploaded={() => {
-          onLibraryChanged();
-          void loadLibrary(1, state.query, state.includeDeleted);
-        }}
-      />
+              return (
+                <section
+                  key={group.pluginId}
+                  className={
+                    index === 0
+                      ? "flex flex-col gap-3 pb-5"
+                      : "flex flex-col gap-3 border-t border-divider py-5"
+                  }
+                >
+                  <div className="flex min-w-0 items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="text-balance truncate text-sm font-semibold">
+                        {group.pluginId}
+                      </h3>
+                      <p className="text-muted text-xs">
+                        {group.items.length} 个版本
+                      </p>
+                    </div>
+                    {group.items.length > 1 ? (
+                      <Button
+                        size="sm"
+                        variant="tertiary"
+                        onPress={() => toggleGroup(group.pluginId)}
+                      >
+                        {isExpanded
+                          ? "收起历史版本"
+                          : `查看 ${group.items.length - 1} 个历史版本`}
+                      </Button>
+                    ) : null}
+                  </div>
+                  <DataGrid
+                    aria-label={`${group.pluginId} 插件版本`}
+                    className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
+                    columns={columns}
+                    contentClassName="min-w-[1120px]"
+                    data={visibleItems}
+                    getRowId={(item) => String(item.id ?? item.version)}
+                  />
+                </section>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="text-muted rounded-md border border-dashed border-divider px-3 py-8 text-center text-sm">
+            {state.isLoading ? "加载中..." : "暂无插件记录"}
+          </p>
+        )}
+        <PaginationControls
+          currentPage={state.page}
+          isDisabled={state.isLoading}
+          totalPages={totalPages}
+          onPageChange={(page) =>
+            void loadLibrary(page, state.query, state.includeDeleted)
+          }
+        />
+      </div>
+
       <PluginEditDialog
         plugin={editingRecord}
         onOpenChange={(isOpen) => {
@@ -895,32 +904,33 @@ function PluginInstallsTab({
   );
 
   return (
-    <div className="mt-4">
-      <SectionCard
-        description="记录插件版本与目标 OpenClaw RPC 实例之间的安装关系。"
-        title="实例插件"
-      >
-        <div className="flex flex-col gap-3">
-          {state.error ? <InlineError>{state.error}</InlineError> : null}
-          <DataGrid
-            aria-label="OpenClaw 实例插件安装关系"
-            className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
-            columns={columns}
-            contentClassName="min-w-[1600px]"
-            data={state.items}
-            defaultSortDescriptor={{
-              column: "installedAt",
-              direction: "descending",
-            }}
-            getRowId={(item) =>
-              String(item.id ?? `${item.openclawPluginId}-${item.pluginId}`)
-            }
-            renderEmptyState={() =>
-              state.isLoading ? "加载中..." : "暂无实例插件安装关系"
-            }
-          />
-        </div>
-      </SectionCard>
+    <div className="mt-4 flex flex-col gap-4">
+      <div>
+        <h2 className="text-balance text-base font-semibold">实例插件</h2>
+        <p className="text-muted text-pretty mt-1 text-sm">
+          记录插件版本与目标 OpenClaw RPC 实例之间的安装关系。
+        </p>
+      </div>
+      <div className="flex flex-col gap-3">
+        {state.error ? <InlineError>{state.error}</InlineError> : null}
+        <DataGrid
+          aria-label="OpenClaw 实例插件安装关系"
+          className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
+          columns={columns}
+          contentClassName="min-w-[1600px]"
+          data={state.items}
+          defaultSortDescriptor={{
+            column: "installedAt",
+            direction: "descending",
+          }}
+          getRowId={(item) =>
+            String(item.id ?? `${item.openclawPluginId}-${item.pluginId}`)
+          }
+          renderEmptyState={() =>
+            state.isLoading ? "加载中..." : "暂无实例插件安装关系"
+          }
+        />
+      </div>
       <PluginScopeDialog
         install={scopeRecord}
         onOpenChange={(isOpen) => {
