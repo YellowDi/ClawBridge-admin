@@ -492,21 +492,12 @@ function PluginLibraryTab({
           </p>
         </div>
         <form
-          className="flex flex-col gap-3 lg:flex-row lg:items-center"
+          className="flex flex-col gap-3 lg:flex-row lg:items-end"
           onSubmit={handleSearch}
         >
-          <TextField fullWidth className="min-w-0 flex-1" variant="secondary">
-            <Label className="sr-only">搜索插件</Label>
-            <Input
-              placeholder="搜索名称、插件 ID、描述或版本"
-              value={queryInput}
-              onChange={(event) => setQueryInput(event.target.value)}
-            />
-          </TextField>
-          <Select
-            className="w-full shrink-0 lg:w-40"
+          <Tabs
+            className="w-full min-w-0 shrink-0 lg:w-auto lg:max-w-[33rem]"
             selectedKey={state.pluginType || "all"}
-            variant="secondary"
             onSelectionChange={(key) => {
               const nextPluginType = key === "all" ? "" : String(key ?? "");
 
@@ -518,43 +509,53 @@ function PluginLibraryTab({
               );
             }}
           >
-            <Label>插件类型</Label>
-            <Select.Trigger>
-              <Select.Value />
-              <Select.Indicator />
-            </Select.Trigger>
-            <Select.Popover>
-              <ListBox>
+            <Tabs.ListContainer className="w-full">
+              <Tabs.List aria-label="插件类型筛选" className="w-max">
                 {PLUGIN_TYPE_OPTIONS.map((option) => (
-                  <ListBox.Item
+                  <Tabs.Tab
                     key={option.id}
+                    className="whitespace-nowrap"
                     id={option.id}
-                    textValue={option.label}
                   >
                     {option.label}
-                  </ListBox.Item>
+                    <Tabs.Indicator />
+                  </Tabs.Tab>
                 ))}
-              </ListBox>
-            </Select.Popover>
-          </Select>
-          <div className="flex items-center justify-between gap-3 lg:justify-end">
-            <Switch
-              className="shrink-0"
-              isSelected={state.includeDeleted}
-              size="sm"
-              onChange={handleDeletedChange}
+              </Tabs.List>
+            </Tabs.ListContainer>
+          </Tabs>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end lg:ml-auto">
+            <TextField
+              fullWidth
+              className="min-w-0 sm:w-[280px]"
+              variant="secondary"
             >
-              <Switch.Content>
-                <Switch.Control>
-                  <Switch.Thumb />
-                </Switch.Control>
-                显示已删除
-              </Switch.Content>
-            </Switch>
-            <Button type="submit" variant="secondary">
-              <AdminIcon className="size-4" name="search" />
-              搜索
-            </Button>
+              <Label className="sr-only">搜索插件</Label>
+              <Input
+                placeholder="搜索名称、插件 ID、描述或版本"
+                value={queryInput}
+                onChange={(event) => setQueryInput(event.target.value)}
+              />
+            </TextField>
+            <div className="flex items-center justify-between gap-3 sm:justify-end">
+              <Switch
+                className="shrink-0"
+                isSelected={state.includeDeleted}
+                size="sm"
+                onChange={handleDeletedChange}
+              >
+                <Switch.Content>
+                  <Switch.Control>
+                    <Switch.Thumb />
+                  </Switch.Control>
+                  显示已删除
+                </Switch.Content>
+              </Switch>
+              <Button type="submit" variant="secondary">
+                <AdminIcon className="size-4" name="search" />
+                搜索
+              </Button>
+            </div>
           </div>
         </form>
         {state.error ? <InlineError>{state.error}</InlineError> : null}
