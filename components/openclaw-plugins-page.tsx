@@ -19,6 +19,7 @@ import {
   CheckboxGroup,
   Chip,
   Description,
+  Dropdown,
   Input,
   Label,
   ListBox,
@@ -469,6 +470,7 @@ function PluginLibraryTab({
         header: "操作",
         headerClassName: "whitespace-nowrap",
         id: "actions",
+        pinned: "end",
         width: 248,
       },
     ],
@@ -963,44 +965,53 @@ function PluginInstallsTab({
                   ) : null}
                   {requiresConfiguration(item.deployment) ||
                   item.configurations?.length ? (
-                    <>
-                      <Button
-                        isDisabled={isPending || isActionPending}
-                        size="sm"
-                        variant="tertiary"
-                        onPress={() =>
-                          onInstall({
-                            install: item,
-                            lockInstance: true,
-                            mode: "configure",
-                            plugin: toPluginRecord(item),
-                          })
-                        }
-                      >
-                        编辑配置
-                      </Button>
-                      {item.configurations?.some(
-                        (configuration) => configuration.configured,
-                      ) ? (
-                        <Button
-                          isDisabled={isPending || isActionPending}
-                          size="sm"
-                          variant="danger-soft"
-                          onPress={() => setClearingRecord(item)}
-                        >
-                          清除配置
-                        </Button>
-                      ) : null}
-                    </>
+                    <Button
+                      isDisabled={isPending || isActionPending}
+                      size="sm"
+                      variant="tertiary"
+                      onPress={() =>
+                        onInstall({
+                          install: item,
+                          lockInstance: true,
+                          mode: "configure",
+                          plugin: toPluginRecord(item),
+                        })
+                      }
+                    >
+                      编辑配置
+                    </Button>
                   ) : null}
-                  <Button
-                    isDisabled={isPending || isActionPending}
-                    size="sm"
-                    variant="danger-soft"
-                    onPress={() => setUninstallRecord(item)}
-                  >
-                    卸载
-                  </Button>
+                  <Dropdown>
+                    <Button
+                      isIconOnly
+                      aria-label="更多操作"
+                      isDisabled={isPending || isActionPending}
+                      size="sm"
+                      variant="tertiary"
+                    >
+                      <AdminIcon className="size-4" name="more" />
+                    </Button>
+                    <Dropdown.Popover placement="bottom end">
+                      <Dropdown.Menu
+                        aria-label={`${item.pluginId || "插件"} 更多操作`}
+                        onAction={(key) => {
+                          if (key === "clear") setClearingRecord(item);
+                          if (key === "uninstall") setUninstallRecord(item);
+                        }}
+                      >
+                        {item.configurations?.some(
+                          (configuration) => configuration.configured,
+                        ) ? (
+                          <Dropdown.Item id="clear" variant="danger">
+                            清除配置
+                          </Dropdown.Item>
+                        ) : null}
+                        <Dropdown.Item id="uninstall" variant="danger">
+                          卸载
+                        </Dropdown.Item>
+                      </Dropdown.Menu>
+                    </Dropdown.Popover>
+                  </Dropdown>
                 </>
               ) : item.installStatus === "failed" ||
                 item.installStatus === "removed" ? (
@@ -1027,6 +1038,7 @@ function PluginInstallsTab({
         header: "操作",
         headerClassName: "whitespace-nowrap",
         id: "actions",
+        pinned: "end",
         width: 408,
       },
     ],
@@ -2560,13 +2572,28 @@ function LibraryActions({
           <Button size="sm" variant="tertiary" onPress={() => onEdit(plugin)}>
             编辑
           </Button>
-          <Button
-            size="sm"
-            variant="danger-soft"
-            onPress={() => onDelete(plugin)}
-          >
-            删除
-          </Button>
+          <Dropdown>
+            <Button
+              isIconOnly
+              aria-label="更多操作"
+              size="sm"
+              variant="tertiary"
+            >
+              <AdminIcon className="size-4" name="more" />
+            </Button>
+            <Dropdown.Popover placement="bottom end">
+              <Dropdown.Menu
+                aria-label={`${plugin.name || plugin.pluginId || "插件"} 更多操作`}
+                onAction={(key) => {
+                  if (key === "delete") onDelete(plugin);
+                }}
+              >
+                <Dropdown.Item id="delete" variant="danger">
+                  删除
+                </Dropdown.Item>
+              </Dropdown.Menu>
+            </Dropdown.Popover>
+          </Dropdown>
         </>
       ) : null}
     </div>
