@@ -34,16 +34,6 @@ type OpenClawApplyState = {
 
 const DEFAULT_PLUGIN_ID = "macbook-openclaw-rpc";
 
-export function ToolsPage() {
-  return (
-    <UnavailableApiPage
-      description="当前 Swagger 未提供工具、权限目录或工具绑定接口，因此不展示静态工具数据。"
-      eyebrow="Tool Access"
-      title="工具与权限"
-    />
-  );
-}
-
 export function AuditPage() {
   return (
     <UnavailableApiPage

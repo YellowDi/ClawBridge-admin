@@ -47,10 +47,6 @@ export const siteConfig = {
       href: "/agents",
     },
     {
-      label: "工具与权限",
-      href: "/tools",
-    },
-    {
       label: "Skill 管理",
       href: "/skills",
     },
