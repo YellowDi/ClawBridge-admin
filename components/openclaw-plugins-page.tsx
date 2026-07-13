@@ -1812,7 +1812,10 @@ function PluginInstallDialog({
     >
       <Modal.Container placement="center" scroll="inside" size="lg">
         <Modal.Dialog>
-          <form onSubmit={handleSubmit}>
+          <form
+            className="flex min-h-0 min-w-0 flex-1 flex-col"
+            onSubmit={handleSubmit}
+          >
             <Modal.Header>
               <Modal.Heading>
                 {mode === "configure"

@@ -266,8 +266,8 @@ function SchemaField({
           >
             <Label>{fieldLabel}</Label>
             <NumberField.Group>
-              <NumberField.Input />
               <NumberField.DecrementButton aria-label="减少" />
+              <NumberField.Input />
               <NumberField.IncrementButton aria-label="增加" />
             </NumberField.Group>
             {schema.description ? (
