@@ -340,6 +340,13 @@ export interface ReqAgentDeploymentList {
   [property: string]: unknown;
 }
 
+export interface ReqAgentDeploymentUninstall {
+  agentId: number;
+  force: boolean;
+  targetPluginId: string;
+  [property: string]: unknown;
+}
+
 export interface AgentExport {
   agentCode?: string;
   agentId?: number;
@@ -2172,6 +2179,18 @@ export async function listAgentDeployments(
   if (Array.isArray(response)) return response;
 
   return response.items ?? [];
+}
+
+export async function uninstallAgentDeployment(
+  request: ReqAgentDeploymentUninstall,
+): Promise<AgentDeployment | undefined> {
+  return requestJson<AgentDeployment | undefined>(
+    "/api/agents/deployments/uninstall",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
 }
 
 export async function importAgent(

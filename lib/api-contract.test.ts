@@ -1,5 +1,6 @@
 import type {
   Agent,
+  AgentDeployment,
   ControlOpenClawInstanceResult,
   KnowledgeBase,
   MCPServer,
@@ -55,6 +56,7 @@ import {
   listOpenClawRPCInstances,
   listSubscriptionPlans,
   listSubscriptionTransactions,
+  uninstallAgentDeployment,
   updateMCPServer,
   updateOpenClawPluginLibrary,
   updateSubscriptionPlan,
@@ -118,6 +120,13 @@ expectType<Promise<SubscriptionTransaction[]>>(
 );
 expectType<Promise<MCPServer[]>>(listMCPServers());
 expectType<Promise<OpenClawRPCInstance[]>>(listOpenClawRPCInstances());
+expectType<Promise<AgentDeployment | undefined>>(
+  uninstallAgentDeployment({
+    agentId: 1,
+    force: false,
+    targetPluginId: "openclaw-prod-rpc",
+  }),
+);
 expectType<Promise<OpenClawConfigSnapshot | undefined>>(
   getOpenClawConfigSnapshot({ pluginId: "clawcore-rpc" }),
 );

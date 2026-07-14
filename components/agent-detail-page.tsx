@@ -48,7 +48,9 @@ import {
   listOpenClawRPCInstances,
   readAgentMarkdown,
   saveAgentMarkdown,
+  uninstallAgentDeployment,
 } from "@/lib/api";
+import { getCurrentAgentDeployments } from "@/lib/agent-deployments";
 
 type DetailState = {
   agent: Agent | null;
@@ -161,6 +163,20 @@ export function AgentDetailPage({ agentRecordId }: { agentRecordId: number }) {
         isLoading: false,
       }));
       toast.danger(message);
+    }
+  }, [agentRecordId]);
+
+  const loadDeployments = useCallback(async () => {
+    try {
+      const deploymentList = await listAgentDeployments({
+        agentId: agentRecordId,
+      });
+
+      if (!isMountedRef.current) return;
+
+      setState((current) => ({ ...current, deployments: deploymentList }));
+    } catch (error) {
+      toast.warning(getAgentActionError(error, "部署列表刷新失败。"));
     }
   }, [agentRecordId]);
 
@@ -277,10 +293,12 @@ export function AgentDetailPage({ agentRecordId }: { agentRecordId: number }) {
           ) : null}
           {tab === "versions" ? (
             <AgentVersionsPanel
+              agentName={agentLabel}
               agentRecordId={agentRecordId}
               deployments={deployments}
               exports={exports}
               onChanged={() => void loadDetail()}
+              onDeploymentsChanged={() => void loadDeployments()}
             />
           ) : null}
         </>
@@ -816,15 +834,19 @@ function AgentKnowledgePanel({
 }
 
 function AgentVersionsPanel({
+  agentName,
   agentRecordId,
   deployments,
   exports,
   onChanged,
+  onDeploymentsChanged,
 }: {
+  agentName: string;
   agentRecordId: number;
   deployments: AgentDeployment[];
   exports: AgentExport[];
   onChanged: () => void;
+  onDeploymentsChanged: () => void;
 }) {
   const [instances, setInstances] = useState<OpenClawRPCInstance[]>([]);
   const [selectedExportId, setSelectedExportId] = useState("");
@@ -835,6 +857,7 @@ function AgentVersionsPanel({
   const conflictDeployments = deployResult.filter(
     (item) => item.status === "conflict",
   );
+  const currentDeployments = getCurrentAgentDeployments(deployments);
 
   useEffect(() => {
     void listOpenClawRPCInstances()
@@ -1019,16 +1042,23 @@ function AgentVersionsPanel({
         </div>
       </SectionCard>
 
+      <UninstallAgentInstanceCard
+        agentName={agentName}
+        agentRecordId={agentRecordId}
+        instances={instances}
+        onChanged={onDeploymentsChanged}
+      />
+
       <SectionCard
-        description={`当前 ${deployments.length} 条下发记录。`}
-        title="下发状态"
+        description={`当前 ${currentDeployments.length} 个实例，共 ${deployments.length} 条部署记录。`}
+        title="实例部署列表"
       >
         <div className="grid grid-cols-1 gap-3">
-          {deployments.length === 0 ? (
-            <p className="text-muted text-sm">暂无下发记录。</p>
+          {currentDeployments.length === 0 ? (
+            <p className="text-muted text-sm">暂无部署记录。</p>
           ) : (
-            deployments.map((item) => (
-              <DeploymentRow key={item.id ?? item.targetPluginId} item={item} />
+            currentDeployments.map((item) => (
+              <DeploymentRow key={item.targetPluginId ?? item.id} item={item} />
             ))
           )}
         </div>
@@ -1269,7 +1299,166 @@ function ExportRow({ item }: { item: AgentExport }) {
   );
 }
 
+function UninstallAgentInstanceCard({
+  agentName,
+  agentRecordId,
+  instances,
+  onChanged,
+}: {
+  agentName: string;
+  agentRecordId: number;
+  instances: OpenClawRPCInstance[];
+  onChanged: () => void;
+}) {
+  const modal = useOverlayState();
+  const [error, setError] = useState<string | null>(null);
+  const [force, setForce] = useState(false);
+  const [isUninstalling, setIsUninstalling] = useState(false);
+  const [targetPluginId, setTargetPluginId] = useState("");
+
+  function openModal() {
+    if (!targetPluginId) return;
+
+    setError(null);
+    setForce(false);
+    modal.open();
+  }
+
+  async function uninstall() {
+    if (!targetPluginId || isUninstalling) return;
+
+    setError(null);
+    setIsUninstalling(true);
+
+    try {
+      const deployment = await uninstallAgentDeployment({
+        agentId: agentRecordId,
+        force,
+        targetPluginId,
+      });
+
+      if (deployment?.status === "failed") {
+        throw new Error(deployment.errorMessage || "卸载 Agent 失败。");
+      }
+
+      toast.success(force ? "Agent 残留状态已清理。" : "Agent 已卸载。");
+      modal.close();
+      onChanged();
+    } catch (error) {
+      const message = getAgentActionError(error, "卸载 Agent 失败。");
+
+      setError(message);
+      setForce(true);
+      toast.danger(message);
+      onChanged();
+    } finally {
+      setIsUninstalling(false);
+    }
+  }
+
+  return (
+    <>
+      <SectionCard
+        description="选择 OpenClaw 实例并卸载当前 Agent，不依赖部署记录状态。"
+        title="卸载 Agent 实例"
+      >
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+          <Select
+            fullWidth
+            selectedKey={targetPluginId}
+            variant="secondary"
+            onSelectionChange={(key) => setTargetPluginId(String(key))}
+          >
+            <Label>目标实例</Label>
+            <Select.Trigger>
+              <Select.Value />
+              <Select.Indicator />
+            </Select.Trigger>
+            <Select.Popover>
+              <ListBox>
+                {instances.map((instance) =>
+                  instance.pluginId ? (
+                    <ListBox.Item
+                      key={instance.pluginId}
+                      id={instance.pluginId}
+                      textValue={instance.pluginId}
+                    >
+                      {instance.pluginId}
+                    </ListBox.Item>
+                  ) : null,
+                )}
+              </ListBox>
+            </Select.Popover>
+          </Select>
+          <Button
+            isDisabled={!targetPluginId || isUninstalling}
+            variant="danger"
+            onPress={openModal}
+          >
+            卸载 Agent
+          </Button>
+        </div>
+      </SectionCard>
+
+      <Modal state={modal}>
+        <Modal.Backdrop
+          isDismissable={!isUninstalling}
+          isKeyboardDismissDisabled={isUninstalling}
+        >
+          <Modal.Container placement="center" scroll="inside" size="sm">
+            <Modal.Dialog>
+              <Modal.Header>
+                <Modal.Heading>
+                  {force ? "强制清理 Agent" : "卸载 Agent"}
+                </Modal.Heading>
+              </Modal.Header>
+              <Modal.Body className="flex min-w-0 flex-col gap-3">
+                <p className="text-muted text-sm">
+                  {force ? (
+                    <>普通卸载失败，是否强制清理该实例上的 Agent 残留状态？</>
+                  ) : (
+                    <>
+                      确定从实例「{targetPluginId}」卸载 Agent「{agentName}
+                      」吗？此操作会删除该实例上的 Agent、工作区和 Memory
+                      数据，但不会删除后台 Agent、导出版本及其他实例部署。
+                    </>
+                  )}
+                </p>
+                {error ? <InlineError>{error}</InlineError> : null}
+              </Modal.Body>
+              <Modal.Footer>
+                <Button
+                  isDisabled={isUninstalling}
+                  variant="tertiary"
+                  onPress={modal.close}
+                >
+                  取消
+                </Button>
+                <Button
+                  isDisabled={isUninstalling}
+                  variant="danger"
+                  onPress={() => void uninstall()}
+                >
+                  {isUninstalling
+                    ? force
+                      ? "清理中..."
+                      : "卸载中..."
+                    : force
+                      ? "强制清理"
+                      : "确认卸载"}
+                </Button>
+              </Modal.Footer>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
+      </Modal>
+    </>
+  );
+}
+
 function DeploymentRow({ item }: { item: AgentDeployment }) {
+  const status = getDeploymentStatus(item.status);
+
   return (
     <div className="grid grid-cols-1 gap-3 rounded-md border border-default-200 p-3 md:grid-cols-[minmax(0,1fr)_120px_160px] md:items-center">
       <div className="min-w-0">
@@ -1280,19 +1469,8 @@ function DeploymentRow({ item }: { item: AgentDeployment }) {
           {item.workspaceName || "-"}
         </div>
       </div>
-      <Chip
-        className="w-fit"
-        color={
-          item.status === "failed"
-            ? "danger"
-            : item.status === "conflict"
-              ? "warning"
-              : "success"
-        }
-        size="sm"
-        variant="soft"
-      >
-        {item.status || "-"}
+      <Chip className="w-fit" color={status.color} size="sm" variant="soft">
+        {status.label}
       </Chip>
       <div className="text-muted text-xs">{formatDateTime(item.updatedAt)}</div>
       {item.errorMessage ? (
@@ -1422,6 +1600,19 @@ function getLatestDeployment(deployments: AgentDeployment[]) {
       new Date(b.updatedAt ?? "").getTime() -
       new Date(a.updatedAt ?? "").getTime(),
   )[0];
+}
+
+function getDeploymentStatus(status?: string) {
+  if (status === "deployed")
+    return { color: "success" as const, label: "已部署" };
+  if (status === "uninstalled")
+    return { color: "default" as const, label: "已卸载" };
+  if (status === "failed")
+    return { color: "danger" as const, label: "操作失败" };
+  if (status === "conflict")
+    return { color: "warning" as const, label: "部署冲突" };
+
+  return { color: "default" as const, label: status || "-" };
 }
 
 function getAgentWorkspaceName(
