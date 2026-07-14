@@ -35,6 +35,7 @@ import {
   controlOpenClawInstance,
   createMCPServer,
   createSubscriptionPlan,
+  deleteKnowledgeBase,
   deleteMCPServer,
   deleteOpenClawPluginLibrary,
   disableOpenClawPlugin,
@@ -84,6 +85,7 @@ expectType<string | undefined>(
 );
 expectType<Promise<ModelProviderCatalogProvider[]>>(listModelProviderCatalog());
 expectType<Promise<TencentCosSts | undefined>>(getTencentCosSts());
+expectType<Promise<void>>(deleteKnowledgeBase(1));
 expectType<Promise<SubscriptionPlan[]>>(listSubscriptionPlans());
 expectType<string | undefined>({} as SubscriptionPlan["featureIntro"]);
 expectType<Promise<SubscriptionPlan | undefined>>(getSubscriptionPlanDetail(1));

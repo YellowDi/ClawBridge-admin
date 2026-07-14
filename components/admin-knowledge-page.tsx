@@ -1,7 +1,7 @@
 "use client";
 
 import type { Key } from "react";
-import type { KnowledgeBase } from "@/lib/api";
+import type { KnowledgeBase, KnowledgeBaseStatus } from "@/lib/api";
 
 import {
   Button,
@@ -9,8 +9,10 @@ import {
   Chip,
   Label,
   ListBox,
+  Modal,
   Select,
   toast,
+  useOverlayState,
 } from "@heroui/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -23,20 +25,18 @@ import {
 } from "@/components/admin-page-kit";
 import { CreateKnowledgeBaseDialog } from "@/components/create-knowledge-base-dialog";
 import { KnowledgeFormError } from "@/components/knowledge-form-error";
-import { listKnowledgeBases, retryKnowledgeBase } from "@/lib/api";
+import {
+  deleteKnowledgeBase,
+  listKnowledgeBases,
+  retryKnowledgeBase,
+} from "@/lib/api";
 
-type KnowledgeStatus =
-  | "chunking"
-  | "embedding"
-  | "extracting"
-  | "failed"
-  | "indexed"
-  | "pending"
-  | string;
+type KnowledgeStatus = KnowledgeBaseStatus | "chunking" | (string & {});
 
 type KnowledgeRow = {
   chunkCount: number | null;
   description: string;
+  errorMessage: string;
   id: string;
   knowledgeBaseId: number | null;
   name: string;
@@ -77,6 +77,8 @@ const STATUS_LABELS: Record<string, string> = {
   failed: "失败",
   indexed: "已入库",
   pending: "待处理",
+  deleting: "删除中",
+  delete_failed: "删除失败",
 };
 const KNOWLEDGE_SKELETON_IDS = [
   "knowledge-skeleton-1",
@@ -96,8 +98,12 @@ export function KnowledgeBasesPage() {
     rows: [],
   });
   const [actionError, setActionError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<KnowledgeRow | null>(null);
   const [retryingId, setRetryingId] = useState<number | null>(null);
   const [sort, setSort] = useState<KnowledgeSort>("updated-desc");
+  const deleteModal = useOverlayState();
   const { error, isLoading, rows } = loadState;
 
   const loadKnowledgeBases = useCallback(async () => {
@@ -174,6 +180,54 @@ export function KnowledgeBasesPage() {
     },
     [loadKnowledgeBases],
   );
+
+  const openDeleteDialog = useCallback(
+    (row: KnowledgeRow) => {
+      setDeleteError(null);
+      setPendingDelete(row);
+      deleteModal.open();
+    },
+    [deleteModal],
+  );
+
+  const closeDeleteDialog = useCallback(() => {
+    if (deletingId != null) return;
+
+    deleteModal.close();
+    setPendingDelete(null);
+    setDeleteError(null);
+  }, [deleteModal, deletingId]);
+
+  const handleDelete = useCallback(async () => {
+    const knowledgeBaseId = pendingDelete?.knowledgeBaseId;
+
+    if (knowledgeBaseId == null) return;
+
+    setActionError(null);
+    setDeleteError(null);
+    setDeletingId(knowledgeBaseId);
+
+    try {
+      await deleteKnowledgeBase(knowledgeBaseId);
+
+      if (isMountedRef.current) {
+        deleteModal.close();
+        setPendingDelete(null);
+        await loadKnowledgeBases();
+        toast.success("知识库已删除。");
+      }
+    } catch (error) {
+      if (isMountedRef.current) {
+        const message = getKnowledgeError(error, "知识库删除失败。");
+
+        setDeleteError(message);
+        setActionError(message);
+        toast.danger(message);
+      }
+    } finally {
+      if (isMountedRef.current) setDeletingId(null);
+    }
+  }, [deleteModal, loadKnowledgeBases, pendingDelete]);
 
   const stats = useMemo(() => getKnowledgeStats(rows), [rows]);
   const sortedRows = useMemo(() => sortKnowledgeRows(rows, sort), [rows, sort]);
@@ -276,9 +330,19 @@ export function KnowledgeBasesPage() {
             {sortedRows.map((row) => (
               <KnowledgeCard
                 key={row.id}
-                isRetrying={retryingId === row.knowledgeBaseId}
-                retryDisabled={retryingId != null}
+                isDeleting={
+                  deletingId != null && deletingId === row.knowledgeBaseId
+                }
+                isRetrying={
+                  retryingId != null && retryingId === row.knowledgeBaseId
+                }
+                retryDisabled={
+                  retryingId != null ||
+                  deletingId === row.knowledgeBaseId ||
+                  row.status === "deleting"
+                }
                 row={row}
+                onDelete={openDeleteDialog}
                 onRetry={handleRetry}
               />
             ))}
@@ -287,17 +351,65 @@ export function KnowledgeBasesPage() {
           <KnowledgeEmptyState />
         )}
       </section>
+
+      <Modal state={deleteModal}>
+        <Modal.Backdrop
+          isDismissable={deletingId == null}
+          isKeyboardDismissDisabled={deletingId != null}
+        >
+          <Modal.Container placement="center" scroll="outside" size="sm">
+            <Modal.Dialog>
+              <Modal.Header>
+                <Modal.Heading>删除知识库</Modal.Heading>
+              </Modal.Header>
+              <Modal.Body className="flex min-w-0 flex-col gap-3">
+                <p className="text-muted text-sm">
+                  确认删除「
+                  <span className="break-all">{pendingDelete?.name}</span>
+                  」？此操作会解除全部用户和 Agent
+                  绑定，同时删除本地原文件、RAGFlow 文档及索引，且不可恢复。
+                </p>
+                {deleteError ? (
+                  <KnowledgeFormError>{deleteError}</KnowledgeFormError>
+                ) : null}
+              </Modal.Body>
+              <Modal.Footer>
+                <Button
+                  isDisabled={deletingId != null}
+                  type="button"
+                  variant="tertiary"
+                  onPress={closeDeleteDialog}
+                >
+                  取消
+                </Button>
+                <Button
+                  isDisabled={deletingId != null}
+                  type="button"
+                  variant="danger"
+                  onPress={() => void handleDelete()}
+                >
+                  {deletingId != null ? "删除中..." : "确认删除"}
+                </Button>
+              </Modal.Footer>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
+      </Modal>
     </AdminPage>
   );
 }
 
 function KnowledgeCard({
+  isDeleting,
   isRetrying,
+  onDelete,
   onRetry,
   retryDisabled,
   row,
 }: {
+  isDeleting: boolean;
   isRetrying: boolean;
+  onDelete: (row: KnowledgeRow) => void;
   onRetry: (knowledgeBaseId: number) => Promise<void>;
   retryDisabled: boolean;
   row: KnowledgeRow;
@@ -329,22 +441,50 @@ function KnowledgeCard({
               </Card.Description>
             </div>
           </div>
-          {row.status === "failed" && row.knowledgeBaseId != null ? (
+          <div className="flex shrink-0 items-center gap-2">
+            {row.status === "failed" && row.knowledgeBaseId != null ? (
+              <Button
+                isDisabled={retryDisabled}
+                size="sm"
+                variant="tertiary"
+                onPress={() => void onRetry(row.knowledgeBaseId!)}
+              >
+                {isRetrying ? "重试中..." : "重试"}
+              </Button>
+            ) : null}
             <Button
-              isDisabled={retryDisabled}
+              isDisabled={
+                row.knowledgeBaseId == null ||
+                row.status === "deleting" ||
+                row.status === "extracting" ||
+                isDeleting ||
+                isRetrying
+              }
               size="sm"
-              variant="tertiary"
-              onPress={() => void onRetry(row.knowledgeBaseId!)}
+              variant="danger-soft"
+              onPress={() => onDelete(row)}
             >
-              {isRetrying ? "重试中..." : "重试"}
+              {isDeleting || row.status === "deleting"
+                ? "删除中..."
+                : row.status === "delete_failed"
+                  ? "重试删除"
+                  : "删除"}
             </Button>
-          ) : null}
+          </div>
         </div>
       </Card.Header>
       <Card.Content className="flex h-full flex-col gap-4">
         <p className="text-muted line-clamp-3 min-h-14 text-sm">
           {row.description || "暂无说明"}
         </p>
+        {row.status === "extracting" ? (
+          <p className="text-warning text-xs">
+            知识库正在提交到 RAGFlow，请稍后再删除
+          </p>
+        ) : null}
+        {row.status === "delete_failed" && row.errorMessage ? (
+          <KnowledgeFormError>{row.errorMessage}</KnowledgeFormError>
+        ) : null}
         <div className="min-w-0 rounded-md bg-default-50 px-3 py-2">
           <div className="text-muted text-xs">来源地址</div>
           <div
@@ -424,6 +564,7 @@ function toKnowledgeRow(
   return {
     chunkCount: knowledgeBase.chunkCount ?? null,
     description: knowledgeBase.description?.trim() ?? "",
+    errorMessage: knowledgeBase.errorMessage?.trim() ?? "",
     id:
       knowledgeBase.id == null
         ? `${knowledgeBase.name?.trim() || "knowledge"}-${index}`
@@ -523,7 +664,7 @@ function getStatusLabel(status: KnowledgeStatus) {
 }
 
 function getStatusColor(status: KnowledgeStatus) {
-  if (status === "failed") return "danger";
+  if (status === "failed" || status === "delete_failed") return "danger";
   if (status === "indexed") return "success";
   if (isProcessingStatus(status)) return "warning";
 

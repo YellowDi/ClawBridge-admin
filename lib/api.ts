@@ -479,6 +479,15 @@ export interface ReqUserAgentsReplace {
   [property: string]: unknown;
 }
 
+export type KnowledgeBaseStatus =
+  | "pending"
+  | "extracting"
+  | "embedding"
+  | "indexed"
+  | "failed"
+  | "deleting"
+  | "delete_failed";
+
 export interface KnowledgeBase {
   activeEmbeddingModelId?: number;
   chunkCount?: number;
@@ -496,7 +505,7 @@ export interface KnowledgeBase {
   path?: string;
   sha256?: string;
   size?: number;
-  status?: string;
+  status?: KnowledgeBaseStatus | (string & {});
   storageType?: string;
   updatedAt?: string;
   [property: string]: unknown;
@@ -516,6 +525,11 @@ export interface ReqCreateKnowledgeBaseUrl {
 
 export interface ReqRetryKnowledgeBase {
   knowledgeBaseId?: number;
+  [property: string]: unknown;
+}
+
+export interface ReqDeleteKnowledgeBase {
+  knowledgeBaseId: number;
   [property: string]: unknown;
 }
 
@@ -2299,6 +2313,20 @@ export async function retryKnowledgeBase(
     body: JSON.stringify({ knowledgeBaseId } satisfies ReqRetryKnowledgeBase),
     method: "POST",
   });
+}
+
+export async function deleteKnowledgeBase(
+  knowledgeBaseId: number,
+): Promise<void> {
+  await requestJson<ControllerResponse | unknown>(
+    "/api/knowledge-bases/delete",
+    {
+      body: JSON.stringify({
+        knowledgeBaseId,
+      } satisfies ReqDeleteKnowledgeBase),
+      method: "POST",
+    },
+  );
 }
 
 export async function replaceUserKnowledgeBases(
