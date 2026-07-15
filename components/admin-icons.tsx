@@ -8,6 +8,7 @@ import {
   ChartColumn,
   ChartPie,
   CirclePlus,
+  Copy,
   Cpu,
   Database,
   EllipsisVertical,
@@ -31,6 +32,7 @@ export type AdminIconName =
   | "agent"
   | "audit"
   | "bell"
+  | "copy"
   | "dashboard"
   | "database"
   | "edit"
@@ -56,6 +58,7 @@ const ICONS: Record<AdminIconName, ComponentType<SVGProps<SVGSVGElement>>> = {
   agent: FaceRobot,
   audit: FileText,
   bell: Bell,
+  copy: Copy,
   dashboard: ChartPie,
   database: Database,
   edit: Pencil,

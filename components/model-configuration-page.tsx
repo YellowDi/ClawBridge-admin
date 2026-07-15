@@ -138,7 +138,12 @@ type ModelConfigurationPageAction =
   | { type: "modelsLoaded"; modelConfigurations: ModelConfiguration[] }
   | { type: "modelsLoadFailed"; error: string }
   | { type: "modelsLoading" }
-  | { type: "openCreate"; apiBase?: string; providerId: string }
+  | {
+      type: "openCreate";
+      apiBase?: string;
+      form?: ModelFormState;
+      providerId?: string;
+    }
   | {
       type: "openEdit";
       form: ModelFormState;
@@ -583,6 +588,17 @@ export function ModelConfigurationPage() {
     });
   }
 
+  function openCopyProviderDialog(modelConfiguration: ModelConfiguration) {
+    dispatch({
+      form: {
+        ...getModelFormFromConfiguration(modelConfiguration, providerPresets),
+        modelConfigName: "",
+        openClawProviderApiKeyRef: "",
+      },
+      type: "openCreate",
+    });
+  }
+
   async function deleteProvider() {
     if (!editingModelConfiguration?.recordId) return;
 
@@ -729,6 +745,7 @@ export function ModelConfigurationPage() {
         modelConfigurations={modelConfigurations}
         providerPresets={providerPresets}
         selectedModelIds={selectedModelIds}
+        onCopy={openCopyProviderDialog}
         onCreate={() => openCreateProviderDialog()}
         onEdit={openEditProviderDialog}
         onReload={() => void loadModelConfigurations()}
@@ -796,6 +813,7 @@ function ModelConfigurationGrid({
   loadError,
   modelConfigurations,
   onCreate,
+  onCopy,
   onEdit,
   onReload,
   onSelectedModelIdsChange,
@@ -808,6 +826,7 @@ function ModelConfigurationGrid({
   loadError: string | null;
   modelConfigurations: ModelConfiguration[];
   onCreate: () => void;
+  onCopy: (modelConfiguration: ModelConfiguration) => void;
   onEdit: (modelConfiguration: ModelConfiguration) => void;
   onReload: () => void;
   onSelectedModelIdsChange: (modelIds: number[]) => void;
@@ -924,6 +943,20 @@ function ModelConfigurationGrid({
                     </div>
                   </div>
                 </Checkbox.Content>
+                <Tooltip>
+                  <Button
+                    isIconOnly
+                    aria-label="复制模型配置"
+                    className="absolute bottom-3 right-12 z-10"
+                    size="sm"
+                    type="button"
+                    variant="tertiary"
+                    onPress={() => onCopy(modelConfiguration)}
+                  >
+                    <AdminIcon className="size-4" name="copy" />
+                  </Button>
+                  <Tooltip.Content>复制模型配置</Tooltip.Content>
+                </Tooltip>
                 <Tooltip>
                   <Button
                     isIconOnly
@@ -1988,7 +2021,8 @@ function modelConfigurationPageReducer(
       return {
         ...state,
         editingModelConfiguration: null,
-        form: getDefaultModelForm(action.providerId, action.apiBase),
+        form:
+          action.form ?? getDefaultModelForm(action.providerId, action.apiBase),
         isProviderDialogOpen: true,
       };
     case "openEdit":
