@@ -2362,10 +2362,19 @@ export async function getTencentCosSts(): Promise<TencentCosSts | undefined> {
 export async function getUserBalance(
   request: ReqUserBalanceDetail,
 ): Promise<UserBalance | undefined> {
-  return requestJson<UserBalance | undefined>("/api/users/balances/detail", {
+  const response = await requestJson<
+    { data?: UserBalance } | UserBalance | undefined
+  >("/api/users/balances/detail", {
     body: JSON.stringify(request),
     method: "POST",
   });
+
+  if (!response) return undefined;
+  if ("data" in response) {
+    return (response as { data?: UserBalance }).data;
+  }
+
+  return response;
 }
 
 export async function listUserBalanceTransactions(
