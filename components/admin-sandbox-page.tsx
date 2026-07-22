@@ -33,7 +33,7 @@ import {
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AdminIcon } from "@/components/admin-icons";
-import { AdminPage, SectionCard, StatGrid } from "@/components/admin-page-kit";
+import { AdminPage, StatGrid } from "@/components/admin-page-kit";
 import {
   createSandboxConfig,
   deleteSandboxConfig,
@@ -105,7 +105,7 @@ type BindRow = {
   targetPath: string;
 };
 
-type SandboxDialogMode = "create" | "edit" | "view";
+type SandboxDialogMode = "copy" | "create" | "edit" | "view";
 
 const CONTAINER_PREFIX_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,30}-$/;
 const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("zh-CN", {
@@ -296,6 +296,11 @@ export function AdminSandboxPage() {
             />
             <SandboxConfigDialog
               config={item}
+              mode="copy"
+              onSaved={loadConfigs}
+            />
+            <SandboxConfigDialog
+              config={item}
               mode="edit"
               onSaved={loadConfigs}
             />
@@ -306,7 +311,7 @@ export function AdminSandboxPage() {
         header: "操作",
         headerClassName: "whitespace-nowrap",
         id: "actions",
-        width: 190,
+        width: 232,
       },
     ],
     [loadConfigs],
@@ -364,29 +369,28 @@ export function AdminSandboxPage() {
         ]}
       />
 
-      <SectionCard
-        description="更新会完整替换全部标量字段和所有子项数组；被 Agent 使用的配置不能删除。"
-        title="Sandbox 配置库"
-      >
-        <div className="flex min-w-0 flex-col gap-3">
-          {error ? <InlineError>{error}</InlineError> : null}
-          <DataGrid
-            aria-label="Sandbox 配置库"
-            className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
-            columns={columns}
-            contentClassName="min-w-[920px]"
-            data={items}
-            defaultSortDescriptor={{
-              column: "updatedAt",
-              direction: "descending",
-            }}
-            getRowId={(item) => String(item.id ?? item.name)}
-            renderEmptyState={() =>
-              isLoading ? "加载中..." : "暂无 Sandbox 配置"
-            }
-          />
-        </div>
-      </SectionCard>
+      <div className="flex min-w-0 flex-col gap-3">
+        <p className="text-muted text-sm">
+          更新会完整替换全部标量字段和所有子项数组；被 Agent
+          使用的配置不能删除。
+        </p>
+        {error ? <InlineError>{error}</InlineError> : null}
+        <DataGrid
+          aria-label="Sandbox 配置库"
+          className="[&_.table__cell]:py-2 [&_.table__column]:text-xs"
+          columns={columns}
+          contentClassName="min-w-[960px]"
+          data={items}
+          defaultSortDescriptor={{
+            column: "updatedAt",
+            direction: "descending",
+          }}
+          getRowId={(item) => String(item.id ?? item.name)}
+          renderEmptyState={() =>
+            isLoading ? "加载中..." : "暂无 Sandbox 配置"
+          }
+        />
+      </div>
     </AdminPage>
   );
 }
@@ -401,6 +405,7 @@ function SandboxConfigDialog({
   onSaved: () => void;
 }) {
   const isReadOnly = mode === "view";
+  const isCopying = mode === "copy";
   const isEditing = mode === "edit";
   const modal = useOverlayState({
     onOpenChange(isOpen) {
@@ -409,7 +414,7 @@ function SandboxConfigDialog({
       setState({
         dangerConfirmed: false,
         error: null,
-        form: toSandboxForm(config),
+        form: toSandboxDialogForm(config, mode),
         isLoading: Boolean(config?.id),
         isSaving: false,
       });
@@ -420,7 +425,7 @@ function SandboxConfigDialog({
   const [state, setState] = useState({
     dangerConfirmed: false,
     error: null as string | null,
-    form: toSandboxForm(config),
+    form: toSandboxDialogForm(config, mode),
     isLoading: false,
     isSaving: false,
   });
@@ -434,7 +439,7 @@ function SandboxConfigDialog({
       setState((current) => ({
         ...current,
         error: null,
-        form: toSandboxForm(detail ?? config),
+        form: toSandboxDialogForm(detail ?? config, mode),
         isLoading: false,
       }));
     } catch (error) {
@@ -484,7 +489,11 @@ function SandboxConfigDialog({
       modal.close();
       setState((current) => ({ ...current, isSaving: false }));
       toast.success(
-        isEditing ? "Sandbox 配置已更新。" : "Sandbox 配置已创建。",
+        isEditing
+          ? "Sandbox 配置已更新。"
+          : isCopying
+            ? "Sandbox 配置已复制。"
+            : "Sandbox 配置已创建。",
       );
       onSaved();
     } catch (error) {
@@ -508,6 +517,11 @@ function SandboxConfigDialog({
               <AdminIcon className="size-4" name="plus" />
               新建 Sandbox
             </>
+          ) : mode === "copy" ? (
+            <>
+              <AdminIcon className="size-4" name="copy" />
+              复制
+            </>
           ) : mode === "edit" ? (
             "编辑"
           ) : (
@@ -529,9 +543,11 @@ function SandboxConfigDialog({
                 <Modal.Heading>
                   {mode === "create"
                     ? "新建 Sandbox 配置"
-                    : mode === "edit"
-                      ? "编辑 Sandbox 配置"
-                      : "查看 Sandbox 配置"}
+                    : mode === "copy"
+                      ? "复制 Sandbox 配置"
+                      : mode === "edit"
+                        ? "编辑 Sandbox 配置"
+                        : "查看 Sandbox 配置"}
                 </Modal.Heading>
               </Modal.Header>
               <Modal.Body className="-mx-1 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-1 py-1">
@@ -1809,6 +1825,15 @@ function toSandboxForm(config?: SandboxConfig): SandboxForm {
     workspaceAccess: config.workspaceAccess ?? "none",
     workspaceRoot: config.workspaceRoot ?? "",
   };
+}
+
+function toSandboxDialogForm(
+  config: SandboxConfig | undefined,
+  mode: SandboxDialogMode,
+): SandboxForm {
+  const form = toSandboxForm(config);
+
+  return mode === "copy" ? { ...form, name: "" } : form;
 }
 
 function cloneDefaultForm(): SandboxForm {

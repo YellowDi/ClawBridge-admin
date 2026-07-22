@@ -223,10 +223,19 @@ function SidebarContents({ pathname }: { pathname: string }) {
             priority
             unoptimized
             alt="ClawBridge"
-            className="h-7 w-auto"
+            className="h-7 w-auto dark:hidden"
             height={68}
-            src="/sidebar-logo.svg"
-            width={306}
+            src="/sidebar-logo-light.svg"
+            width={332}
+          />
+          <Image
+            priority
+            unoptimized
+            alt="ClawBridge"
+            className="hidden h-7 w-auto dark:block"
+            height={68}
+            src="/sidebar-logo-dark.svg"
+            width={332}
           />
         </div>
       </Sidebar.Header>
