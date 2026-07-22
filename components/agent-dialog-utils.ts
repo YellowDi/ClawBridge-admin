@@ -22,6 +22,7 @@ export function toCreateAgentRequest(form: AgentForm): ReqAgentCreate {
     displayName: toOptionalString(form.displayName),
     enabled: form.enabled,
     reasoningLevel: toOptionalString(form.reasoningLevel),
+    sandboxConfigId: form.sandboxConfigId,
     thinkingLevel: toOptionalString(form.thinkingLevel),
     verboseLevel: toOptionalString(form.verboseLevel),
   };
@@ -30,11 +31,18 @@ export function toCreateAgentRequest(form: AgentForm): ReqAgentCreate {
 export function toUpdateAgentRequest(
   form: AgentForm,
   id: number,
+  initialSandboxConfigId: number,
 ): ReqAgentUpdate {
-  return {
+  const request: ReqAgentUpdate = {
     ...toCreateAgentRequest(form),
     id,
   };
+
+  if (form.sandboxConfigId === initialSandboxConfigId) {
+    delete request.sandboxConfigId;
+  }
+
+  return request;
 }
 
 export function toAgentForm(agent: EditableAgentSummary): AgentForm {
@@ -54,6 +62,7 @@ export function toAgentForm(agent: EditableAgentSummary): AgentForm {
     displayName: agent.displayName?.trim() ?? "",
     enabled: agent.enabled !== false,
     reasoningLevel: agent.reasoningLevel?.trim() ?? "",
+    sandboxConfigId: agent.sandboxConfigId ?? 0,
     thinkingLevel: agent.thinkingLevel?.trim() ?? "",
     verboseLevel: agent.verboseLevel?.trim() ?? "",
   };

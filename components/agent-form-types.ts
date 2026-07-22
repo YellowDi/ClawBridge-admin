@@ -11,6 +11,7 @@ export type AgentForm = {
   displayName: string;
   enabled: boolean;
   reasoningLevel: string;
+  sandboxConfigId: number;
   thinkingLevel: string;
   verboseLevel: string;
 };
@@ -28,6 +29,7 @@ export const DEFAULT_AGENT_FORM: AgentForm = {
   displayName: "",
   enabled: true,
   reasoningLevel: "",
+  sandboxConfigId: 0,
   thinkingLevel: "",
   verboseLevel: "",
 };

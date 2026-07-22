@@ -12,7 +12,10 @@ import { AdminIcon } from "@/components/admin-icons";
 import { AgentFormError } from "@/components/agent-form-error";
 import { AgentFormFields } from "@/components/agent-form-fields";
 import { DEFAULT_AGENT_FORM } from "@/components/agent-form-types";
-import { EMPTY_MODEL_OPTIONS } from "@/components/agent-dialog-types";
+import {
+  EMPTY_MODEL_OPTIONS,
+  EMPTY_SANDBOX_OPTIONS,
+} from "@/components/agent-dialog-types";
 import {
   getAgentActionError,
   toCreateAgentRequest,
@@ -27,6 +30,7 @@ type CreateAgentState = {
 
 export function CreateAgentDialog({
   modelOptions = EMPTY_MODEL_OPTIONS,
+  sandboxOptions = EMPTY_SANDBOX_OPTIONS,
   onCreated,
 }: AgentDialogProps & { onCreated: (agent?: Agent) => void }) {
   const [state, setState] = useState<CreateAgentState>({
@@ -132,6 +136,7 @@ export function CreateAgentDialog({
                   form={form}
                   isDisabled={isCreating}
                   modelOptions={modelOptions}
+                  sandboxOptions={sandboxOptions}
                   onChange={updateForm}
                 />
 

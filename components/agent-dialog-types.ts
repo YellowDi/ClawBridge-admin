@@ -1,4 +1,4 @@
-import type { Agent, Model } from "@/lib/api";
+import type { Agent, Model, SandboxConfig } from "@/lib/api";
 
 export type EditableAgentSummary = Pick<
   Agent,
@@ -15,6 +15,7 @@ export type EditableAgentSummary = Pick<
   | "enabled"
   | "id"
   | "reasoningLevel"
+  | "sandboxConfigId"
   | "thinkingLevel"
   | "verboseLevel"
 > & {
@@ -23,6 +24,8 @@ export type EditableAgentSummary = Pick<
 
 export type AgentDialogProps = {
   modelOptions?: Model[];
+  sandboxOptions?: SandboxConfig[];
 };
 
 export const EMPTY_MODEL_OPTIONS: Model[] = [];
+export const EMPTY_SANDBOX_OPTIONS: SandboxConfig[] = [];

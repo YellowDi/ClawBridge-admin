@@ -9,6 +9,7 @@ import type {
   AgentMarkdownFile,
   Model,
   OpenClawRPCInstance,
+  SandboxConfig,
 } from "@/lib/api";
 
 import {
@@ -46,6 +47,7 @@ import {
   listAgentExports,
   listModels,
   listOpenClawRPCInstances,
+  listSandboxConfigs,
   readAgentMarkdown,
   saveAgentMarkdown,
   uninstallAgentDeployment,
@@ -59,6 +61,7 @@ type DetailState = {
   exports: AgentExport[];
   isLoading: boolean;
   models: Model[];
+  sandboxOptions: SandboxConfig[];
   workspaceName: string;
 };
 
@@ -67,6 +70,7 @@ type DetailTab = "knowledge" | "markdown" | "versions";
 const EMPTY_AGENT_EXPORTS: AgentExport[] = [];
 const EMPTY_DEPLOYMENTS: AgentDeployment[] = [];
 const EMPTY_MODELS: Model[] = [];
+const EMPTY_SANDBOX_OPTIONS: SandboxConfig[] = [];
 const DATE_TIME_FORMATTER = new Intl.DateTimeFormat("zh-CN", {
   day: "2-digit",
   hour: "2-digit",
@@ -85,6 +89,7 @@ export function AgentDetailPage({ agentRecordId }: { agentRecordId: number }) {
     exports: EMPTY_AGENT_EXPORTS,
     isLoading: true,
     models: EMPTY_MODELS,
+    sandboxOptions: EMPTY_SANDBOX_OPTIONS,
     workspaceName: "",
   });
   const [tab, setTab] = useState<DetailTab>("markdown");
@@ -95,6 +100,7 @@ export function AgentDetailPage({ agentRecordId }: { agentRecordId: number }) {
     exports,
     isLoading,
     models,
+    sandboxOptions,
     workspaceName: loadedWorkspaceName,
   } = state;
 
@@ -105,12 +111,14 @@ export function AgentDetailPage({ agentRecordId }: { agentRecordId: number }) {
       const [
         agentDetail,
         modelList,
+        sandboxList,
         exportList,
         deploymentList,
         workspaceInfo,
       ] = await Promise.all([
         getAgentDetail(agentRecordId),
         listModels({ pageSize: 500 }),
+        listSandboxConfigs({ pageSize: 500 }),
         listAgentExports({
           agentId: agentRecordId,
           page: 1,
@@ -136,6 +144,7 @@ export function AgentDetailPage({ agentRecordId }: { agentRecordId: number }) {
           exports: EMPTY_AGENT_EXPORTS,
           isLoading: false,
           models: modelList,
+          sandboxOptions: sandboxList,
           workspaceName: "",
         });
         toast.danger(message);
@@ -150,6 +159,7 @@ export function AgentDetailPage({ agentRecordId }: { agentRecordId: number }) {
         exports: exportList.items ?? [],
         isLoading: false,
         models: modelList,
+        sandboxOptions: sandboxList.filter((item) => item.isDelete !== 2),
         workspaceName: workspaceInfo?.workspaceName?.trim() ?? "",
       });
     } catch (error) {
@@ -215,6 +225,7 @@ export function AgentDetailPage({ agentRecordId }: { agentRecordId: number }) {
           enabled: agent.enabled !== false,
           id: agent.id,
           reasoningLevel: agent.reasoningLevel ?? "",
+          sandboxConfigId: agent.sandboxConfigId ?? 0,
           thinkingLevel: agent.thinkingLevel ?? "",
           verboseLevel: agent.verboseLevel ?? "",
         };
@@ -227,6 +238,7 @@ export function AgentDetailPage({ agentRecordId }: { agentRecordId: number }) {
           editableAgent={editableAgent}
           isInitialized={agent.devInitialized === true}
           models={models}
+          sandboxOptions={sandboxOptions}
           onChanged={() => void loadDetail()}
         />
       ) : (
@@ -245,6 +257,7 @@ export function AgentDetailPage({ agentRecordId }: { agentRecordId: number }) {
       loadDetail,
       models,
       router,
+      sandboxOptions,
       workspaceName,
     ],
   );
@@ -343,12 +356,14 @@ function AgentDetailActions({
   editableAgent,
   isInitialized,
   models,
+  sandboxOptions,
   onChanged,
 }: {
   agentRecordId: number;
   editableAgent: EditableAgentSummary | null;
   isInitialized: boolean;
   models: Model[];
+  sandboxOptions: SandboxConfig[];
   onChanged: () => void;
 }) {
   const router = useRouter();
@@ -371,6 +386,7 @@ function AgentDetailActions({
         <EditAgentDialog
           agent={editableAgent}
           modelOptions={models}
+          sandboxOptions={sandboxOptions}
           onUpdated={onChanged}
         />
       ) : null}

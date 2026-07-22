@@ -6,13 +6,17 @@ import type {
   AgentDialogProps,
   EditableAgentSummary,
 } from "@/components/agent-dialog-types";
+import type { ReqAgentUpdate } from "@/lib/api";
 
 import { Button, Modal, toast, useOverlayState } from "@heroui/react";
 import { useRef, useState } from "react";
 
 import { AgentFormError } from "@/components/agent-form-error";
 import { AgentFormFields } from "@/components/agent-form-fields";
-import { EMPTY_MODEL_OPTIONS } from "@/components/agent-dialog-types";
+import {
+  EMPTY_MODEL_OPTIONS,
+  EMPTY_SANDBOX_OPTIONS,
+} from "@/components/agent-dialog-types";
 import { AdminIcon } from "@/components/admin-icons";
 import {
   getAgentActionError,
@@ -27,6 +31,7 @@ type EditAgentState = {
   form: AgentForm;
   isLoading: boolean;
   isSaving: boolean;
+  initialSandboxConfigId: number;
   loadedAgentId: number | null;
 };
 
@@ -34,6 +39,7 @@ export function EditAgentDialog({
   agent,
   isIconOnly = false,
   modelOptions = EMPTY_MODEL_OPTIONS,
+  sandboxOptions = EMPTY_SANDBOX_OPTIONS,
   onUpdated,
 }: {
   agent: EditableAgentSummary;
@@ -41,17 +47,22 @@ export function EditAgentDialog({
   onUpdated: () => void;
 } & AgentDialogProps) {
   const loadRequestRef = useRef(0);
+  const pendingRequestRef = useRef<ReqAgentUpdate | null>(null);
+  const unbindModal = useOverlayState();
   const [state, setState] = useState<EditAgentState>({
     error: null,
     form: toAgentForm(agent),
     isLoading: false,
     isSaving: false,
+    initialSandboxConfigId: agent.sandboxConfigId ?? 0,
     loadedAgentId: null,
   });
   const modal = useOverlayState({
     onOpenChange(isOpen) {
       if (!isOpen) {
         loadRequestRef.current += 1;
+        pendingRequestRef.current = null;
+        unbindModal.close();
 
         return;
       }
@@ -59,7 +70,14 @@ export function EditAgentDialog({
       loadAgent();
     },
   });
-  const { error, form, isLoading, isSaving, loadedAgentId } = state;
+  const {
+    error,
+    form,
+    initialSandboxConfigId,
+    isLoading,
+    isSaving,
+    loadedAgentId,
+  } = state;
   const isBusy = isLoading || isSaving;
 
   function loadAgent() {
@@ -69,6 +87,7 @@ export function EditAgentDialog({
     setState({
       error: null,
       form: toAgentForm(agent),
+      initialSandboxConfigId: agent.sandboxConfigId ?? 0,
       isLoading: true,
       isSaving: false,
       loadedAgentId: null,
@@ -78,9 +97,12 @@ export function EditAgentDialog({
       .then((detail) => {
         if (loadRequestRef.current !== requestId) return;
 
+        const loadedForm = toLoadedAgentForm(agent, detail);
+
         setState({
           error: null,
-          form: toLoadedAgentForm(agent, detail),
+          form: loadedForm,
+          initialSandboxConfigId: loadedForm.sandboxConfigId,
           isLoading: false,
           isSaving: false,
           loadedAgentId: agent.id,
@@ -122,7 +144,11 @@ export function EditAgentDialog({
 
     if (isLoading || loadedAgentId == null) return;
 
-    const request = toUpdateAgentRequest(form, loadedAgentId);
+    const request = toUpdateAgentRequest(
+      form,
+      loadedAgentId,
+      initialSandboxConfigId,
+    );
 
     if (!request.agentId) {
       const message = "请输入 Agent ID。";
@@ -136,18 +162,27 @@ export function EditAgentDialog({
       return;
     }
 
-    setState((current) => ({
-      ...current,
-      error: null,
-      isSaving: true,
-    }));
+    if (initialSandboxConfigId > 0 && form.sandboxConfigId === 0) {
+      pendingRequestRef.current = request;
+      unbindModal.open();
+
+      return;
+    }
+
+    await saveAgent(request);
+  }
+
+  async function saveAgent(request: ReqAgentUpdate) {
+    setState((current) => ({ ...current, error: null, isSaving: true }));
 
     try {
       await updateAgent(request);
+      unbindModal.close();
       modal.close();
       setState({
         error: null,
         form,
+        initialSandboxConfigId: form.sandboxConfigId,
         isLoading: false,
         isSaving: false,
         loadedAgentId: null,
@@ -157,6 +192,7 @@ export function EditAgentDialog({
     } catch (error) {
       const message = getAgentActionError(error, "更新 Agent 失败。");
 
+      unbindModal.close();
       setState((current) => ({
         ...current,
         error: message,
@@ -167,65 +203,116 @@ export function EditAgentDialog({
   }
 
   return (
-    <Modal state={modal}>
-      <Modal.Trigger>
-        <Button
-          aria-label={isIconOnly ? "编辑 Agent" : undefined}
-          isIconOnly={isIconOnly}
-          size="sm"
-          variant={isIconOnly ? "tertiary" : undefined}
+    <>
+      <Modal state={modal}>
+        <Modal.Trigger>
+          <Button
+            aria-label={isIconOnly ? "编辑 Agent" : undefined}
+            isIconOnly={isIconOnly}
+            size="sm"
+            variant={isIconOnly ? "tertiary" : undefined}
+          >
+            {isIconOnly ? (
+              <AdminIcon className="size-4" name="edit" />
+            ) : (
+              "编辑配置"
+            )}
+          </Button>
+        </Modal.Trigger>
+        <Modal.Backdrop
+          isDismissable={!isBusy}
+          isKeyboardDismissDisabled={isBusy}
         >
-          {isIconOnly ? (
-            <AdminIcon className="size-4" name="edit" />
-          ) : (
-            "编辑配置"
-          )}
-        </Button>
-      </Modal.Trigger>
-      <Modal.Backdrop
-        isDismissable={!isBusy}
-        isKeyboardDismissDisabled={isBusy}
-      >
-        <Modal.Container placement="center" scroll="outside" size="lg">
-          <Modal.Dialog>
-            <form className="min-w-0" onSubmit={handleSubmit}>
+          <Modal.Container placement="center" scroll="outside" size="lg">
+            <Modal.Dialog>
+              <form className="min-w-0" onSubmit={handleSubmit}>
+                <Modal.Header>
+                  <Modal.Heading>编辑 Agent</Modal.Heading>
+                </Modal.Header>
+                <Modal.Body className="-mx-1 flex min-w-0 flex-col gap-4 px-1 py-1">
+                  {isLoading ? (
+                    <div className="text-muted text-sm">
+                      正在加载 Agent 详情...
+                    </div>
+                  ) : null}
+                  <AgentFormFields
+                    form={form}
+                    isDisabled={isBusy || loadedAgentId == null}
+                    modelOptions={modelOptions}
+                    sandboxOptions={sandboxOptions}
+                    onChange={updateForm}
+                  />
+                  {error ? <AgentFormError>{error}</AgentFormError> : null}
+                </Modal.Body>
+                <Modal.Footer>
+                  <Button
+                    isDisabled={isBusy}
+                    type="button"
+                    variant="tertiary"
+                    onPress={closeDialog}
+                  >
+                    取消
+                  </Button>
+                  <Button
+                    isDisabled={isBusy || loadedAgentId == null}
+                    type="submit"
+                  >
+                    {isSaving ? "保存中..." : "保存修改"}
+                  </Button>
+                </Modal.Footer>
+              </form>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
+      </Modal>
+      <Modal state={unbindModal}>
+        <Modal.Backdrop
+          isDismissable={!isSaving}
+          isKeyboardDismissDisabled={isSaving}
+        >
+          <Modal.Container placement="center" scroll="outside" size="sm">
+            <Modal.Dialog>
               <Modal.Header>
-                <Modal.Heading>编辑 Agent</Modal.Heading>
+                <Modal.Heading>解除 Sandbox 配置</Modal.Heading>
               </Modal.Header>
-              <Modal.Body className="-mx-1 flex min-w-0 flex-col gap-4 px-1 py-1">
-                {isLoading ? (
-                  <div className="text-muted text-sm">
-                    正在加载 Agent 详情...
-                  </div>
-                ) : null}
-                <AgentFormFields
-                  form={form}
-                  isDisabled={isBusy || loadedAgentId == null}
-                  modelOptions={modelOptions}
-                  onChange={updateForm}
-                />
-                {error ? <AgentFormError>{error}</AgentFormError> : null}
+              <Modal.Body>
+                <p className="text-muted text-sm">
+                  确定解除该 Agent 的 Sandbox
+                  配置吗？解绑信息会在下一次初始化、版本分发或 Agent
+                  配置同步时下发，并清除目标 OpenClaw 中该 Agent 已存在的
+                  Sandbox 配置。
+                </p>
               </Modal.Body>
               <Modal.Footer>
                 <Button
-                  isDisabled={isBusy}
+                  isDisabled={isSaving}
                   type="button"
                   variant="tertiary"
-                  onPress={closeDialog}
+                  onPress={() => {
+                    pendingRequestRef.current = null;
+                    unbindModal.close();
+                  }}
                 >
                   取消
                 </Button>
                 <Button
-                  isDisabled={isBusy || loadedAgentId == null}
-                  type="submit"
+                  isDisabled={isSaving}
+                  isPending={isSaving}
+                  type="button"
+                  variant="danger"
+                  onPress={() => {
+                    const request = pendingRequestRef.current;
+
+                    if (request) void saveAgent(request);
+                  }}
                 >
-                  {isSaving ? "保存中..." : "保存修改"}
+                  {isSaving ? "解绑中..." : "确认解绑"}
                 </Button>
               </Modal.Footer>
-            </form>
-          </Modal.Dialog>
-        </Modal.Container>
-      </Modal.Backdrop>
-    </Modal>
+            </Modal.Dialog>
+          </Modal.Container>
+        </Modal.Backdrop>
+      </Modal>
+    </>
   );
 }

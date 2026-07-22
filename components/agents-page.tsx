@@ -7,6 +7,7 @@ import type {
   AgentDeployment,
   Model as ApiModel,
   ReqAgentImport,
+  SandboxConfig as ApiSandboxConfig,
 } from "@/lib/api";
 
 import {
@@ -40,7 +41,13 @@ import {
   DeleteAgentDialog,
   EditAgentDialog,
 } from "@/components/agent-dialog";
-import { importAgent, initDevAgent, listAgents, listModels } from "@/lib/api";
+import {
+  importAgent,
+  initDevAgent,
+  listAgents,
+  listModels,
+  listSandboxConfigs,
+} from "@/lib/api";
 
 type AgentFilter = "all" | "disabled" | "enabled";
 type AgentStatus = "停用" | "启用";
@@ -64,6 +71,7 @@ type AdminAgent = {
   id: string;
   knowledgeBaseIds: number[];
   reasoningLevel: string;
+  sandboxConfigId: number;
   status: AgentStatus;
   thinkingLevel: string;
   updatedAt: string;
@@ -98,6 +106,7 @@ export function AgentsPage() {
   });
   const [agentFilter, setAgentFilter] = useState<AgentFilter>("all");
   const [agentModelOptions, setAgentModelOptions] = useState<ApiModel[]>([]);
+  const [sandboxOptions, setSandboxOptions] = useState<ApiSandboxConfig[]>([]);
   const [createdAgent, setCreatedAgent] = useState<AdminAgent | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const { agents, error, isLoading } = loadState;
@@ -148,16 +157,32 @@ export function AgentsPage() {
     }
   }, []);
 
+  const loadSandboxOptions = useCallback(async () => {
+    try {
+      const response = await listSandboxConfigs({ pageSize: 500 });
+
+      if (isMountedRef.current) {
+        setSandboxOptions(response.filter((item) => item.isDelete !== 2));
+      }
+    } catch (error) {
+      if (isMountedRef.current) {
+        setSandboxOptions([]);
+        toast.warning(getAgentActionError(error, "Sandbox 配置选项加载失败。"));
+      }
+    }
+  }, []);
+
   useEffect(() => {
     isMountedRef.current = true;
 
     void loadAgents();
     void loadAgentModelOptions();
+    void loadSandboxOptions();
 
     return () => {
       isMountedRef.current = false;
     };
-  }, [loadAgentModelOptions, loadAgents]);
+  }, [loadAgentModelOptions, loadAgents, loadSandboxOptions]);
 
   const filteredAgents = useMemo(
     () => filterAgents(agents, searchQuery, agentFilter),
@@ -186,6 +211,7 @@ export function AgentsPage() {
         <ImportAgentDialog onImported={refreshAgents} />
         <CreateAgentDialog
           modelOptions={agentModelOptions}
+          sandboxOptions={sandboxOptions}
           onCreated={(agent) => {
             void loadAgents();
             if (agent?.id != null) setCreatedAgent(toAdminAgent(agent, 0));
@@ -193,7 +219,7 @@ export function AgentsPage() {
         />
       </>
     ),
-    [agentModelOptions, isLoading, loadAgents, refreshAgents],
+    [agentModelOptions, isLoading, loadAgents, refreshAgents, sandboxOptions],
   );
 
   return (
@@ -281,6 +307,7 @@ export function AgentsPage() {
                 key={agent.id}
                 agent={agent}
                 modelOptions={agentModelOptions}
+                sandboxOptions={sandboxOptions}
                 onChanged={refreshAgents}
               />
             ))}
@@ -302,10 +329,12 @@ export function AgentsPage() {
 function AgentCard({
   agent,
   modelOptions,
+  sandboxOptions,
   onChanged,
 }: {
   agent: AdminAgent;
   modelOptions: ApiModel[];
+  sandboxOptions: ApiSandboxConfig[];
   onChanged: () => void;
 }) {
   const deleteModal = useOverlayState();
@@ -359,6 +388,7 @@ function AgentCard({
                 isIconOnly
                 agent={editableAgent}
                 modelOptions={modelOptions}
+                sandboxOptions={sandboxOptions}
                 onUpdated={onChanged}
               />
               <Dropdown>
@@ -432,6 +462,7 @@ function toEditableAgent(agent: AdminAgent): EditableAgentSummary | null {
     enabled: agent.enabled,
     id: agent.agentRecordId,
     reasoningLevel: agent.reasoningLevel,
+    sandboxConfigId: agent.sandboxConfigId,
     thinkingLevel: agent.thinkingLevel,
     verboseLevel: agent.verboseLevel,
   };
@@ -872,6 +903,7 @@ function toAdminAgent(agent: ApiAgent, index: number): AdminAgent {
     id: agent.id == null ? agentId : String(agent.id),
     knowledgeBaseIds: getKnowledgeBaseIds(agent.knowledgeBases),
     reasoningLevel: agent.reasoningLevel?.trim() ?? "",
+    sandboxConfigId: agent.sandboxConfigId ?? 0,
     status: agent.enabled === false ? "停用" : "启用",
     thinkingLevel: agent.thinkingLevel?.trim() ?? "",
     updatedAt: formatDateTime(agent.updatedAt),

@@ -47,6 +47,15 @@ const PLATFORM_ITEMS: readonly NavItem[] = [
   { href: "/agents", icon: "agent", key: "agents", label: "Agent 编排" },
 ] as const;
 
+const AI_RESOURCE_ITEMS: readonly NavItem[] = [
+  {
+    href: "/sandbox-configs",
+    icon: "shield",
+    key: "sandbox-configs",
+    label: "Sandbox 配置",
+  },
+] as const;
+
 const OPS_ITEMS: readonly NavItem[] = [
   { href: "/usage", icon: "activity", key: "usage", label: "用量统计" },
   {
@@ -84,6 +93,7 @@ const SYSTEM_ITEMS: readonly NavItem[] = [
 
 const NAV_GROUPS: readonly NavGroup[] = [
   { items: PLATFORM_ITEMS, label: "平台管理" },
+  { items: AI_RESOURCE_ITEMS, label: "AI资源" },
   { items: OPS_ITEMS, label: "运维治理" },
   { items: OPENCLAW_ITEMS, label: "OpenClaw" },
   { items: SYSTEM_ITEMS, label: "系统" },
@@ -91,6 +101,7 @@ const NAV_GROUPS: readonly NavGroup[] = [
 
 const ALL_NAV_ITEMS: readonly NavItem[] = [
   ...PLATFORM_ITEMS,
+  ...AI_RESOURCE_ITEMS,
   ...OPS_ITEMS,
   ...OPENCLAW_ITEMS,
   ...SYSTEM_ITEMS,

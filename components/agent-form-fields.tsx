@@ -1,6 +1,6 @@
 "use client";
 
-import type { Model } from "@/lib/api";
+import type { Model, SandboxConfig } from "@/lib/api";
 import type { AgentForm } from "@/components/agent-form-types";
 
 import { Input, Label, ListBox, Select, TextField } from "@heroui/react";
@@ -18,11 +18,13 @@ export function AgentFormFields({
   form,
   isDisabled,
   modelOptions,
+  sandboxOptions,
   onChange,
 }: {
   form: AgentForm;
   isDisabled: boolean;
   modelOptions: Model[];
+  sandboxOptions: SandboxConfig[];
   onChange: (patch: Partial<AgentForm>) => void;
 }) {
   return (
@@ -69,6 +71,13 @@ export function AgentFormFields({
         modelOptions={modelOptions}
         value={form.defaultModelid}
         onChange={(defaultModelid) => onChange({ defaultModelid })}
+      />
+
+      <SandboxConfigSelectField
+        isDisabled={isDisabled}
+        options={sandboxOptions}
+        value={form.sandboxConfigId}
+        onChange={(sandboxConfigId) => onChange({ sandboxConfigId })}
       />
 
       <Select
@@ -180,5 +189,66 @@ export function AgentFormFields({
         />
       </TextField>
     </div>
+  );
+}
+
+function SandboxConfigSelectField({
+  isDisabled,
+  options,
+  value,
+  onChange,
+}: {
+  isDisabled: boolean;
+  options: SandboxConfig[];
+  value: number;
+  onChange: (value: number) => void;
+}) {
+  const bindableOptions = options.filter(
+    (item) =>
+      item.isDelete !== 2 &&
+      item.enabled &&
+      (item.scope === "session" || item.scope === "agent") &&
+      typeof item.id === "number",
+  );
+  const currentIsUnavailable =
+    value > 0 && !bindableOptions.some((item) => item.id === value);
+
+  return (
+    <Select
+      fullWidth
+      className="min-w-0"
+      isDisabled={isDisabled}
+      selectedKey={String(value)}
+      variant="secondary"
+      onSelectionChange={(key) => onChange(Number(key ?? 0))}
+    >
+      <Label>Sandbox 配置</Label>
+      <Select.Trigger>
+        <Select.Value />
+        <Select.Indicator />
+      </Select.Trigger>
+      <Select.Popover>
+        <ListBox>
+          <ListBox.Item id="0" textValue="不绑定">
+            不绑定
+          </ListBox.Item>
+          {bindableOptions.map((item) => (
+            <ListBox.Item
+              key={item.id}
+              id={String(item.id)}
+              textValue={item.name || `Sandbox #${item.id}`}
+            >
+              {item.name || `Sandbox #${item.id}`}
+            </ListBox.Item>
+          ))}
+        </ListBox>
+      </Select.Popover>
+      {currentIsUnavailable ? (
+        <span className="text-warning text-xs">
+          当前绑定的 Sandbox #{value} 已删除、禁用或不支持 Agent
+          绑定；请选择新配置或解绑。
+        </span>
+      ) : null}
+    </Select>
   );
 }

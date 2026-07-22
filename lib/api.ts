@@ -242,6 +242,7 @@ export interface ReqAgentCreate {
   displayName?: string;
   enabled?: boolean;
   reasoningLevel?: string;
+  sandboxConfigId?: number;
   thinkingLevel?: string;
   verboseLevel?: string;
   [property: string]: unknown;
@@ -273,6 +274,7 @@ export interface ReqAgentUpdate {
   enabled?: boolean;
   id?: number;
   reasoningLevel?: string;
+  sandboxConfigId?: number;
   thinkingLevel?: string;
   verboseLevel?: string;
   [property: string]: unknown;
@@ -451,10 +453,115 @@ export interface Agent {
   isDelete?: number;
   knowledgeBases?: KnowledgeBase[];
   reasoningLevel?: string;
+  sandboxConfigId?: number;
   thinkingLevel?: string;
   updatedAt?: string;
   verboseLevel?: string;
   [property: string]: unknown;
+}
+
+export type SandboxMode = "off" | "non-main" | "all";
+export type SandboxScope = "session" | "agent" | "shared";
+export type SandboxWorkspaceAccess = "none" | "ro" | "rw";
+export type SandboxSessionToolsVisibility = "spawned" | "all";
+export type SandboxEnvValueType = "plain" | "env_ref";
+export type SandboxBindAccessMode = "ro" | "rw";
+
+export interface SandboxTmpfsInput {
+  deviceEnabled: boolean;
+  executable: boolean;
+  mountPath: string;
+  permissionMode: number;
+  readOnly: boolean;
+  sizeBytes: number;
+  suidEnabled: boolean;
+}
+
+export interface SandboxCapDropInput {
+  capability: string;
+}
+
+export interface SandboxEnvInput {
+  envKey: string;
+  envRef: string;
+  envValue: string;
+  valueType: SandboxEnvValueType;
+}
+
+export interface SandboxUlimitInput {
+  hardLimit: number;
+  limitName: string;
+  softLimit: number;
+}
+
+export interface SandboxDNSServerInput {
+  dnsServer: string;
+}
+
+export interface SandboxExtraHostInput {
+  address: string;
+  hostname: string;
+}
+
+export interface SandboxBindInput {
+  accessMode: SandboxBindAccessMode;
+  sourcePath: string;
+  targetPath: string;
+}
+
+export interface SandboxConfigInput {
+  binds: SandboxBindInput[];
+  capDrop: SandboxCapDropInput[];
+  description: string;
+  dnsServers: SandboxDNSServerInput[];
+  dockerAllowContainerNamespaceJoin: boolean;
+  dockerAllowExternalBindSources: boolean;
+  dockerAllowReservedContainerTargets: boolean;
+  dockerApparmorProfile: string;
+  dockerContainerPrefix: string;
+  dockerCpus: number;
+  dockerGpus: string;
+  dockerImage: string;
+  dockerMemoryBytes: number;
+  dockerMemorySwapBytes: number;
+  dockerNetwork: string;
+  dockerPidsLimit: number;
+  dockerReadOnlyRoot: boolean;
+  dockerSeccompProfile: string;
+  dockerSetupCommand: string;
+  dockerUser: string;
+  dockerWorkdir: string;
+  enabled: boolean;
+  envs: SandboxEnvInput[];
+  extraHosts: SandboxExtraHostInput[];
+  mode: SandboxMode;
+  name: string;
+  pruneIdleHours: number;
+  pruneMaxAgeDays: number;
+  scope: SandboxScope;
+  sessionToolsVisibility: SandboxSessionToolsVisibility;
+  tmpfs: SandboxTmpfsInput[];
+  ulimits: SandboxUlimitInput[];
+  workspaceAccess: SandboxWorkspaceAccess;
+  workspaceRoot: string;
+}
+
+export interface ReqSandboxConfigList extends ReqPagination {}
+export interface ReqSandboxConfigCreate extends SandboxConfigInput {}
+export interface ReqSandboxConfigUpdate extends SandboxConfigInput {
+  id: number;
+}
+
+export interface SandboxConfig extends SandboxConfigInput {
+  createdAt?: string;
+  id?: number;
+  isDelete?: number;
+  updatedAt?: string;
+}
+
+export interface ResSandboxConfigs {
+  items?: SandboxConfig[];
+  pagination?: Pagination;
 }
 
 export interface ReqUserModelsList extends ReqPagination {
@@ -2120,6 +2227,59 @@ export async function deleteAgent(id: number): Promise<void> {
     body: JSON.stringify({ id } satisfies ReqAgentDelete),
     method: "POST",
   });
+}
+
+export async function listSandboxConfigs(
+  request: ReqSandboxConfigList = {},
+): Promise<SandboxConfig[]> {
+  const response = await requestJson<ResSandboxConfigs | SandboxConfig[]>(
+    "/api/sandbox-configs/list",
+    {
+      body: JSON.stringify(request),
+      method: "POST",
+    },
+  );
+
+  if (Array.isArray(response)) return response;
+
+  return response.items ?? [];
+}
+
+export async function getSandboxConfigDetail(
+  id: number,
+): Promise<SandboxConfig | undefined> {
+  return requestJson<SandboxConfig | undefined>("/api/sandbox-configs/detail", {
+    body: JSON.stringify({ id }),
+    method: "POST",
+  });
+}
+
+export async function createSandboxConfig(
+  request: ReqSandboxConfigCreate,
+): Promise<SandboxConfig | undefined> {
+  return requestJson<SandboxConfig | undefined>("/api/sandbox-configs/create", {
+    body: JSON.stringify(request),
+    method: "POST",
+  });
+}
+
+export async function updateSandboxConfig(
+  request: ReqSandboxConfigUpdate,
+): Promise<SandboxConfig | undefined> {
+  return requestJson<SandboxConfig | undefined>("/api/sandbox-configs/update", {
+    body: JSON.stringify(request),
+    method: "POST",
+  });
+}
+
+export async function deleteSandboxConfig(id: number): Promise<void> {
+  await requestJson<ControllerResponse | unknown>(
+    "/api/sandbox-configs/delete",
+    {
+      body: JSON.stringify({ id }),
+      method: "POST",
+    },
+  );
 }
 
 export async function initDevAgent(
